@@ -30,22 +30,25 @@ export class TableManager {
 
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
     const conn = await this.engine.getConnection();
-    const filePath = uri.fsPath.replace(/'/g, "''");
+    const fs = require('fs');
 
     const tableName = customName ?? this.deriveTableName(uri);
 
-    // Drop if already exists (e.g. reopening same file)
+    // Drop if already exists
     conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
-    // Force DuckDB to re-read the file by using a fresh read
-    // CHECKPOINT ensures any cached state is flushed
-    try { conn.query('CHECKPOINT'); } catch { /* ignore if not supported */ }
+    // Read file content ourselves to avoid DuckDB file caching
+    const content = fs.readFileSync(uri.fsPath, 'utf8');
 
-    // Create table from CSV with type inference enabled
-    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
+    // Register as a virtual file in DuckDB, then read from it
+    const db = await this.engine.getDatabase();
+    const virtualFileName = `__${tableName}_${Date.now()}.csv`;
+    db.registerFileText(virtualFileName, content);
 
-    // Detect delimiter
-    const { name: delimiterName, char: delimiterChar } = this.detectDelimiter(filePath, conn);
+    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${virtualFileName}', ignore_errors=true)`);
+
+    // Detect delimiter from content
+    const { name: delimiterName, char: delimiterChar } = this.detectDelimiterFromContent(content);
 
     // Get headers
     const headers = await this.getHeaders(tableName);
@@ -246,20 +249,26 @@ export class TableManager {
     return rows;
   }
 
-  private detectDelimiter(filePath: string, conn: any): { name: string; char: string } {
-    try {
-      const result = conn.query(`SELECT * FROM sniff_csv('${filePath}')`);
-      const row = result.get(0);
-      const delim = row?.Delimiter ?? ',';
-      switch (delim) {
-        case ',': return { name: 'Comma', char: ',' };
-        case ';': return { name: 'Semicolon', char: ';' };
-        case '\t': return { name: 'Tab', char: '\t' };
-        case '|': return { name: 'Pipe', char: '|' };
-        default: return { name: 'Auto', char: ',' };
-      }
-    } catch {
-      return { name: 'Auto', char: ',' };
+  private detectDelimiterFromContent(content: string): { name: string; char: string } {
+    const firstLine = content.split('\n')[0] || '';
+    const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0, '|': 0 };
+
+    for (const char of firstLine) {
+      if (char in counts) { counts[char]++; }
+    }
+
+    let best = ',';
+    let bestCount = 0;
+    for (const [char, count] of Object.entries(counts)) {
+      if (count > bestCount) { bestCount = count; best = char; }
+    }
+
+    switch (best) {
+      case ',': return { name: 'Comma', char: ',' };
+      case ';': return { name: 'Semicolon', char: ';' };
+      case '\t': return { name: 'Tab', char: '\t' };
+      case '|': return { name: 'Pipe', char: '|' };
+      default: return { name: 'Comma', char: ',' };
     }
   }
 }
