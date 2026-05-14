@@ -50,6 +50,52 @@ export function clearQuery() {
   sendMessage({ type: 'clearQuery' });
 }
 
+export function sortQueryResultsLocally(colIdx, direction) {
+  state.sort = { columnIndex: colIdx, direction };
+
+  if (direction === 'none') {
+    // No sort — keep current order (can't restore original query order easily, just leave as-is)
+    renderHeader();
+    return;
+  }
+
+  const rows = state.rows;
+  const isNumeric = detectNumericCol(rows, colIdx);
+  const dir = direction === 'asc' ? 1 : -1;
+
+  rows.sort((a, b) => {
+    const valA = a[colIdx] || '';
+    const valB = b[colIdx] || '';
+    if (valA === valB) { return 0; }
+    if (valA === '') { return 1; }
+    if (valB === '') { return -1; }
+
+    let cmp;
+    if (isNumeric) {
+      cmp = parseFloat(valA.replace(/[,\s]/g, '')) - parseFloat(valB.replace(/[,\s]/g, ''));
+    } else {
+      cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    return cmp * dir;
+  });
+
+  renderHeader();
+  renderQueryRows(rows);
+}
+
+function detectNumericCol(rows, colIdx) {
+  const sample = Math.min(rows.length, 100);
+  let numCount = 0;
+  let nonEmpty = 0;
+  for (let i = 0; i < sample; i++) {
+    const val = (rows[i][colIdx] || '').replace(/[,\s]/g, '');
+    if (!val) { continue; }
+    nonEmpty++;
+    if (!isNaN(Number(val)) && isFinite(Number(val))) { numCount++; }
+  }
+  return nonEmpty > 0 && (numCount / nonEmpty) > 0.9;
+}
+
 export function resetQueryState() {
   queryActive = false;
   toggle(dom.queryClearBtn, false);

@@ -13,7 +13,7 @@ import { showLoading, hideLoading, showTable, showError, toggleLoadMore, updateS
 import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, isQueryActive, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { onQueryResult, clearQuery, resetQueryState, isQueryActive, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection, handleSelectAll } from './selection.js';
 
 const DEBOUNCE_MS = 300;
@@ -177,17 +177,22 @@ function bindEvents() {
       if (isNaN(colIdx)) { return; }
 
       // Normal click → sort (delayed for dblclick disambiguation)
-      // Ignore sort when query results are displayed
       if (headerClickTimer) { clearTimeout(headerClickTimer); }
       headerClickTimer = setTimeout(() => {
         headerClickTimer = null;
-        if (isQueryActive()) { return; }
+
         let newDirection = 'asc';
         if (state.sort.columnIndex === colIdx) {
           if (state.sort.direction === 'asc') { newDirection = 'desc'; }
           else if (state.sort.direction === 'desc') { newDirection = 'none'; }
         }
-        sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+
+        if (isQueryActive()) {
+          // Sort locally on query results
+          sortQueryResultsLocally(colIdx, newDirection);
+        } else {
+          sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+        }
       }, 250);
     });
 
