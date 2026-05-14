@@ -7,3 +7,4 @@ node_modules
 # Generated bundles (source is in media/src/)
 media/script.js
 media/workspace.js
+media/query-result.js

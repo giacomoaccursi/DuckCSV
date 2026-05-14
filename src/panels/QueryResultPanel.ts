@@ -1,6 +1,6 @@
 /**
  * Query Result Panel — displays SQL query results in a side panel.
- * Read-only, static HTML. No messaging or interactivity.
+ * Interactive: supports sorting, selection, and copy.
  */
 
 import * as vscode from 'vscode';
@@ -16,7 +16,7 @@ export function openQueryResultPanel(
     'Query Result',
     vscode.ViewColumn.Beside,
     {
-      enableScripts: false,
+      enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')],
     }
   );
@@ -25,11 +25,23 @@ export function openQueryResultPanel(
   const styleUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'styles.css')
   );
+  const scriptUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'media', 'query-result.js')
+  );
   const nonce = getNonce();
 
-  const bodyContent = payload.error
+  const errorHtml = payload.error
     ? `<div class="error-container"><div class="error-message"><span>${escapeHtml(payload.error)}</span></div></div>`
-    : buildTableHtml(payload);
+    : '';
+
+  // Inject data as a global variable for the script to pick up
+  const dataJson = JSON.stringify({
+    headers: payload.headers,
+    rows: payload.rows,
+    rowCount: payload.rowCount,
+    executionTimeMs: payload.executionTimeMs,
+    sql: payload.sql,
+  });
 
   panel.webview.html = /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -48,28 +60,26 @@ export function openQueryResultPanel(
         <span class="stats">SQL: ${escapeHtml(payload.sql)}</span>
       </div>
       <div class="toolbar-right">
-        <span class="stats">${payload.rowCount} rows \u2022 ${payload.executionTimeMs.toFixed(1)}ms</span>
+        <span id="stats" class="stats"></span>
       </div>
     </div>
+
+    ${errorHtml}
+
     <div class="table-container">
-      <div class="table-wrapper">${bodyContent}</div>
+      <div class="table-wrapper">
+        <table id="csvTable">
+          <thead id="tableHeader"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
+
+  <script nonce="${nonce}">window.__QUERY_RESULT__ = ${dataJson};</script>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
-}
-
-function buildTableHtml(payload: QueryResultPayload): string {
-  const headerCells = payload.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
-  const bodyRows = payload.rows.map((row, i) => {
-    const cells = row.map(cell => `<td title="${escapeHtml(cell)}">${escapeHtml(cell)}</td>`).join('');
-    return `<tr><td class="row-number">${i + 1}</td>${cells}</tr>`;
-  }).join('');
-
-  return `<table id="csvTable">
-    <thead><tr><th class="row-number-header">#</th>${headerCells}</tr></thead>
-    <tbody>${bodyRows}</tbody>
-  </table>`;
 }
 
 function escapeHtml(text: string): string {
