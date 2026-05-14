@@ -71,6 +71,14 @@ export function renderHeader() {
     textSpan.textContent = header || `Column ${i + 1}`;
     content.appendChild(textSpan);
 
+    // Column type badge
+    if (state.columnTypes[i]) {
+      const typeSpan = document.createElement('span');
+      typeSpan.className = 'header-type';
+      typeSpan.textContent = state.columnTypes[i];
+      content.appendChild(typeSpan);
+    }
+
     const sortIndicator = document.createElement('span');
     sortIndicator.className = 'sort-indicator';
     if (state.sort.columnIndex === i) {

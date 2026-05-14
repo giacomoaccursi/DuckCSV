@@ -265,6 +265,7 @@ export class CsvWorkspacePanel {
 
       const payload: DataPagePayload = {
         headers: meta.headers,
+        columnTypes: meta.columnTypes,
         rows: result.rows,
         rowids: result.rowids,
         totalRows: meta.rowCount,
@@ -331,6 +332,7 @@ export class CsvWorkspacePanel {
   private emptyPayload(): DataPagePayload {
     return {
       headers: [],
+      columnTypes: [],
       rows: [],
       rowids: [],
       totalRows: 0,

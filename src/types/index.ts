@@ -27,6 +27,7 @@ export interface TableInfo {
 
 export interface DataPagePayload {
   headers: string[];
+  columnTypes: string[];
   rows: string[][];
   rowids: number[];
   totalRows: number;

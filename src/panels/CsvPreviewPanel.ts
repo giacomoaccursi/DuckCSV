@@ -40,6 +40,7 @@ export class CsvPreviewPanel {
   private fileSize: number = 0;
   private delimiter: string = '';
   private headers: string[] = [];
+  private columnTypes: string[] = [];
   private totalRows: number = 0;
 
   // View state
@@ -196,6 +197,7 @@ export class CsvPreviewPanel {
       const meta = await this.tableManager.loadTable(this.currentUri, 'csv');
       this.tableName = meta.name;
       this.headers = meta.headers;
+      this.columnTypes = meta.columnTypes;
       this.totalRows = meta.rowCount;
       this.delimiter = meta.delimiter;
 
@@ -223,6 +225,7 @@ export class CsvPreviewPanel {
 
       const payload: DataPagePayload = {
         headers: this.headers,
+        columnTypes: this.columnTypes,
         rows: result.rows,
         rowids: result.rowids,
         totalRows: this.totalRows,

@@ -41,6 +41,7 @@ function onDataPageReceived(data) {
 
   state.headers = data.headers;
   state.originalHeaders = data.headers;
+  state.columnTypes = data.columnTypes || [];
   state.rows = data.rows;
   state.rowids = data.rowids || [];
   state.totalRows = data.totalRows;

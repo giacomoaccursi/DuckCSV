@@ -14,6 +14,7 @@ export interface TableMeta {
   delimiter: string;
   delimiterChar: string;
   headers: string[];
+  columnTypes: string[];
   rowCount: number;
 }
 
@@ -53,6 +54,9 @@ export class TableManager {
     // Get headers
     const headers = await this.getHeaders(tableName);
 
+    // Get column types
+    const columnTypes = await this.getColumnTypes(tableName);
+
     // Get row count
     const rowCount = await this.getRowCount(tableName);
 
@@ -62,6 +66,7 @@ export class TableManager {
       delimiter: delimiterName,
       delimiterChar,
       headers,
+      columnTypes,
       rowCount,
     };
 
@@ -88,6 +93,15 @@ export class TableManager {
     const escaped = tableName.replace(/'/g, "''");
     const result = conn.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
+    );
+    return this.arrowTableToRows(result).map((row: string[]) => row[0]);
+  }
+
+  async getColumnTypes(tableName: string): Promise<string[]> {
+    const conn = await this.engine.getConnection();
+    const escaped = tableName.replace(/'/g, "''");
+    const result = conn.query(
+      `SELECT data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
     );
     return this.arrowTableToRows(result).map((row: string[]) => row[0]);
   }

@@ -24,6 +24,7 @@ export const SQL_KEYWORDS = [
 export const state = {
   headers: [],        // current displayed headers (may change with query results)
   originalHeaders: [], // always the file's original headers (for autocomplete)
+  columnTypes: [],    // column data types from DuckDB
   rows: [],
   rowids: [],
   totalRows: 0,
