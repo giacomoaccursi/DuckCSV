@@ -785,14 +785,6 @@ body.selecting {
     font-weight: 600;
 }
 
-/* Load More */
-.load-more-container {
-    padding: 20px;
-    text-align: center;
-    background-color: var(--bg-secondary);
-    border-top: 1px solid var(--border-color);
-}
-
 /* Context Menu */
 .context-menu {
     position: fixed;

@@ -47,9 +47,9 @@ export class TableExporter {
     return value;
   }
 
-  private arrowTableToRows(table: any): string[][] {
+  private arrowTableToRows(table: any, maxRows?: number): string[][] {
     const rows: string[][] = [];
-    const numRows = table.numRows;
+    const numRows = Math.min(table.numRows, maxRows ?? table.numRows);
     const numCols = table.numCols;
 
     for (let i = 0; i < numRows; i++) {

@@ -5,8 +5,6 @@
  * No backend communication (data is embedded in the page).
  */
 
-import { escapeHtml, escapeRegex, toggle, formatFileSize } from './utils.js';
-
 (function () {
   'use strict';
 
@@ -265,6 +263,10 @@ import { escapeHtml, escapeRegex, toggle, formatFileSize } from './utils.js';
   renderRows();
 
   if (dom.stats) {
-    dom.stats.textContent = `${data.rowCount} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    if (data.totalCount > data.rowCount) {
+      dom.stats.textContent = `${data.rowCount.toLocaleString()} of ${data.totalCount.toLocaleString()} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    } else {
+      dom.stats.textContent = `${data.rowCount.toLocaleString()} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    }
   }
 })();

@@ -29,7 +29,6 @@ export const state = {
   rowids: [],
   totalRows: 0,
   filteredRows: 0,
-  hasMore: false,
   delimiter: '',
   fileName: '',
   fileSize: 0,

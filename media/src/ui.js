@@ -31,10 +31,6 @@ export function showError(message) {
   if (dom.errorText) { dom.errorText.textContent = message; }
 }
 
-export function toggleLoadMore(visible) {
-  toggle(dom.loadMoreContainer, visible);
-}
-
 // ─── Stats ───────────────────────────────────────────────────────────────────
 
 export function updateStats() {

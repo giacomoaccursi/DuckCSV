@@ -9,7 +9,7 @@ import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle, insertAtCursor } from './utils.js';
 import { renderHeader, renderRows } from './renderer.js';
-import { showLoading, hideLoading, showTable, showError, toggleLoadMore, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
+import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
@@ -43,7 +43,6 @@ function onDataPageReceived(data) {
   state.rowids = data.rowids || [];
   state.totalRows = data.totalRows;
   state.filteredRows = data.filteredRows;
-  state.hasMore = data.hasMore;
   state.delimiter = data.delimiter;
   state.fileName = data.fileName;
   state.fileSize = data.fileSize;
@@ -60,12 +59,6 @@ function onDataPageReceived(data) {
   renderRows();
   updateStats();
   showTable();
-  toggleLoadMore(data.hasMore);
-
-  if (dom.loadMoreBtn) {
-    dom.loadMoreBtn.disabled = false;
-    dom.loadMoreBtn.textContent = 'Load More Rows';
-  }
 }
 
 // ─── Mode Banner ─────────────────────────────────────────────────────────────
@@ -156,15 +149,6 @@ function bindEvents() {
     dom.queryInput.addEventListener('blur', () => setTimeout(closeAutocomplete, 150));
     dom.queryInput.addEventListener('focus', () => {
       if (dom.queryInput.value.trim()) { showAutocomplete(dom.queryInput); }
-    });
-  }
-
-  // Load more
-  if (dom.loadMoreBtn) {
-    dom.loadMoreBtn.addEventListener('click', () => {
-      dom.loadMoreBtn.disabled = true;
-      dom.loadMoreBtn.textContent = 'Loading...';
-      sendMessage({ type: 'loadMore' });
     });
   }
 

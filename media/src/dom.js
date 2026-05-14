@@ -15,8 +15,6 @@ export const dom = {
   openAsTextBtn: document.getElementById('openAsTextBtn'),
   colorBtn: document.getElementById('colorBtn'),
   addRowBtn: document.getElementById('addRowBtn'),
-  loadMoreBtn: document.getElementById('loadMoreBtn'),
-  loadMoreContainer: document.getElementById('loadMoreContainer'),
   queryInput: document.getElementById('queryInput'),
   queryRunBtn: document.getElementById('queryRunBtn'),
   querySideBtn: document.getElementById('querySideBtn'),

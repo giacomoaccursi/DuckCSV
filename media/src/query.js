@@ -7,7 +7,7 @@ import { state, SQL_KEYWORDS } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
 import { renderHeader, renderQueryRows } from './renderer.js';
-import { showTable, toggleLoadMore } from './ui.js';
+import { showTable } from './ui.js';
 
 // ─── Query State ─────────────────────────────────────────────────────────────
 
@@ -30,15 +30,17 @@ export function onQueryResult(data) {
   state.rowids = [];
   state.filteredRows = data.rowCount;
   state.totalRows = data.rowCount;
-  state.hasMore = false;
 
   renderHeader();
   renderQueryRows(data.rows);
   showTable();
-  toggleLoadMore(false);
 
   if (dom.stats) {
-    dom.stats.textContent = `Query: ${data.rowCount} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    if (data.totalCount > data.rowCount) {
+      dom.stats.textContent = `Query: ${data.rowCount.toLocaleString()} of ${data.totalCount.toLocaleString()} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    } else {
+      dom.stats.textContent = `Query: ${data.rowCount.toLocaleString()} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    }
   }
 }
 

@@ -47,7 +47,6 @@ export class CsvPreviewPanel {
   private sort: SortState = { columnIndex: -1, direction: 'none' };
   private filters: ColumnFilters = {};
   private searchTerm: string = '';
-  private pageOffset: number = 0;
   private isDirty: boolean = false;
 
   // ─── Public API ──────────────────────────────────────────────────────────
@@ -139,22 +138,16 @@ export class CsvPreviewPanel {
       case 'refresh':
         this.resetState();
         return this.loadDocument();
-      case 'loadMore':
-        this.pageOffset += this.config.pageSize;
-        return this.sendCurrentPage();
       case 'sort':
         this.sort = { columnIndex: message.columnIndex, direction: message.direction };
-        this.pageOffset = 0;
         return this.sendCurrentPage();
       case 'search':
         this.searchTerm = message.term;
-        this.pageOffset = 0;
         return this.sendCurrentPage();
       case 'getColumnValues':
         return this.handleGetColumnValues(message.columnIndex);
       case 'setFilters':
         this.filters = message.filters;
-        this.pageOffset = 0;
         return this.sendCurrentPage();
       case 'editCell':
         return this.handleEditCell(message.rowid, message.columnIndex, message.value);
@@ -212,8 +205,7 @@ export class CsvPreviewPanel {
 
   private async sendCurrentPage(): Promise<void> {
     try {
-      const pageSize = this.config.pageSize;
-      const limit = this.pageOffset + pageSize;
+      const limit = this.config.pageSize;
 
       const result = await this.tableManager.getDataPage(this.tableName, {
         filters: this.filters,
@@ -230,9 +222,6 @@ export class CsvPreviewPanel {
         rowids: result.rowids,
         totalRows: this.totalRows,
         filteredRows: result.filteredCount,
-        pageOffset: 0,
-        pageSize: limit,
-        hasMore: limit < result.filteredCount,
         delimiter: this.delimiter,
         fileName: this.fileName,
         fileSize: this.fileSize,
@@ -287,7 +276,6 @@ export class CsvPreviewPanel {
       this.isDirty = true;
       this.filters = {};
       this.searchTerm = '';
-      this.pageOffset = Math.max(0, this.totalRows - this.config.pageSize);
       await this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
@@ -335,7 +323,6 @@ export class CsvPreviewPanel {
     this.sort = { columnIndex: -1, direction: 'none' };
     this.filters = {};
     this.searchTerm = '';
-    this.pageOffset = 0;
     this.isDirty = false;
   }
 

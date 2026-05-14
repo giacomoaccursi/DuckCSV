@@ -92,9 +92,6 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
           <tbody id="tableBody"></tbody>
         </table>
       </div>
-      <div id="loadMoreContainer" class="load-more-container hidden">
-        <button id="loadMoreBtn" class="btn btn-primary">Load More Rows</button>
-      </div>
     </div>
   </div>
 

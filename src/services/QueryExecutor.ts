@@ -9,6 +9,7 @@ export interface QueryResult {
   headers: string[];
   rows: string[][];
   rowCount: number;
+  totalCount: number;
   executionTimeMs: number;
   error?: string;
 }
@@ -25,15 +26,18 @@ export class QueryExecutor {
         ? this.normalizeSql(sql, defaultTable)
         : sql.trim();
 
+      const MAX_DISPLAY_ROWS = 10_000;
       const result = conn.query(normalizedSql);
 
       const headers: string[] = result.schema.fields.map((f: any) => f.name);
-      const rows = this.arrowTableToRows(result);
+      const totalCount = result.numRows;
+      const rows = this.arrowTableToRows(result, MAX_DISPLAY_ROWS);
 
       return {
         headers,
         rows,
         rowCount: rows.length,
+        totalCount,
         executionTimeMs: performance.now() - start,
       };
     } catch (err: unknown) {
@@ -41,6 +45,7 @@ export class QueryExecutor {
         headers: [],
         rows: [],
         rowCount: 0,
+        totalCount: 0,
         executionTimeMs: performance.now() - start,
         error: err instanceof Error ? err.message : 'Query failed',
       };
@@ -73,9 +78,9 @@ export class QueryExecutor {
     return trimmed;
   }
 
-  private arrowTableToRows(table: any): string[][] {
+  private arrowTableToRows(table: any, maxRows?: number): string[][] {
     const rows: string[][] = [];
-    const numRows = table.numRows;
+    const numRows = Math.min(table.numRows, maxRows ?? table.numRows);
     const numCols = table.numCols;
 
     for (let i = 0; i < numRows; i++) {

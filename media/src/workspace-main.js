@@ -10,7 +10,7 @@ import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
 import { renderHeader, renderRows, renderQueryRows } from './renderer.js';
-import { showLoading, hideLoading, showTable, showError, toggleLoadMore, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
+import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
@@ -46,7 +46,6 @@ function onDataPageReceived(data) {
   state.rowids = data.rowids || [];
   state.totalRows = data.totalRows;
   state.filteredRows = data.filteredRows;
-  state.hasMore = data.hasMore;
   state.delimiter = data.delimiter;
   state.fileName = data.fileName;
   state.fileSize = data.fileSize;
@@ -64,12 +63,6 @@ function onDataPageReceived(data) {
   renderRows();
   updateStats();
   showTable();
-  toggleLoadMore(data.hasMore);
-
-  if (dom.loadMoreBtn) {
-    dom.loadMoreBtn.disabled = false;
-    dom.loadMoreBtn.textContent = 'Load More Rows';
-  }
 }
 
 function onTableListReceived(tables) {
@@ -171,15 +164,6 @@ function bindEvents() {
     queryInput.addEventListener('blur', () => setTimeout(closeAutocomplete, 150));
     queryInput.addEventListener('focus', () => {
       if (queryInput.value.trim()) { showAutocomplete(queryInput); }
-    });
-  }
-
-  // Load more
-  if (dom.loadMoreBtn) {
-    dom.loadMoreBtn.addEventListener('click', () => {
-      dom.loadMoreBtn.disabled = true;
-      dom.loadMoreBtn.textContent = 'Loading...';
-      sendMessage({ type: 'loadMore' });
     });
   }
 

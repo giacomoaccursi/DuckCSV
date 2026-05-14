@@ -115,10 +115,6 @@ export class CsvWorkspacePanel {
         await this.handleSwitchTable(message.tableName);
         return;
 
-      case 'loadMore':
-        this.viewState.nextPage(this.config.pageSize);
-        return this.sendCurrentPage();
-
       case 'sort':
         this.viewState.applySort(message.columnIndex, message.direction);
         return this.sendCurrentPage();
@@ -247,7 +243,7 @@ export class CsvWorkspacePanel {
       const meta = this.tableManager.getTableMeta(this.activeTable);
       if (!meta) { return; }
 
-      const limit = this.viewState.pageOffset + this.config.pageSize;
+      const limit = this.config.pageSize;
 
       const result = await this.tableManager.getDataPage(this.activeTable, {
         filters: this.viewState.filters,
@@ -264,9 +260,6 @@ export class CsvWorkspacePanel {
         rowids: result.rowids,
         totalRows: meta.rowCount,
         filteredRows: result.filteredCount,
-        pageOffset: 0,
-        pageSize: limit,
-        hasMore: limit < result.filteredCount,
         delimiter: meta.delimiter,
         fileName: meta.name,
         fileSize: 0,
@@ -331,9 +324,6 @@ export class CsvWorkspacePanel {
       rowids: [],
       totalRows: 0,
       filteredRows: 0,
-      pageOffset: 0,
-      pageSize: 0,
-      hasMore: false,
       delimiter: '',
       fileName: '',
       fileSize: 0,

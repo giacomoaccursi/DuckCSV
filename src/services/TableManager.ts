@@ -326,9 +326,9 @@ export class TableManager {
     return `ORDER BY ${colName} ${dir} NULLS LAST`;
   }
 
-  private arrowTableToRows(table: any): string[][] {
+  private arrowTableToRows(table: any, maxRows?: number): string[][] {
     const rows: string[][] = [];
-    const numRows = table.numRows;
+    const numRows = Math.min(table.numRows, maxRows ?? table.numRows);
     const numCols = table.numCols;
 
     // Get column types from schema to handle date/timestamp formatting

@@ -39,6 +39,7 @@ export function openQueryResultPanel(
     headers: payload.headers,
     rows: payload.rows,
     rowCount: payload.rowCount,
+    totalCount: payload.totalCount,
     executionTimeMs: payload.executionTimeMs,
     sql: payload.sql,
   });

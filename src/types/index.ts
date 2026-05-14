@@ -32,9 +32,6 @@ export interface DataPagePayload {
   rowids: number[];
   totalRows: number;
   filteredRows: number;
-  pageOffset: number;
-  pageSize: number;
-  hasMore: boolean;
   delimiter: string;
   fileName: string;
   fileSize: number;
@@ -54,6 +51,7 @@ export interface QueryResultPayload {
   headers: string[];
   rows: string[][];
   rowCount: number;
+  totalCount: number;
   executionTimeMs: number;
   sql: string;
   error?: string;
@@ -82,7 +80,6 @@ export type ExtensionMessage =
 export type WebviewMessage =
   | { type: 'ready' }
   | { type: 'refresh' }
-  | { type: 'loadMore' }
   | { type: 'sort'; columnIndex: number; direction: SortDirection }
   | { type: 'search'; term: string }
   | { type: 'getColumnValues'; columnIndex: number }
