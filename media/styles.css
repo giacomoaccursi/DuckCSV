@@ -288,12 +288,10 @@ body {
 }
 
 .query-error {
-    font-size: 11px;
+    display: block;
+    padding: 6px 12px;
+    font-size: 12px;
     color: var(--error-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 300px;
 }
 
 /* Autocomplete Dropdown */
@@ -363,9 +361,6 @@ body {
 /* Error */
 .error-container {
     padding: 16px;
-    background-color: var(--vscode-inputValidation-errorBackground);
-    border: 1px solid var(--vscode-inputValidation-errorBorder);
-    border-radius: 2px;
     margin: 16px;
 }
 
