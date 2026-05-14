@@ -27,6 +27,7 @@ function handleExtensionMessage(message) {
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(); break;
     case 'queryResult': onQueryResult(message.data); break;
+    case 'modeInfo': showModeBanner(message.mode, message.savePath); break;
     case 'loading': message.loading ? showLoading() : hideLoading(); break;
     case 'error': showError(message.message); break;
   }
@@ -63,6 +64,32 @@ function onDataPageReceived(data) {
   if (dom.loadMoreBtn) {
     dom.loadMoreBtn.disabled = false;
     dom.loadMoreBtn.textContent = 'Load More Rows';
+  }
+}
+
+// ─── Mode Banner ─────────────────────────────────────────────────────────────
+
+function showModeBanner(mode, savePath) {
+  // Remove existing banner if any
+  const existing = document.getElementById('modeBanner');
+  if (existing) { existing.remove(); }
+
+  const banner = document.createElement('div');
+  banner.id = 'modeBanner';
+  banner.className = mode === 'edit' ? 'mode-banner mode-edit' : 'mode-banner mode-readonly';
+
+  const fileName = savePath.split('/').pop() || savePath;
+
+  if (mode === 'edit') {
+    banner.textContent = `\u270F Edit mode \u2014 Changes are saved directly to ${fileName}`;
+  } else {
+    banner.textContent = `\uD83D\uDD12 Read-only mode \u2014 Changes will be saved to ${fileName}`;
+  }
+
+  // Insert at the top of #app, before toolbar
+  const app = document.getElementById('app');
+  if (app && app.firstChild) {
+    app.insertBefore(banner, app.firstChild);
   }
 }
 

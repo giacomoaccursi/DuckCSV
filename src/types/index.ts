@@ -62,6 +62,7 @@ export type ExtensionMessage =
   | { type: 'columnValues'; data: ColumnValuesPayload }
   | { type: 'cellEditConfirm'; data: CellEditConfirmPayload }
   | { type: 'queryResult'; data: QueryResultPayload }
+  | { type: 'modeInfo'; mode: 'readonly' | 'edit'; savePath: string }
   | { type: 'error'; message: string }
   | { type: 'loading'; loading: boolean };
 

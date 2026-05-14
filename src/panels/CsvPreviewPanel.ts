@@ -117,6 +117,11 @@ export class CsvPreviewPanel {
   private async handleMessage(message: WebviewMessage): Promise<void> {
     switch (message.type) {
       case 'ready':
+        this.postMessage({
+          type: 'modeInfo',
+          mode: this.mode,
+          savePath: this.savePath,
+        });
         return this.loadDocument();
       case 'refresh':
         this.resetState();

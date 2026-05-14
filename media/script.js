@@ -1005,6 +1005,9 @@
       case "queryResult":
         onQueryResult(message.data);
         break;
+      case "modeInfo":
+        showModeBanner(message.mode, message.savePath);
+        break;
       case "loading":
         message.loading ? showLoading() : hideLoading();
         break;
@@ -1040,6 +1043,25 @@
     if (dom.loadMoreBtn) {
       dom.loadMoreBtn.disabled = false;
       dom.loadMoreBtn.textContent = "Load More Rows";
+    }
+  }
+  function showModeBanner(mode, savePath) {
+    const existing = document.getElementById("modeBanner");
+    if (existing) {
+      existing.remove();
+    }
+    const banner = document.createElement("div");
+    banner.id = "modeBanner";
+    banner.className = mode === "edit" ? "mode-banner mode-edit" : "mode-banner mode-readonly";
+    const fileName = savePath.split("/").pop() || savePath;
+    if (mode === "edit") {
+      banner.textContent = `\u270F Edit mode \u2014 Changes are saved directly to ${fileName}`;
+    } else {
+      banner.textContent = `\u{1F512} Read-only mode \u2014 Changes will be saved to ${fileName}`;
+    }
+    const app = document.getElementById("app");
+    if (app && app.firstChild) {
+      app.insertBefore(banner, app.firstChild);
     }
   }
   function toggleColumnColors() {
