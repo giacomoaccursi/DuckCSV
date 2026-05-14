@@ -37,8 +37,9 @@ export class TableManager {
     // Drop if already exists (e.g. reopening same file)
     conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
-    // Create table from CSV
-    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', all_varchar=true)`);
+    // Create table from CSV with type inference enabled
+    // ignore_errors handles malformed rows gracefully
+    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
 
     // Detect delimiter
     const { name: delimiterName, char: delimiterChar } = this.detectDelimiter(filePath, conn);
