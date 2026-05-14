@@ -98,6 +98,11 @@ body {
     background-color: var(--vscode-button-hoverBackground);
 }
 
+.btn.btn-active {
+    background-color: var(--accent-color);
+    color: var(--bg-primary);
+}
+
 .btn svg {
     width: 16px;
     height: 16px;

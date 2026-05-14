@@ -9,9 +9,10 @@
  *  3. Messaging
  *  4. Rendering
  *  5. Column Filter Dropdown
- *  6. Cell Editing
- *  7. UI Helpers
- *  8. Init & Event Binding
+ *  6. Column Coloring
+ *  7. Cell Editing
+ *  8. UI Helpers
+ *  9. Init & Event Binding
  */
 
 (function () {
@@ -23,6 +24,18 @@
 
   const DEBOUNCE_MS = 300;
   let searchTimeout = null;
+
+  // Palette of colors that work on both light and dark themes (low opacity)
+  const COLUMN_COLORS = [
+    'rgba(66, 135, 245, 0.10)',
+    'rgba(72, 199, 142, 0.10)',
+    'rgba(245, 166, 35, 0.10)',
+    'rgba(155, 89, 182, 0.10)',
+    'rgba(231, 76, 60, 0.10)',
+    'rgba(26, 188, 156, 0.10)',
+    'rgba(241, 196, 15, 0.08)',
+    'rgba(232, 67, 147, 0.10)',
+  ];
 
   const state = {
     headers: [],
@@ -39,6 +52,7 @@
     searchTerm: '',
     isDirty: false,
     columnValues: null,
+    colorColumnsEnabled: false,
   };
 
   // ─── 2. DOM References ─────────────────────────────────────────────────────
@@ -54,6 +68,7 @@
     errorText: document.getElementById('errorText'),
     refreshBtn: document.getElementById('refreshBtn'),
     openAsTextBtn: document.getElementById('openAsTextBtn'),
+    colorBtn: document.getElementById('colorBtn'),
     loadMoreBtn: document.getElementById('loadMoreBtn'),
     loadMoreContainer: document.getElementById('loadMoreContainer'),
   };
@@ -73,7 +88,7 @@
         onColumnValuesReceived(message.data);
         break;
       case 'cellEditConfirm':
-        onCellEditConfirm(message.data);
+        onCellEditConfirm();
         break;
       case 'loading':
         message.loading ? showLoading() : hideLoading();
@@ -105,6 +120,12 @@
       const th = document.createElement('th');
       th.className = 'sortable-header';
       th.dataset.columnIndex = i;
+
+      // Apply column color to header
+      const colColor = getColumnColor(i);
+      if (colColor) {
+        th.style.backgroundColor = colColor;
+      }
 
       // Header content wrapper
       const content = document.createElement('div');
@@ -181,6 +202,12 @@
       const td = document.createElement('td');
       td.className = 'editable-cell';
       const text = cell || '';
+
+      // Apply column color
+      const colColor = getColumnColor(colIndex);
+      if (colColor) {
+        td.style.backgroundColor = colColor;
+      }
 
       if (state.searchTerm && text.toLowerCase().includes(state.searchTerm.toLowerCase())) {
         td.innerHTML = highlightMatch(text, state.searchTerm);
@@ -349,7 +376,26 @@
     }
   }
 
-  // ─── 6. Cell Editing ──────────────────────────────────────────────────────
+  // ─── 6. Column Coloring ───────────────────────────────────────────────────
+
+  function toggleColumnColors() {
+    state.colorColumnsEnabled = !state.colorColumnsEnabled;
+
+    // Update button active state
+    if (dom.colorBtn) {
+      dom.colorBtn.classList.toggle('btn-active', state.colorColumnsEnabled);
+    }
+
+    renderHeader();
+    renderRows();
+  }
+
+  function getColumnColor(colIndex) {
+    if (!state.colorColumnsEnabled) { return ''; }
+    return COLUMN_COLORS[colIndex % COLUMN_COLORS.length];
+  }
+
+  // ─── 7. Cell Editing ──────────────────────────────────────────────────────
 
   let editingCell = null;
 
@@ -360,7 +406,6 @@
     const columnIndex = parseInt(td.dataset.columnIndex, 10);
     const currentValue = td.dataset.fullText || '';
 
-    // Replace cell content with input
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'cell-edit-input';
@@ -375,7 +420,6 @@
 
     editingCell = { td, input, originalIndex, columnIndex, originalValue: currentValue };
 
-    // Event handlers
     input.addEventListener('keydown', handleEditKeydown);
     input.addEventListener('blur', handleEditBlur);
   }
@@ -390,14 +434,10 @@
     } else if (e.key === 'Tab') {
       e.preventDefault();
       commitEdit();
-      // Move to next cell
-      const nextTd = editingCell ? null : findNextEditableCell(e.shiftKey);
-      if (nextTd) { startCellEdit(nextTd); }
     }
   }
 
   function handleEditBlur() {
-    // Small delay to allow Tab handling to fire first
     setTimeout(() => {
       if (editingCell) { commitEdit(); }
     }, 50);
@@ -409,18 +449,15 @@
     const { td, input, originalIndex, columnIndex, originalValue } = editingCell;
     const newValue = input.value;
 
-    // Clean up
     input.removeEventListener('keydown', handleEditKeydown);
     input.removeEventListener('blur', handleEditBlur);
     td.classList.remove('editing');
 
     editingCell = null;
 
-    // Update cell display
     td.textContent = newValue;
     td.dataset.fullText = newValue;
 
-    // Send to backend if value changed
     if (newValue !== originalValue) {
       td.classList.add('cell-modified');
       setTimeout(() => td.classList.remove('cell-modified'), 1500);
@@ -441,23 +478,12 @@
     editingCell = null;
   }
 
-  function findNextEditableCell(reverse) {
-    // Simple: find the next td.editable-cell in DOM order
-    const cells = Array.from(document.querySelectorAll('td.editable-cell'));
-    if (cells.length === 0) { return null; }
-
-    // This is a simplified version — just returns null for now
-    // Full implementation would track current position
-    return null;
-  }
-
-  function onCellEditConfirm(data) {
-    // Backend confirmed the edit — could update dirty indicator
+  function onCellEditConfirm() {
     state.isDirty = true;
     updateStats();
   }
 
-  // ─── 7. UI Helpers ────────────────────────────────────────────────────────
+  // ─── 8. UI Helpers ────────────────────────────────────────────────────────
 
   function onDataPageReceived(data) {
     state.headers = data.headers;
@@ -591,7 +617,7 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
-  // ─── 8. Init & Event Binding ──────────────────────────────────────────────
+  // ─── 9. Init & Event Binding ──────────────────────────────────────────────
 
   function init() {
     bindEvents();
@@ -617,6 +643,10 @@
 
     if (dom.openAsTextBtn) {
       dom.openAsTextBtn.addEventListener('click', () => sendMessage({ type: 'openAsText' }));
+    }
+
+    if (dom.colorBtn) {
+      dom.colorBtn.addEventListener('click', () => toggleColumnColors());
     }
 
     if (dom.loadMoreBtn) {

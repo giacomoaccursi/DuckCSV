@@ -271,6 +271,11 @@ export class CsvPreviewPanel {
             <path fill="currentColor" d="M6 5h4v1H6V5zm0 2h4v1H6V7zm0 2h3v1H6V9z"/>
           </svg>
         </button>
+        <button id="colorBtn" class="btn" title="Toggle column colors">
+          <svg width="16" height="16" viewBox="0 0 16 16">
+            <path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1.5a5.5 5.5 0 0 1 4.9 3H8V2.5zm-1 0v3H3.1A5.5 5.5 0 0 1 7 2.5zM2.5 8A5.5 5.5 0 0 1 3.1 6.5H7V9.5H3.1A5.5 5.5 0 0 1 2.5 8zm4.5 3.5v2a5.5 5.5 0 0 1-3.9-3h3.9zm1 2v-2h3.9a5.5 5.5 0 0 1-3.9 2zM8 9.5V6.5h4.9a5.5 5.5 0 0 1 0 3H8z"/>
+          </svg>
+        </button>
         <input type="text" id="searchInput" class="search-input" placeholder="Search..." />
       </div>
       <div class="toolbar-right">
