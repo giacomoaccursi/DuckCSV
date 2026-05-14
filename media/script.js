@@ -576,7 +576,173 @@
     }
   }
 
-  // ─── 8. UI Helpers ────────────────────────────────────────────────────────
+  // ─── 9. Query Autocomplete ────────────────────────────────────────────────
+
+  const SQL_KEYWORDS = [
+    'SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING',
+    'LIMIT', 'OFFSET', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN',
+    'LIKE', 'IS NULL', 'IS NOT NULL', 'AS', 'DISTINCT',
+    'ASC', 'DESC', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
+    'JOIN', 'LEFT JOIN', 'INNER JOIN', 'ON', 'UNION',
+  ];
+
+  let acDropdown = null;
+  let acItems = [];
+  let acSelectedIndex = -1;
+
+  function getCompletions(inputEl) {
+    const value = inputEl.value;
+    const cursorPos = inputEl.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPos);
+
+    // Extract the current word being typed
+    const wordMatch = textBeforeCursor.match(/[\w.]+$/);
+    if (!wordMatch) { return { word: '', items: [] }; }
+
+    const word = wordMatch[0];
+    if (word.length < 1) { return { word: '', items: [] }; }
+
+    const lower = word.toLowerCase();
+
+    // Combine keywords + column names
+    const columnNames = state.headers.filter(h => h);
+    const allItems = SQL_KEYWORDS.concat(columnNames);
+
+    const matches = allItems.filter(item =>
+      item.toLowerCase().startsWith(lower) && item.toLowerCase() !== lower
+    );
+
+    // Deduplicate and limit
+    const unique = [...new Set(matches)].slice(0, 10);
+
+    return { word, items: unique };
+  }
+
+  function showAutocomplete(inputEl) {
+    const { word, items } = getCompletions(inputEl);
+
+    if (items.length === 0) {
+      closeAutocomplete();
+      return;
+    }
+
+    acItems = items;
+    acSelectedIndex = 0;
+
+    if (!acDropdown) {
+      acDropdown = document.createElement('div');
+      acDropdown.className = 'ac-dropdown';
+      document.body.appendChild(acDropdown);
+    }
+
+    // Position below the input
+    const rect = inputEl.getBoundingClientRect();
+    acDropdown.style.left = rect.left + 'px';
+    acDropdown.style.top = rect.bottom + 2 + 'px';
+    acDropdown.style.minWidth = Math.min(rect.width, 250) + 'px';
+
+    renderAutocompleteItems(word);
+  }
+
+  function renderAutocompleteItems(currentWord) {
+    if (!acDropdown) { return; }
+    acDropdown.innerHTML = '';
+
+    acItems.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'ac-item' + (i === acSelectedIndex ? ' ac-item-active' : '');
+
+      // Highlight the matching prefix
+      const matchLen = currentWord.length;
+      const matchSpan = document.createElement('span');
+      matchSpan.className = 'ac-match';
+      matchSpan.textContent = item.slice(0, matchLen);
+      const restSpan = document.createElement('span');
+      restSpan.textContent = item.slice(matchLen);
+
+      div.appendChild(matchSpan);
+      div.appendChild(restSpan);
+
+      // Indicate if it's a column name
+      if (state.headers.includes(item)) {
+        const badge = document.createElement('span');
+        badge.className = 'ac-badge';
+        badge.textContent = 'column';
+        div.appendChild(badge);
+      }
+
+      div.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Prevent blur
+        acceptCompletion(dom.queryInput, item, currentWord);
+      });
+
+      acDropdown.appendChild(div);
+    });
+  }
+
+  function acceptCompletion(inputEl, item, currentWord) {
+    const cursorPos = inputEl.selectionStart;
+    const value = inputEl.value;
+
+    // Replace the current word with the selected item
+    const before = value.slice(0, cursorPos - currentWord.length);
+    const after = value.slice(cursorPos);
+    const needsSpace = item.includes(' ') ? '' : ' ';
+
+    inputEl.value = before + item + needsSpace + after;
+    const newPos = before.length + item.length + needsSpace.length;
+    inputEl.setSelectionRange(newPos, newPos);
+    inputEl.focus();
+
+    closeAutocomplete();
+  }
+
+  function closeAutocomplete() {
+    if (acDropdown) {
+      acDropdown.remove();
+      acDropdown = null;
+    }
+    acItems = [];
+    acSelectedIndex = -1;
+  }
+
+  function handleAutocompleteKeydown(e) {
+    if (!acDropdown || acItems.length === 0) { return false; }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      acSelectedIndex = (acSelectedIndex + 1) % acItems.length;
+      const { word } = getCompletions(dom.queryInput);
+      renderAutocompleteItems(word);
+      return true;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      acSelectedIndex = (acSelectedIndex - 1 + acItems.length) % acItems.length;
+      const { word } = getCompletions(dom.queryInput);
+      renderAutocompleteItems(word);
+      return true;
+    }
+
+    if (e.key === 'Tab' || (e.key === 'Enter' && acSelectedIndex >= 0)) {
+      if (acItems[acSelectedIndex]) {
+        e.preventDefault();
+        const { word } = getCompletions(dom.queryInput);
+        acceptCompletion(dom.queryInput, acItems[acSelectedIndex], word);
+        return true;
+      }
+    }
+
+    if (e.key === 'Escape') {
+      closeAutocomplete();
+      return true;
+    }
+
+    return false;
+  }
+
+  // ─── 10. UI Helpers ───────────────────────────────────────────────────────
 
   function onDataPageReceived(data) {
     state.headers = data.headers;
@@ -811,12 +977,31 @@
 
     if (dom.queryInput) {
       dom.queryInput.addEventListener('keydown', (e) => {
+        // Let autocomplete handle navigation keys first
+        if (handleAutocompleteKeydown(e)) { return; }
+
         if (e.key === 'Enter') {
           e.preventDefault();
+          closeAutocomplete();
           const sql = dom.queryInput.value.trim();
           if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
         } else if (e.key === 'Escape') {
           if (queryActive) { clearQuery(); }
+        }
+      });
+
+      dom.queryInput.addEventListener('input', () => {
+        showAutocomplete(dom.queryInput);
+      });
+
+      dom.queryInput.addEventListener('blur', () => {
+        // Delay to allow mousedown on dropdown items
+        setTimeout(() => closeAutocomplete(), 150);
+      });
+
+      dom.queryInput.addEventListener('focus', () => {
+        if (dom.queryInput.value.trim()) {
+          showAutocomplete(dom.queryInput);
         }
       });
     }
