@@ -12,7 +12,6 @@ const CopyPlugin = require('copy-webpack-plugin');
 const extensionConfig = {
   target: 'node',
   mode: 'none',
-
   entry: './src/extension.ts',
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -37,31 +36,46 @@ const extensionConfig = {
     ]
   },
   plugins: [
-    // Copy DuckDB WASM files to dist/ so they can be found at runtime
     new CopyPlugin({
       patterns: [
-        {
-          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm',
-          to: 'duckdb-mvp.wasm'
-        },
-        {
-          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm',
-          to: 'duckdb-eh.wasm'
-        },
-        {
-          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-mvp.worker.cjs',
-          to: 'duckdb-node-mvp.worker.cjs'
-        },
-        {
-          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-eh.worker.cjs',
-          to: 'duckdb-node-eh.worker.cjs'
-        },
+        { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm', to: 'duckdb-mvp.wasm' },
+        { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm', to: 'duckdb-eh.wasm' },
+        { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-mvp.worker.cjs', to: 'duckdb-node-mvp.worker.cjs' },
+        { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-eh.worker.cjs', to: 'duckdb-node-eh.worker.cjs' },
       ]
     })
   ],
   devtool: 'nosources-source-map',
-  infrastructureLogging: {
-    level: "log",
-  },
+  infrastructureLogging: { level: "log" },
 };
-module.exports = [ extensionConfig ];
+
+/** @type WebpackConfig */
+const workerConfig = {
+  target: 'node',
+  mode: 'none',
+  entry: './src/workers/duckdb-worker.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'duckdb-worker.js',
+    libraryTarget: 'commonjs2'
+  },
+  externals: {
+    bufferutil: 'commonjs bufferutil',
+    'utf-8-validate': 'commonjs utf-8-validate',
+  },
+  resolve: {
+    extensions: ['.ts', '.js', '.cjs'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [{ loader: 'ts-loader' }]
+      }
+    ]
+  },
+  devtool: 'nosources-source-map',
+};
+
+module.exports = [extensionConfig, workerConfig];

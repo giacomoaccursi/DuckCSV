@@ -1,65 +1,118 @@
 /**
- * DuckDB WASM Engine — responsible only for initializing and disposing DuckDB.
- * Exposes the connection for use by other services.
+ * DuckDB Engine — proxy to a worker thread running DuckDB WASM.
+ *
+ * All queries are executed in a separate thread so the extension host
+ * stays responsive. Supports cancellation by terminating the worker.
  */
 
 import * as vscode from 'vscode';
+import { Worker } from 'worker_threads';
 import { join } from 'path';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const duckdb = require('@duckdb/duckdb-wasm/dist/duckdb-node-blocking.cjs');
+export interface QueryResponse {
+  columns: string[];
+  columnTypes: string[];
+  rows: string[][];
+  numRows: number;
+  error?: string;
+}
 
 export class DuckDbEngine implements vscode.Disposable {
-  private db: any = null;
-  private conn: any = null;
+  private worker: Worker | null = null;
   private initPromise: Promise<void> | null = null;
+  private nextId = 1;
+  private pending = new Map<number, { resolve: (r: QueryResponse) => void; reject: (e: Error) => void }>();
 
   dispose(): void {
-    this.close();
+    this.terminate();
   }
 
-  async getConnection(): Promise<any> {
+  /**
+   * Execute a SQL query. Returns when the query completes.
+   * Throws if the worker is not ready or the query fails.
+   */
+  async query(sql: string): Promise<QueryResponse> {
     await this.ensureReady();
-    return this.conn;
+
+    return new Promise<QueryResponse>((resolve, reject) => {
+      const id = this.nextId++;
+      this.pending.set(id, { resolve, reject });
+      this.worker!.postMessage({ type: 'query', id, sql });
+    });
   }
+
+  /**
+   * Cancel all pending queries by terminating the worker.
+   * A new worker will be created on the next query.
+   */
+  cancel(): void {
+    this.terminate();
+  }
+
+  // ─── Internal ──────────────────────────────────────────────────────────────
 
   private ensureReady(): Promise<void> {
     if (!this.initPromise) {
-      this.initPromise = this.initialize();
+      this.initPromise = this.spawnWorker();
     }
     return this.initPromise;
   }
 
-  private async initialize(): Promise<void> {
-    const wasmDir = __dirname;
+  private spawnWorker(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const workerPath = join(__dirname, 'duckdb-worker.js');
+      this.worker = new Worker(workerPath);
 
-    const DUCKDB_BUNDLES = {
-      mvp: {
-        mainModule: join(wasmDir, 'duckdb-mvp.wasm'),
-        mainWorker: join(wasmDir, 'duckdb-node-mvp.worker.cjs'),
-      },
-      eh: {
-        mainModule: join(wasmDir, 'duckdb-eh.wasm'),
-        mainWorker: join(wasmDir, 'duckdb-node-eh.worker.cjs'),
-      },
-    };
+      this.worker.on('message', (msg: any) => {
+        if (msg.type === 'ready') {
+          resolve();
+          return;
+        }
 
-    const logger = new duckdb.ConsoleLogger();
-    this.db = await duckdb.createDuckDB(DUCKDB_BUNDLES, logger, duckdb.NODE_RUNTIME);
-    await this.db.instantiate();
-    this.db.open({ query: { castBigIntToDouble: true } });
-    this.conn = this.db.connect();
+        if (msg.type === 'result') {
+          const pending = this.pending.get(msg.id);
+          if (pending) {
+            this.pending.delete(msg.id);
+            if (msg.error) {
+              pending.reject(new Error(msg.error));
+            } else {
+              pending.resolve(msg);
+            }
+          }
+        }
+      });
+
+      this.worker.on('error', (err) => {
+        reject(err);
+        this.rejectAllPending(err);
+      });
+
+      this.worker.on('exit', (code) => {
+        if (code !== 0) {
+          this.rejectAllPending(new Error(`Worker exited with code ${code}`));
+        }
+        this.worker = null;
+        this.initPromise = null;
+      });
+
+      // Send init message with WASM directory
+      this.worker.postMessage({ type: 'init', wasmDir: __dirname });
+    });
   }
 
-  private close(): void {
-    if (this.conn) {
-      this.conn.close();
-      this.conn = null;
-    }
-    if (this.db) {
-      this.db.reset();
-      this.db = null;
+  private terminate(): void {
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
     }
     this.initPromise = null;
+    this.rejectAllPending(new Error('Query cancelled'));
+  }
+
+  private rejectAllPending(err: Error): void {
+    for (const [, pending] of this.pending) {
+      pending.reject(err);
+    }
+    this.pending.clear();
   }
 }

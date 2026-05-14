@@ -18,7 +18,6 @@ export class QueryExecutor {
   constructor(private readonly engine: DuckDbEngine) {}
 
   async execute(sql: string, defaultTable?: string): Promise<QueryResult> {
-    const conn = await this.engine.getConnection();
     const start = performance.now();
 
     try {
@@ -26,21 +25,16 @@ export class QueryExecutor {
         ? this.normalizeSql(sql, defaultTable)
         : sql.trim();
 
-      const MAX_DISPLAY_ROWS = 10_000;
-      const result = conn.query(normalizedSql);
-
-      const headers: string[] = result.schema.fields.map((f: any) => f.name);
-      const totalCount = result.numRows;
-      const rows = this.arrowTableToRows(result, MAX_DISPLAY_ROWS);
+      const result = await this.engine.query(normalizedSql);
 
       return {
-        headers,
-        rows,
-        rowCount: rows.length,
-        totalCount,
+        headers: result.columns,
+        rows: result.rows,
+        rowCount: result.rows.length,
+        totalCount: result.numRows,
         executionTimeMs: performance.now() - start,
-        error: totalCount > MAX_DISPLAY_ROWS
-          ? `Showing first ${MAX_DISPLAY_ROWS.toLocaleString()} of ${totalCount.toLocaleString()} rows`
+        error: result.numRows > result.rows.length
+          ? `Showing first ${result.rows.length.toLocaleString()} of ${result.numRows.toLocaleString()} rows`
           : undefined,
       };
     } catch (err: unknown) {
@@ -79,29 +73,5 @@ export class QueryExecutor {
     }
 
     return trimmed;
-  }
-
-  private arrowTableToRows(table: any, maxRows?: number): string[][] {
-    const rows: string[][] = [];
-    const numRows = Math.min(table.numRows, maxRows ?? table.numRows);
-    const numCols = table.numCols;
-
-    for (let i = 0; i < numRows; i++) {
-      const row: string[] = [];
-      for (let j = 0; j < numCols; j++) {
-        const val = table.getChildAt(j)?.get(i);
-        row.push(this.formatValue(val));
-      }
-      rows.push(row);
-    }
-
-    return rows;
-  }
-
-  private formatValue(val: any): string {
-    if (val === null || val === undefined) { return ''; }
-    if (val instanceof Date) { return val.toISOString().split('T')[0]; }
-    if (typeof val === 'bigint') { return val.toString(); }
-    return String(val);
   }
 }

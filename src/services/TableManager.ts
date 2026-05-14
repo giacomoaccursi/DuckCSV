@@ -30,16 +30,14 @@ export class TableManager {
   constructor(private readonly engine: DuckDbEngine) {}
 
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
-    const conn = await this.engine.getConnection();
     const filePath = uri.fsPath.replace(/'/g, "''");
-
     const tableName = customName ?? this.deriveTableName(uri);
 
     // Drop if already exists
-    conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
+    await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
     // Load directly from file path (fast for large files)
-    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
+    await this.engine.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
 
     // Detect delimiter from first line
     const fs = require('fs');
@@ -74,15 +72,13 @@ export class TableManager {
   }
 
   async dropTable(name: string): Promise<void> {
-    const conn = await this.engine.getConnection();
-    conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
+    await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
     this.tables.delete(name);
   }
 
   async dropAllTables(): Promise<void> {
-    const conn = await this.engine.getConnection();
     for (const name of this.tables.keys()) {
-      conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
+      await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
     }
     this.tables.clear();
   }
@@ -96,27 +92,24 @@ export class TableManager {
   }
 
   async getHeaders(tableName: string): Promise<string[]> {
-    const conn = await this.engine.getConnection();
     const escaped = tableName.replace(/'/g, "''");
-    const result = conn.query(
+    const result = await this.engine.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
     );
-    return this.arrowTableToRows(result).map((row: string[]) => row[0]);
+    return result.rows.map(row => row[0]);
   }
 
   async getColumnTypes(tableName: string): Promise<string[]> {
-    const conn = await this.engine.getConnection();
     const escaped = tableName.replace(/'/g, "''");
-    const result = conn.query(
+    const result = await this.engine.query(
       `SELECT data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
     );
-    return this.arrowTableToRows(result).map((row: string[]) => row[0]);
+    return result.rows.map(row => row[0]);
   }
 
   async getRowCount(tableName: string): Promise<number> {
-    const conn = await this.engine.getConnection();
-    const result = conn.query(`SELECT COUNT(*) as cnt FROM ${this.quoteIdentifier(tableName)}`);
-    return Number(result.get(0)?.cnt ?? 0);
+    const result = await this.engine.query(`SELECT COUNT(*) as cnt FROM ${this.quoteIdentifier(tableName)}`);
+    return Number(result.rows[0][0]);
   }
 
   async getDataPage(
@@ -129,7 +122,6 @@ export class TableManager {
       limit: number;
     }
   ): Promise<DataPage> {
-    const conn = await this.engine.getConnection();
     const headers = await this.getHeaders(tableName);
     const whereClauses = this.buildWhereClauses(params.filters, params.searchTerm, headers);
     const orderClause = this.buildOrderClause(params.sort, headers);
@@ -138,38 +130,35 @@ export class TableManager {
     const quoted = this.quoteIdentifier(tableName);
 
     // Get filtered count
-    const countResult = conn.query(`SELECT COUNT(*) as cnt FROM ${quoted} ${whereStr}`);
-    const filteredCount = Number(countResult.get(0)?.cnt ?? 0);
+    const countResult = await this.engine.query(`SELECT COUNT(*) as cnt FROM ${quoted} ${whereStr}`);
+    const filteredCount = Number(countResult.rows[0][0]);
 
     // Get page with rowid
     const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-    const pageResult = conn.query(
+    const pageResult = await this.engine.query(
       `SELECT rowid, ${columns} FROM ${quoted} ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
-    const allRows = this.arrowTableToRows(pageResult);
-    const rowids = allRows.map((row: string[]) => parseInt(row[0], 10));
-    const rows = allRows.map((row: string[]) => row.slice(1));
+    const rowids = pageResult.rows.map(row => parseInt(row[0], 10));
+    const rows = pageResult.rows.map(row => row.slice(1));
 
     return { rows, rowids, filteredCount };
   }
 
   async getUniqueValues(tableName: string, columnIndex: number): Promise<string[]> {
-    const conn = await this.engine.getConnection();
     const headers = await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return []; }
 
     const colName = this.quoteIdentifier(headers[columnIndex]);
     const quoted = this.quoteIdentifier(tableName);
-    const result = conn.query(
+    const result = await this.engine.query(
       `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${quoted} WHERE ${colName} IS NOT NULL ORDER BY ${colName}`
     );
 
-    return this.arrowTableToRows(result).map((row: string[]) => row[0]).filter(v => v !== '');
+    return result.rows.map(row => row[0]).filter(v => v !== '');
   }
 
   async updateCell(tableName: string, rowid: number, columnIndex: number, value: string): Promise<void> {
-    const conn = await this.engine.getConnection();
     const headers = await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return; }
 
@@ -185,11 +174,11 @@ export class TableManager {
     let needsTypeChange = false;
     if (currentType && currentType !== 'VARCHAR') {
       try {
-        const check = conn.query(
+        const check = await this.engine.query(
           `SELECT TRY_CAST('${escapedValue}' AS ${currentType}) IS NOT NULL as ok`
         );
-        const castable = check.get(0)?.ok;
-        if (!castable && value !== '') {
+        const castable = check.rows[0][0];
+        if (castable !== 'true' && value !== '') {
           needsTypeChange = true;
         }
       } catch {
@@ -199,16 +188,16 @@ export class TableManager {
 
     if (needsTypeChange) {
       // Convert column to VARCHAR first, then update
-      conn.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
-      conn.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+      await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+      await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
     } else {
       // Direct update (value is compatible with current type)
       try {
-        conn.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+        await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
       } catch {
         // Fallback: cast to VARCHAR and retry
-        conn.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
-        conn.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+        await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+        await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
       }
     }
 
@@ -228,7 +217,6 @@ export class TableManager {
    * If so, alter the column type.
    */
   private async tryTightenColumnType(tableName: string, columnIndex: number): Promise<void> {
-    const conn = await this.engine.getConnection();
     const types = await this.getColumnTypes(tableName);
     if (types[columnIndex] !== 'VARCHAR') { return; }
 
@@ -241,12 +229,12 @@ export class TableManager {
 
     for (const targetType of candidates) {
       try {
-        const check = conn.query(
+        const check = await this.engine.query(
           `SELECT COUNT(*) = COUNT(TRY_CAST(${colName} AS ${targetType})) as ok FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != ''`
         );
-        const allCastable = check.get(0)?.ok;
-        if (allCastable) {
-          conn.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${targetType}`);
+        const allCastable = check.rows[0][0];
+        if (allCastable === 'true') {
+          await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${targetType}`);
           return;
         }
       } catch {
@@ -256,15 +244,13 @@ export class TableManager {
   }
 
   async addRow(tableName: string): Promise<void> {
-    const conn = await this.engine.getConnection();
     const headers = await this.getHeaders(tableName);
     const nulls = headers.map(() => "NULL").join(', ');
-    conn.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
+    await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
   }
 
   async deleteRow(tableName: string, rowid: number): Promise<void> {
-    const conn = await this.engine.getConnection();
-    conn.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid = ${rowid}`);
+    await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid = ${rowid}`);
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────
@@ -324,55 +310,6 @@ export class TableManager {
     const colName = this.quoteIdentifier(headers[sort.columnIndex]);
     const dir = sort.direction === 'asc' ? 'ASC' : 'DESC';
     return `ORDER BY ${colName} ${dir} NULLS LAST`;
-  }
-
-  private arrowTableToRows(table: any, maxRows?: number): string[][] {
-    const rows: string[][] = [];
-    const numRows = Math.min(table.numRows, maxRows ?? table.numRows);
-    const numCols = table.numCols;
-
-    // Get column types from schema to handle date/timestamp formatting
-    const colTypes: string[] = table.schema.fields.map((f: any) => f.type?.toString() || '');
-
-    for (let i = 0; i < numRows; i++) {
-      const row: string[] = [];
-      for (let j = 0; j < numCols; j++) {
-        const val = table.getChildAt(j)?.get(i);
-        row.push(this.formatArrowValue(val, colTypes[j]));
-      }
-      rows.push(row);
-    }
-
-    return rows;
-  }
-
-  private formatArrowValue(val: any, colType: string): string {
-    if (val === null || val === undefined) { return ''; }
-
-    // Handle Date objects
-    if (val instanceof Date) {
-      return val.toISOString().split('T')[0];
-    }
-
-    // Handle BigInt
-    if (typeof val === 'bigint') {
-      return val.toString();
-    }
-
-    // Handle numeric values that represent dates (epoch ms or epoch days)
-    if (typeof val === 'number') {
-      const typeLower = colType.toLowerCase();
-      if (typeLower.includes('date') || typeLower.includes('timestamp')) {
-        // DuckDB dates come as epoch days (int32) or epoch ms
-        const ms = val > 1e10 ? val : val * 86400000; // if small number, it's days
-        const d = new Date(ms);
-        if (!isNaN(d.getTime())) {
-          return d.toISOString().split('T')[0];
-        }
-      }
-    }
-
-    return String(val);
   }
 
   private detectDelimiterFromLine(firstLine: string): { name: string; char: string } {

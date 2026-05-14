@@ -1,5 +1,6 @@
 /**
  * TableExporter — writes a table back to disk as CSV.
+ * Fetches data in batches of 10k rows (the worker's per-query cap).
  */
 
 import { DuckDbEngine } from './DuckDbEngine';
@@ -13,28 +14,30 @@ export class TableExporter {
   ) {}
 
   async exportTable(tableName: string, outputPath: string): Promise<void> {
-    const conn = await this.engine.getConnection();
     const meta = this.tableManager.getTableMeta(tableName);
-
-    if (!meta) {
-      throw new Error(`Table "${tableName}" not found`);
-    }
+    if (!meta) { throw new Error(`Table "${tableName}" not found`); }
 
     const { headers, delimiterChar } = meta;
     const quotedTable = `"${tableName.replace(/"/g, '""')}"`;
-
-    // Build header line
-    const headerLine = headers.map(h => this.quoteField(h, delimiterChar)).join(delimiterChar);
-
-    // Fetch all data
     const columns = headers.map(h => `"${h.replace(/"/g, '""')}"`).join(', ');
-    const dataResult = conn.query(`SELECT ${columns} FROM ${quotedTable}`);
-    const rows = this.arrowTableToRows(dataResult);
 
-    // Build CSV content
+    const headerLine = headers.map(h => this.quoteField(h, delimiterChar)).join(delimiterChar);
     const lines = [headerLine];
-    for (const row of rows) {
-      lines.push(row.map(cell => this.quoteField(cell, delimiterChar)).join(delimiterChar));
+
+    let offset = 0;
+    const batchSize = 10_000;
+
+    while (true) {
+      const result = await this.engine.query(
+        `SELECT ${columns} FROM ${quotedTable} LIMIT ${batchSize} OFFSET ${offset}`
+      );
+
+      for (const row of result.rows) {
+        lines.push(row.map(cell => this.quoteField(cell, delimiterChar)).join(delimiterChar));
+      }
+
+      if (result.rows.length < batchSize) { break; }
+      offset += batchSize;
     }
 
     writeFileSync(outputPath, lines.join('\n') + '\n', 'utf8');
@@ -45,29 +48,5 @@ export class TableExporter {
       return '"' + value.replace(/"/g, '""') + '"';
     }
     return value;
-  }
-
-  private arrowTableToRows(table: any, maxRows?: number): string[][] {
-    const rows: string[][] = [];
-    const numRows = Math.min(table.numRows, maxRows ?? table.numRows);
-    const numCols = table.numCols;
-
-    for (let i = 0; i < numRows; i++) {
-      const row: string[] = [];
-      for (let j = 0; j < numCols; j++) {
-        const val = table.getChildAt(j)?.get(i);
-        row.push(this.formatValue(val));
-      }
-      rows.push(row);
-    }
-
-    return rows;
-  }
-
-  private formatValue(val: any): string {
-    if (val === null || val === undefined) { return ''; }
-    if (val instanceof Date) { return val.toISOString().split('T')[0]; }
-    if (typeof val === 'bigint') { return val.toString(); }
-    return String(val);
   }
 }
