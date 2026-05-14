@@ -1,16 +1,13 @@
 /**
  * CSV Preview Panel — manages the webview lifecycle and message routing.
- * Delegates data operations to CsvDocument and file writes to CsvWriterService.
+ * All data operations delegated to DuckDbService.
  */
 
 import * as vscode from 'vscode';
 import { basename } from 'path';
-import { CsvParserService } from '../services/CsvParserService';
-import { CsvWriterService } from '../services/CsvWriterService';
-import { QueryService } from '../services/QueryService';
+import { DuckDbService } from '../services/DuckDbService';
 import { ConfigService } from '../services/ConfigService';
-import { CsvDocument } from '../models/CsvDocument';
-import { WebviewMessage, ExtensionMessage, DataPagePayload, QueryResultPayload } from '../types';
+import { WebviewMessage, ExtensionMessage, DataPagePayload, QueryResultPayload, SortState, ColumnFilters } from '../types';
 import { getNonce } from '../utils/nonce';
 
 export class CsvPreviewPanel {
@@ -19,23 +16,29 @@ export class CsvPreviewPanel {
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
-  private readonly parserService: CsvParserService;
-  private readonly writerService: CsvWriterService;
-  private readonly queryService: QueryService;
+  private readonly duckDb: DuckDbService;
   private readonly config: ConfigService;
   private readonly disposables: vscode.Disposable[] = [];
 
   private currentUri: vscode.Uri;
-  private document: CsvDocument | null = null;
+  private fileName: string = '';
+  private fileSize: number = 0;
+  private delimiter: string = '';
+  private headers: string[] = [];
+  private totalRows: number = 0;
+
+  // View state
+  private sort: SortState = { columnIndex: -1, direction: 'none' };
+  private filters: ColumnFilters = {};
+  private searchTerm: string = '';
   private pageOffset: number = 0;
+  private isDirty: boolean = false;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    parserService: CsvParserService,
-    writerService: CsvWriterService,
-    queryService: QueryService,
+    duckDb: DuckDbService,
     config: ConfigService,
     uri: vscode.Uri,
     viewColumn?: vscode.ViewColumn
@@ -60,7 +63,7 @@ export class CsvPreviewPanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, parserService, writerService, queryService, config, uri);
+    const instance = new CsvPreviewPanel(panel, extensionUri, duckDb, config, uri);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -69,17 +72,13 @@ export class CsvPreviewPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    parserService: CsvParserService,
-    writerService: CsvWriterService,
-    queryService: QueryService,
+    duckDb: DuckDbService,
     config: ConfigService,
     uri: vscode.Uri
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
-    this.parserService = parserService;
-    this.writerService = writerService;
-    this.queryService = queryService;
+    this.duckDb = duckDb;
     this.config = config;
     this.currentUri = uri;
 
@@ -90,7 +89,6 @@ export class CsvPreviewPanel {
       this.disposables
     );
 
-    // Set HTML last — script sends 'ready' when loaded
     this.panel.webview.html = this.buildHtml();
   }
 
@@ -103,67 +101,55 @@ export class CsvPreviewPanel {
         break;
 
       case 'refresh':
-        this.document = null;
+        this.resetState();
         await this.loadDocument();
         break;
 
       case 'loadMore':
         this.pageOffset += this.config.pageSize;
-        this.sendCurrentPage();
+        await this.sendCurrentPage();
         break;
 
       case 'sort':
-        if (this.document) {
-          this.document.setSort(message.columnIndex, message.direction);
-          this.pageOffset = 0;
-          this.sendCurrentPage();
-        }
+        this.sort = { columnIndex: message.columnIndex, direction: message.direction };
+        this.pageOffset = 0;
+        await this.sendCurrentPage();
         break;
 
       case 'search':
-        if (this.document) {
-          this.document.setSearchTerm(message.term);
-          this.pageOffset = 0;
-          this.sendCurrentPage();
-        }
+        this.searchTerm = message.term;
+        this.pageOffset = 0;
+        await this.sendCurrentPage();
         break;
 
       case 'getColumnValues':
-        if (this.document) {
-          const values = this.document.getUniqueValues(message.columnIndex);
-          this.postMessage({
-            type: 'columnValues',
-            data: { columnIndex: message.columnIndex, values, totalCount: values.length },
-          });
-        }
+        await this.handleGetColumnValues(message.columnIndex);
         break;
 
       case 'setFilters':
-        if (this.document) {
-          this.document.setFilters(message.filters);
-          this.pageOffset = 0;
-          this.sendCurrentPage();
-        }
+        this.filters = message.filters;
+        this.pageOffset = 0;
+        await this.sendCurrentPage();
         break;
 
       case 'editCell':
-        this.handleCellEdit(message.originalRowIndex, message.columnIndex, message.value);
+        await this.handleEditCell(message.rowid, message.columnIndex, message.value);
         break;
 
       case 'addRow':
-        this.handleAddRow();
+        await this.handleAddRow();
         break;
 
       case 'deleteRow':
-        this.handleDeleteRow(message.originalRowIndex);
+        await this.handleDeleteRow(message.rowid);
         break;
 
       case 'executeQuery':
-        this.handleQuery(message.sql, message.mode);
+        await this.handleQuery(message.sql, message.mode);
         break;
 
       case 'clearQuery':
-        this.sendCurrentPage();
+        await this.sendCurrentPage();
         break;
 
       case 'copyToClipboard':
@@ -177,56 +163,130 @@ export class CsvPreviewPanel {
     }
   }
 
+  // ─── Data Loading ────────────────────────────────────────────────────────
+
+  private async loadDocument(): Promise<void> {
+    this.postMessage({ type: 'loading', loading: true });
+
+    try {
+      const stat = await vscode.workspace.fs.stat(this.currentUri);
+      this.fileSize = stat.size;
+      this.fileName = basename(this.currentUri.fsPath);
+
+      const meta = await this.duckDb.loadFile(this.currentUri);
+      this.headers = meta.headers;
+      this.totalRows = meta.totalRows;
+      this.delimiter = meta.delimiter;
+
+      this.panel.title = `Preview: ${this.fileName}`;
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to load CSV file';
+      this.postMessage({ type: 'error', message: msg });
+    } finally {
+      this.postMessage({ type: 'loading', loading: false });
+    }
+  }
+
+  private async sendCurrentPage(): Promise<void> {
+    try {
+      const pageSize = this.config.pageSize;
+      const result = await this.duckDb.getDataPage({
+        filters: this.filters,
+        sort: this.sort,
+        searchTerm: this.searchTerm,
+        offset: 0,
+        limit: this.pageOffset + pageSize,
+      });
+
+      const payload: DataPagePayload = {
+        headers: this.headers,
+        rows: result.rows,
+        totalRows: this.totalRows,
+        filteredRows: result.filteredCount,
+        pageOffset: 0,
+        pageSize: this.pageOffset + pageSize,
+        hasMore: (this.pageOffset + pageSize) < result.filteredCount,
+        delimiter: this.delimiter,
+        fileName: this.fileName,
+        fileSize: this.fileSize,
+        sort: this.sort,
+        filters: this.filters,
+        searchTerm: this.searchTerm,
+        isDirty: this.isDirty,
+      };
+
+      this.postMessage({ type: 'dataPage', data: payload });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch data';
+      this.postMessage({ type: 'error', message: msg });
+    }
+  }
+
+  // ─── Column Values ───────────────────────────────────────────────────────
+
+  private async handleGetColumnValues(columnIndex: number): Promise<void> {
+    try {
+      const values = await this.duckDb.getUniqueValues(columnIndex);
+      this.postMessage({
+        type: 'columnValues',
+        data: { columnIndex, values, totalCount: values.length },
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to get column values';
+      this.postMessage({ type: 'error', message: msg });
+    }
+  }
+
   // ─── Cell Editing ────────────────────────────────────────────────────────
 
-  private handleCellEdit(originalRowIndex: number, columnIndex: number, value: string): void {
-    if (!this.document) { return; }
-
-    this.document.setCellValue(originalRowIndex, columnIndex, value);
-    this.writerService.scheduleWrite(this.currentUri, this.document);
-
-    this.postMessage({
-      type: 'cellEditConfirm',
-      data: { originalRowIndex, columnIndex, value },
-    });
+  private async handleEditCell(rowid: number, columnIndex: number, value: string): Promise<void> {
+    try {
+      await this.duckDb.updateCell(rowid, columnIndex, value);
+      this.isDirty = true;
+      this.postMessage({
+        type: 'cellEditConfirm',
+        data: { rowid, columnIndex, value },
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to update cell';
+      this.postMessage({ type: 'error', message: msg });
+    }
   }
 
-  // ─── Row Operations ─────────────────────────────────────────────────────
+  // ─── Row Operations ──────────────────────────────────────────────────────
 
-  private handleAddRow(): void {
-    if (!this.document) { return; }
-
-    // Clear filters/search so the new empty row is visible
-    this.document.resetQueryState();
-    this.document.addRow();
-    this.writerService.scheduleWrite(this.currentUri, this.document);
-
-    // Jump to last page to show the new row
-    const total = this.document.getFilteredRowCount();
-    const pageSize = this.config.pageSize;
-    this.pageOffset = Math.max(0, total - pageSize);
-
-    this.sendCurrentPage();
+  private async handleAddRow(): Promise<void> {
+    try {
+      await this.duckDb.addRow();
+      this.totalRows++;
+      this.isDirty = true;
+      this.filters = {};
+      this.searchTerm = '';
+      this.pageOffset = Math.max(0, this.totalRows - this.config.pageSize);
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to add row';
+      this.postMessage({ type: 'error', message: msg });
+    }
   }
 
-  private handleDeleteRow(originalRowIndex: number): void {
-    if (!this.document) { return; }
-
-    const deleted = this.document.deleteRow(originalRowIndex);
-    if (!deleted) { return; }
-
-    this.writerService.scheduleWrite(this.currentUri, this.document);
-
-    // Re-send current page (indices have shifted)
-    this.sendCurrentPage();
+  private async handleDeleteRow(rowid: number): Promise<void> {
+    try {
+      await this.duckDb.deleteRow(rowid);
+      this.totalRows--;
+      this.isDirty = true;
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to delete row';
+      this.postMessage({ type: 'error', message: msg });
+    }
   }
 
   // ─── Query Execution ─────────────────────────────────────────────────────
 
-  private handleQuery(sql: string, mode: 'inline' | 'side'): void {
-    if (!this.document) { return; }
-
-    const result = this.queryService.execute(this.document, sql);
+  private async handleQuery(sql: string, mode: 'inline' | 'side'): Promise<void> {
+    const result = await this.duckDb.executeQuery(sql);
 
     const payload: QueryResultPayload = {
       headers: result.headers,
@@ -240,7 +300,6 @@ export class CsvPreviewPanel {
     if (mode === 'inline') {
       this.postMessage({ type: 'queryResult', data: payload });
     } else {
-      // Open result in a side panel
       this.openQueryResultPanel(payload);
     }
   }
@@ -248,7 +307,7 @@ export class CsvPreviewPanel {
   private openQueryResultPanel(payload: QueryResultPayload): void {
     const panel = vscode.window.createWebviewPanel(
       'csvQueryResult',
-      `Query Result`,
+      'Query Result',
       vscode.ViewColumn.Beside,
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')] }
     );
@@ -259,7 +318,7 @@ export class CsvPreviewPanel {
     );
     const nonce = getNonce();
 
-    const rowsHtml = payload.error
+    const bodyContent = payload.error
       ? `<div class="error-container"><div class="error-message"><span>${this.escapeHtml(payload.error)}</span></div></div>`
       : this.buildResultTableHtml(payload);
 
@@ -284,9 +343,7 @@ export class CsvPreviewPanel {
       </div>
     </div>
     <div class="table-container">
-      <div class="table-wrapper">
-        ${rowsHtml}
-      </div>
+      <div class="table-wrapper">${bodyContent}</div>
     </div>
   </div>
 </body>
@@ -306,57 +363,15 @@ export class CsvPreviewPanel {
     </table>`;
   }
 
-  private escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  // ─── Data Loading ────────────────────────────────────────────────────────
-
-  private async loadDocument(): Promise<void> {
-    this.postMessage({ type: 'loading', loading: true });
-
-    try {
-      this.document = await this.parserService.loadDocument(this.currentUri);
-      this.pageOffset = 0;
-      this.panel.title = `Preview: ${this.document.fileName}`;
-      this.sendCurrentPage();
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Failed to load CSV file';
-      this.postMessage({ type: 'error', message: msg });
-    } finally {
-      this.postMessage({ type: 'loading', loading: false });
-    }
-  }
-
-  private sendCurrentPage(): void {
-    if (!this.document) { return; }
-
-    const pageSize = this.config.pageSize;
-    const page = this.document.getPage(0, this.pageOffset + pageSize);
-    const filteredCount = this.document.getFilteredRowCount();
-
-    const payload: DataPagePayload = {
-      headers: this.document.headers,
-      rows: page.rows,
-      originalIndices: page.originalIndices,
-      totalRows: this.document.getTotalRows(),
-      filteredRows: filteredCount,
-      pageOffset: 0,
-      pageSize: this.pageOffset + pageSize,
-      hasMore: (this.pageOffset + pageSize) < filteredCount,
-      delimiter: this.document.delimiterName,
-      fileName: this.document.fileName,
-      fileSize: this.document.fileSize,
-      sort: this.document.getSortState(),
-      filters: this.document.getFilters(),
-      searchTerm: this.document.getSearchTerm(),
-      isDirty: this.document.isDirty(),
-    };
-
-    this.postMessage({ type: 'dataPage', data: payload });
-  }
-
   // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  private resetState(): void {
+    this.sort = { columnIndex: -1, direction: 'none' };
+    this.filters = {};
+    this.searchTerm = '';
+    this.pageOffset = 0;
+    this.isDirty = false;
+  }
 
   private postMessage(message: ExtensionMessage): void {
     this.panel.webview.postMessage(message);
@@ -364,12 +379,14 @@ export class CsvPreviewPanel {
 
   private dispose(): void {
     CsvPreviewPanel.panels.delete(this.currentUri.toString());
-    this.document = null;
-
     while (this.disposables.length) {
       const d = this.disposables.pop();
       d?.dispose();
     }
+  }
+
+  private escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // ─── HTML Generation ─────────────────────────────────────────────────────

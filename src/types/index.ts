@@ -11,41 +11,14 @@ export interface SortState {
   direction: SortDirection;
 }
 
-/** Map of columnIndex → set of selected values */
+/** Map of columnIndex → selected values */
 export type ColumnFilters = Record<number, string[]>;
-
-// ─── Data Model ──────────────────────────────────────────────────────────────
-
-export interface ParseError {
-  type: string;
-  code: string;
-  message: string;
-  row?: number;
-}
-
-export interface ParseOptions {
-  delimiter?: string;
-  skipEmptyLines?: boolean;
-}
-
-export interface ParseResult {
-  data: string[][];
-  headers: string[];
-  errors: ParseError[];
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  message?: string;
-}
 
 // ─── Webview Payloads ────────────────────────────────────────────────────────
 
 export interface DataPagePayload {
   headers: string[];
   rows: string[][];
-  /** Original row indices (in the full dataset) for each row in `rows` */
-  originalIndices: number[];
   totalRows: number;
   filteredRows: number;
   pageOffset: number;
@@ -66,12 +39,6 @@ export interface ColumnValuesPayload {
   totalCount: number;
 }
 
-export interface CellEditConfirmPayload {
-  originalRowIndex: number;
-  columnIndex: number;
-  value: string;
-}
-
 export interface QueryResultPayload {
   headers: string[];
   rows: string[][];
@@ -79,6 +46,12 @@ export interface QueryResultPayload {
   executionTimeMs: number;
   sql: string;
   error?: string;
+}
+
+export interface CellEditConfirmPayload {
+  rowid: number;
+  columnIndex: number;
+  value: string;
 }
 
 // ─── Messages: Extension → Webview ──────────────────────────────────────────
@@ -101,9 +74,9 @@ export type WebviewMessage =
   | { type: 'search'; term: string }
   | { type: 'getColumnValues'; columnIndex: number }
   | { type: 'setFilters'; filters: ColumnFilters }
-  | { type: 'editCell'; originalRowIndex: number; columnIndex: number; value: string }
+  | { type: 'editCell'; rowid: number; columnIndex: number; value: string }
   | { type: 'addRow' }
-  | { type: 'deleteRow'; originalRowIndex: number }
+  | { type: 'deleteRow'; rowid: number }
   | { type: 'executeQuery'; sql: string; mode: 'inline' | 'side' }
   | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }

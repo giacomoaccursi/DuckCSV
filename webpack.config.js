@@ -3,49 +3,65 @@
 'use strict';
 
 const path = require('path');
+const CopyPlugin = require('copy-webpack-plugin');
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
 /** @type WebpackConfig */
 const extensionConfig = {
-  target: 'node', // VS Code extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
-	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
+  target: 'node',
+  mode: 'none',
 
-  entry: './src/extension.ts', // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
+  entry: './src/extension.ts',
   output: {
-    // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
     path: path.resolve(__dirname, 'dist'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2'
   },
   externals: {
-    vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
-    // modules added here also need to be added in the .vscodeignore file
+    vscode: 'commonjs vscode',
+    bufferutil: 'commonjs bufferutil',
+    'utf-8-validate': 'commonjs utf-8-validate',
   },
   resolve: {
-    // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
-    extensions: ['.ts', '.js'],
-    alias: {
-      'alasql': path.resolve(__dirname, 'node_modules/alasql/dist/alasql.js')
-    }
+    extensions: ['.ts', '.js', '.cjs'],
   },
   module: {
     rules: [
       {
         test: /\.ts$/,
         exclude: /node_modules/,
-        use: [
-          {
-            loader: 'ts-loader'
-          }
-        ]
+        use: [{ loader: 'ts-loader' }]
       }
     ]
   },
+  plugins: [
+    // Copy DuckDB WASM files to dist/ so they can be found at runtime
+    new CopyPlugin({
+      patterns: [
+        {
+          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm',
+          to: 'duckdb-mvp.wasm'
+        },
+        {
+          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm',
+          to: 'duckdb-eh.wasm'
+        },
+        {
+          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-mvp.worker.cjs',
+          to: 'duckdb-node-mvp.worker.cjs'
+        },
+        {
+          from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-eh.worker.cjs',
+          to: 'duckdb-node-eh.worker.cjs'
+        },
+      ]
+    })
+  ],
   devtool: 'nosources-source-map',
   infrastructureLogging: {
-    level: "log", // enables logging required for problem matchers
+    level: "log",
   },
 };
 module.exports = [ extensionConfig ];

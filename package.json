@@ -191,16 +191,15 @@
         "test": "vscode-test"
     },
     "dependencies": {
-        "alasql": "^4.17.2",
-        "papaparse": "^5.4.1"
+        "@duckdb/duckdb-wasm": "^1.33.1-dev45.0"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
-        "@types/papaparse": "^5.3.8",
         "@types/vscode": "^1.106.1",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
+        "copy-webpack-plugin": "^14.0.0",
         "eslint": "^9.39.1",
         "ts-loader": "^9.5.4",
         "typescript": "^5.9.3",

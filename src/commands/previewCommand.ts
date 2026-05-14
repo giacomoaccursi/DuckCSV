@@ -5,9 +5,7 @@
 import * as vscode from 'vscode';
 import { extname, basename } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
-import { CsvParserService } from '../services/CsvParserService';
-import { CsvWriterService } from '../services/CsvWriterService';
-import { QueryService } from '../services/QueryService';
+import { DuckDbService } from '../services/DuckDbService';
 import { ConfigService } from '../services/ConfigService';
 
 const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
@@ -17,28 +15,24 @@ const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
  */
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
-  parserService: CsvParserService,
-  writerService: CsvWriterService,
-  queryService: QueryService,
+  duckDb: DuckDbService,
   configService: ConfigService
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'csv-enhanced.preview',
-      (uri?: vscode.Uri) => openPreview(context, parserService, writerService, queryService, configService, uri, vscode.ViewColumn.Active)
+      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Active)
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, parserService, writerService, queryService, configService, uri, vscode.ViewColumn.Beside)
+      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Beside)
     )
   );
 }
 
 async function openPreview(
   context: vscode.ExtensionContext,
-  parserService: CsvParserService,
-  writerService: CsvWriterService,
-  queryService: QueryService,
+  duckDb: DuckDbService,
   configService: ConfigService,
   uri: vscode.Uri | undefined,
   viewColumn: vscode.ViewColumn
@@ -58,5 +52,5 @@ async function openPreview(
     return;
   }
 
-  CsvPreviewPanel.createOrShow(context.extensionUri, parserService, writerService, queryService, configService, resolvedUri, viewColumn);
+  CsvPreviewPanel.createOrShow(context.extensionUri, duckDb, configService, resolvedUri, viewColumn);
 }
