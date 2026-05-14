@@ -21,7 +21,7 @@ export type EditMode = 'readonly' | 'edit';
  */
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
-  _engine: DuckDbEngine,
+  engine: DuckDbEngine,
   tableManager: TableManager,
   queryExecutor: QueryExecutor,
   tableExporter: TableExporter,
@@ -42,7 +42,7 @@ export function registerPreviewCommands(
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.workspace',
-      (uri?: vscode.Uri) => openWorkspace(context, tableManager, queryExecutor, configService, uri)
+      (uri?: vscode.Uri) => openWorkspace(context, engine, queryExecutor, configService, uri)
     )
   );
 }
@@ -86,7 +86,7 @@ async function openPreview(
 
 async function openWorkspace(
   context: vscode.ExtensionContext,
-  tableManager: TableManager,
+  engine: DuckDbEngine,
   queryExecutor: QueryExecutor,
   configService: ConfigService,
   uri?: vscode.Uri
@@ -109,5 +109,5 @@ async function openWorkspace(
     }
   }
 
-  CsvWorkspacePanel.createOrShow(context.extensionUri, tableManager, queryExecutor, configService, initialUri);
+  CsvWorkspacePanel.createOrShow(context.extensionUri, engine, queryExecutor, configService, initialUri);
 }

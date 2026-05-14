@@ -9,6 +9,7 @@
  */
 
 import * as vscode from 'vscode';
+import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { ConfigService } from '../services/ConfigService';
@@ -19,7 +20,6 @@ import { openQueryResultPanel } from './QueryResultPanel';
 
 export class CsvWorkspacePanel {
   private static readonly viewType = 'csvWorkspace';
-  private static instance: CsvWorkspacePanel | undefined;
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
@@ -35,19 +35,12 @@ export class CsvWorkspacePanel {
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    tableManager: TableManager,
+    engine: DuckDbEngine,
     queryExecutor: QueryExecutor,
     config: ConfigService,
     initialUri?: vscode.Uri
   ): void {
-    if (CsvWorkspacePanel.instance) {
-      CsvWorkspacePanel.instance.panel.reveal();
-      if (initialUri) {
-        CsvWorkspacePanel.instance.addTableFromUri(initialUri);
-      }
-      return;
-    }
-
+    // Always create a new workspace — each one is independent
     const panel = vscode.window.createWebviewPanel(
       CsvWorkspacePanel.viewType,
       'CSV Workspace',
@@ -60,9 +53,10 @@ export class CsvWorkspacePanel {
       }
     );
 
-    CsvWorkspacePanel.instance = new CsvWorkspacePanel(
-      panel, extensionUri, tableManager, queryExecutor, config, initialUri
-    );
+    // Each workspace gets its own TableManager (isolated table set)
+    const tableManager = new TableManager(engine);
+
+    new CsvWorkspacePanel(panel, extensionUri, tableManager, queryExecutor, config, initialUri);
   }
 
   // ─── Constructor ─────────────────────────────────────────────────────────
@@ -102,10 +96,6 @@ export class CsvWorkspacePanel {
   private async handleMessage(message: WebviewMessage): Promise<void> {
     switch (message.type) {
       case 'ready':
-        // Start fresh — drop all previously loaded tables
-        await this.tableManager.dropAllTables();
-        this.activeTable = '';
-
         if (this.pendingInitialUri) {
           await this.addTableFromUri(this.pendingInitialUri);
           this.pendingInitialUri = undefined;
@@ -364,7 +354,9 @@ export class CsvWorkspacePanel {
   }
 
   private dispose(): void {
-    CsvWorkspacePanel.instance = undefined;
+    // Drop all tables owned by this workspace
+    this.tableManager.dropAllTables().catch(() => {});
+
     while (this.disposables.length) {
       const d = this.disposables.pop();
       d?.dispose();
