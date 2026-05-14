@@ -209,7 +209,7 @@ function bindEvents() {
         } else {
           sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
         }
-      }, 250);
+      }, 150);
     });
 
     dom.tableHeader.addEventListener('mousedown', (e) => {
