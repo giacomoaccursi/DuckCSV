@@ -193,11 +193,6 @@ export class CsvPreviewPanel {
       this.fileSize = stat.size;
       this.fileName = basename(this.currentUri.fsPath);
 
-      // Drop previous table if it was loaded for this panel
-      if (this.tableName) {
-        await this.tableManager.dropTable(this.tableName);
-      }
-
       const meta = await this.tableManager.loadTable(this.currentUri, 'csv');
       this.tableName = meta.name;
       this.headers = meta.headers;
