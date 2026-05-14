@@ -1,15 +1,20 @@
 /**
- * Shared type definitions for CSV Table View extension.
+ * Shared type definitions for CSV Enhanced extension.
  */
 
-// ─── Parse Results ───────────────────────────────────────────────────────────
+// ─── Sort & Filter ───────────────────────────────────────────────────────────
 
-export interface ParseResult {
-  data: string[][];
-  headers: string[];
-  totalRows: number;
-  errors: ParseError[];
+export type SortDirection = 'asc' | 'desc' | 'none';
+
+export interface SortState {
+  columnIndex: number;
+  direction: SortDirection;
 }
+
+/** Map of columnIndex → set of selected values */
+export type ColumnFilters = Record<number, string[]>;
+
+// ─── Data Model ──────────────────────────────────────────────────────────────
 
 export interface ParseError {
   type: string;
@@ -20,8 +25,13 @@ export interface ParseError {
 
 export interface ParseOptions {
   delimiter?: string;
-  maxRows?: number;
   skipEmptyLines?: boolean;
+}
+
+export interface ParseResult {
+  data: string[][];
+  headers: string[];
+  errors: ParseError[];
 }
 
 export interface ValidationResult {
@@ -31,33 +41,45 @@ export interface ValidationResult {
 
 // ─── Webview Payloads ────────────────────────────────────────────────────────
 
-export interface CsvPayload {
+export interface DataPagePayload {
   headers: string[];
   rows: string[][];
   totalRows: number;
-  estimatedTotal: number;
+  filteredRows: number;
+  pageOffset: number;
+  pageSize: number;
+  hasMore: boolean;
   delimiter: string;
   fileName: string;
   fileSize: number;
-  hasMore: boolean;
+  sort: SortState;
+  filters: ColumnFilters;
+  searchTerm: string;
 }
 
-export interface MoreRowsPayload {
-  rows: string[][];
-  hasMore: boolean;
+export interface ColumnValuesPayload {
+  columnIndex: number;
+  values: string[];
+  totalCount: number;
 }
 
 // ─── Messages: Extension → Webview ──────────────────────────────────────────
 
 export type ExtensionMessage =
-  | { type: 'csvData'; data: CsvPayload }
-  | { type: 'moreRows'; data: MoreRowsPayload }
-  | { type: 'error'; message: string };
+  | { type: 'dataPage'; data: DataPagePayload }
+  | { type: 'columnValues'; data: ColumnValuesPayload }
+  | { type: 'error'; message: string }
+  | { type: 'loading'; loading: boolean };
 
 // ─── Messages: Webview → Extension ──────────────────────────────────────────
 
 export type WebviewMessage =
+  | { type: 'ready' }
   | { type: 'refresh' }
-  | { type: 'loadMore'; currentRows: number }
+  | { type: 'loadMore' }
+  | { type: 'sort'; columnIndex: number; direction: SortDirection }
+  | { type: 'search'; term: string }
+  | { type: 'getColumnValues'; columnIndex: number }
+  | { type: 'setFilters'; filters: ColumnFilters }
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' };

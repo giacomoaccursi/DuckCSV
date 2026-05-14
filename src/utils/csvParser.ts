@@ -7,18 +7,14 @@ import { ParseResult, ParseOptions, ParseError, ValidationResult } from '../type
 
 /**
  * Parse CSV content into a structured format.
+ * Parses the entire file (no row limit).
  */
 export function parseCSV(content: string, options: ParseOptions = {}): ParseResult {
-  const {
-    delimiter,
-    maxRows = 10000,
-    skipEmptyLines = true,
-  } = options;
+  const { delimiter, skipEmptyLines = true } = options;
 
   const result = Papa.parse<string[]>(content, {
     delimiter,
     skipEmptyLines: skipEmptyLines ? 'greedy' : false,
-    preview: maxRows > 0 ? maxRows + 1 : 0, // +1 for header row
     quoteChar: '"',
     escapeChar: '"',
     header: false,
@@ -36,23 +32,7 @@ export function parseCSV(content: string, options: ParseOptions = {}): ParseResu
     row: err.row,
   }));
 
-  return { data, headers, totalRows: data.length, errors };
-}
-
-/**
- * Estimate total row count without fully parsing the file.
- * Uses newline density in a sample to extrapolate.
- */
-export function estimateRowCount(content: string): number {
-  const sampleSize = Math.min(content.length, 10000);
-  const sample = content.substring(0, sampleSize);
-  const newlines = (sample.match(/\n/g) || []).length;
-
-  if (newlines === 0) {
-    return 1;
-  }
-
-  return Math.max(1, Math.floor((content.length / sampleSize) * newlines));
+  return { data, headers, errors };
 }
 
 /**

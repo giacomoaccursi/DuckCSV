@@ -60,4 +60,9 @@ export class ConfigService implements vscode.Disposable {
   get batchSize(): number {
     return 5000;
   }
+
+  /** Number of rows to send to the webview per page */
+  get pageSize(): number {
+    return this.cachedConfig.get<number>('previewRowCount', 10000);
+  }
 }

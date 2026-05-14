@@ -1,12 +1,14 @@
 /**
  * CSV Preview Panel — manages the webview lifecycle and message routing.
- * Delegates CSV loading to CsvParserService.
+ * Delegates all data operations to CsvDocument.
  */
 
 import * as vscode from 'vscode';
 import { basename } from 'path';
 import { CsvParserService } from '../services/CsvParserService';
-import { WebviewMessage, ExtensionMessage } from '../types';
+import { ConfigService } from '../services/ConfigService';
+import { CsvDocument } from '../models/CsvDocument';
+import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
 import { getNonce } from '../utils/nonce';
 
 export class CsvPreviewPanel {
@@ -16,21 +18,25 @@ export class CsvPreviewPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
   private readonly parserService: CsvParserService;
+  private readonly config: ConfigService;
   private readonly disposables: vscode.Disposable[] = [];
+
   private currentUri: vscode.Uri;
+  private document: CsvDocument | null = null;
+  private pageOffset: number = 0;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
   static createOrShow(
     extensionUri: vscode.Uri,
     parserService: CsvParserService,
+    config: ConfigService,
     uri: vscode.Uri,
     viewColumn?: vscode.ViewColumn
   ): void {
     const column = viewColumn || vscode.ViewColumn.Beside;
     const key = uri.toString();
 
-    // Reuse existing panel for the same file
     const existing = CsvPreviewPanel.panels.get(key);
     if (existing) {
       existing.panel.reveal(column);
@@ -48,7 +54,7 @@ export class CsvPreviewPanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, parserService, uri);
+    const instance = new CsvPreviewPanel(panel, extensionUri, parserService, config, uri);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -58,35 +64,79 @@ export class CsvPreviewPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     parserService: CsvParserService,
+    config: ConfigService,
     uri: vscode.Uri
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.parserService = parserService;
+    this.config = config;
     this.currentUri = uri;
 
     this.panel.webview.html = this.buildHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
-      (msg: WebviewMessage) => this.handleWebviewMessage(msg),
+      (msg: WebviewMessage) => this.handleMessage(msg),
       null,
       this.disposables
     );
-
-    this.loadUri(uri);
   }
 
   // ─── Message Handling ────────────────────────────────────────────────────
 
-  private async handleWebviewMessage(message: WebviewMessage): Promise<void> {
+  private async handleMessage(message: WebviewMessage): Promise<void> {
     switch (message.type) {
+      case 'ready':
+        await this.loadDocument();
+        break;
+
       case 'refresh':
-        await this.loadUri(this.currentUri);
+        this.document = null;
+        await this.loadDocument();
         break;
 
       case 'loadMore':
-        await this.loadMore(message.currentRows);
+        this.pageOffset += this.config.pageSize;
+        this.sendCurrentPage();
+        break;
+
+      case 'sort':
+        if (this.document) {
+          this.document.setSort(message.columnIndex, message.direction);
+          this.pageOffset = 0;
+          this.sendCurrentPage();
+        }
+        break;
+
+      case 'search':
+        if (this.document) {
+          this.document.setSearchTerm(message.term);
+          this.pageOffset = 0;
+          this.sendCurrentPage();
+        }
+        break;
+
+      case 'getColumnValues':
+        if (this.document) {
+          const values = this.document.getUniqueValues(message.columnIndex);
+          this.postMessage({
+            type: 'columnValues',
+            data: {
+              columnIndex: message.columnIndex,
+              values,
+              totalCount: values.length,
+            },
+          });
+        }
+        break;
+
+      case 'setFilters':
+        if (this.document) {
+          this.document.setFilters(message.filters);
+          this.pageOffset = 0;
+          this.sendCurrentPage();
+        }
         break;
 
       case 'copyToClipboard':
@@ -102,27 +152,46 @@ export class CsvPreviewPanel {
 
   // ─── Data Loading ────────────────────────────────────────────────────────
 
-  private async loadUri(uri: vscode.Uri): Promise<void> {
-    this.currentUri = uri;
-    this.panel.title = `Preview: ${basename(uri.fsPath)}`;
+  private async loadDocument(): Promise<void> {
+    this.postMessage({ type: 'loading', loading: true });
 
     try {
-      const payload = await this.parserService.loadFile(uri);
-      this.postMessage({ type: 'csvData', data: payload });
+      this.document = await this.parserService.loadDocument(this.currentUri);
+      this.pageOffset = 0;
+      this.panel.title = `Preview: ${this.document.fileName}`;
+      this.sendCurrentPage();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to load CSV file';
       this.postMessage({ type: 'error', message: msg });
+    } finally {
+      this.postMessage({ type: 'loading', loading: false });
     }
   }
 
-  private async loadMore(currentRows: number): Promise<void> {
-    try {
-      const payload = await this.parserService.loadMoreRows(this.currentUri, currentRows);
-      this.postMessage({ type: 'moreRows', data: payload });
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Failed to load more rows';
-      this.postMessage({ type: 'error', message: msg });
-    }
+  private sendCurrentPage(): void {
+    if (!this.document) { return; }
+
+    const pageSize = this.config.pageSize;
+    const rows = this.document.getPage(0, this.pageOffset + pageSize);
+    const filteredCount = this.document.getFilteredRowCount();
+
+    const payload: DataPagePayload = {
+      headers: this.document.headers,
+      rows,
+      totalRows: this.document.getTotalRows(),
+      filteredRows: filteredCount,
+      pageOffset: 0,
+      pageSize: this.pageOffset + pageSize,
+      hasMore: (this.pageOffset + pageSize) < filteredCount,
+      delimiter: this.document.delimiter,
+      fileName: this.document.fileName,
+      fileSize: this.document.fileSize,
+      sort: this.document.getSortState(),
+      filters: this.document.getFilters(),
+      searchTerm: this.document.getSearchTerm(),
+    };
+
+    this.postMessage({ type: 'dataPage', data: payload });
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -133,6 +202,7 @@ export class CsvPreviewPanel {
 
   private dispose(): void {
     CsvPreviewPanel.panels.delete(this.currentUri.toString());
+    this.document = null;
 
     while (this.disposables.length) {
       const d = this.disposables.pop();
@@ -191,7 +261,7 @@ export class CsvPreviewPanel {
       </div>
     </div>
 
-    <div id="loadingContainer" class="loading-container">
+    <div id="loadingContainer" class="loading-container hidden">
       <div class="spinner"></div>
       <div>Loading CSV...</div>
     </div>

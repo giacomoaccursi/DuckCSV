@@ -1,5 +1,5 @@
 /**
- * CSV Table View Extension — Entry Point
+ * CSV Enhanced Extension — Entry Point
  *
  * Bootstraps services and registers commands.
  */
@@ -13,10 +13,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const configService = new ConfigService();
   const parserService = new CsvParserService(configService);
 
-  // Ensure config listener is cleaned up on deactivation
   context.subscriptions.push(configService);
 
-  registerPreviewCommands(context, parserService);
+  registerPreviewCommands(context, parserService, configService);
 }
 
 export function deactivate(): void {

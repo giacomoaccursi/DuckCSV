@@ -1,5 +1,5 @@
 /**
- * CSV Table View Styles
+ * CSV Enhanced Styles
  */
 
 :root {
@@ -294,7 +294,6 @@ body {
     background-color: var(--hover-bg);
 }
 
-/* Sortable Headers */
 #csvTable thead th.sortable-header {
     cursor: pointer;
     transition: background-color 0.15s;
@@ -305,20 +304,143 @@ body {
 }
 
 #csvTable thead th.sort-active {
-    color: var(--accent-color);
     border-bottom-color: var(--accent-color);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow: hidden;
 }
 
 .header-text {
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
 }
 
 .sort-indicator {
     font-size: 10px;
-    opacity: 0.9;
-    margin-left: 4px;
     flex-shrink: 0;
+}
+
+/* Filter Button */
+.filter-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--fg-secondary);
+    cursor: pointer;
+    border-radius: 2px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background-color 0.15s;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.filter-btn:hover {
+    opacity: 1;
+    background-color: var(--hover-bg);
+}
+
+.filter-btn.filter-active {
+    opacity: 1;
+    color: var(--accent-color);
+}
+
+/* Filter Dropdown */
+.filter-dropdown {
+    position: fixed;
+    z-index: 1000;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 220px;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    max-height: 400px;
+}
+
+.filter-dropdown-loading {
+    padding: 16px;
+    text-align: center;
+    color: var(--fg-secondary);
+    font-size: 12px;
+}
+
+.filter-search {
+    padding: 8px 10px;
+    margin: 8px 8px 4px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, transparent);
+    border-radius: 2px;
+    font-size: 12px;
+    outline: none;
+}
+
+.filter-search:focus {
+    border-color: var(--accent-color);
+}
+
+.filter-btn-row {
+    display: flex;
+    gap: 4px;
+    padding: 4px 8px;
+}
+
+.btn-sm {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.filter-values-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 250px;
+    padding: 4px 0;
+}
+
+.filter-value-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.filter-value-item:hover {
+    background-color: var(--hover-bg);
+}
+
+.filter-value-item input[type="checkbox"] {
+    flex-shrink: 0;
+}
+
+.filter-value-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.filter-apply-btn {
+    margin: 8px;
+}
+
+/* Empty state */
+.empty-message {
+    text-align: center;
+    padding: 24px;
+    color: var(--fg-secondary);
+    font-style: italic;
 }
 
 /* Search highlight in cells */
