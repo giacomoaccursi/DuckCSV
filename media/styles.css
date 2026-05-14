@@ -41,6 +41,100 @@ body {
     flex-direction: column;
 }
 
+/* Tables Bar (Workspace) */
+.tables-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.tables-bar-label {
+    font-size: 11px;
+    color: var(--fg-secondary);
+    font-weight: 600;
+}
+
+.tables-bar-list {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tables-bar-empty {
+    font-size: 11px;
+    color: var(--fg-secondary);
+    font-style: italic;
+}
+
+.table-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background-color: var(--vscode-badge-background, rgba(128,128,128,0.2));
+    color: var(--fg-primary);
+    border-radius: 10px;
+    font-size: 11px;
+}
+
+.table-chip-name {
+    white-space: nowrap;
+}
+
+.table-chip-remove {
+    border: none;
+    background: transparent;
+    color: var(--fg-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+.table-chip-remove:hover {
+    color: var(--error-color);
+}
+
+/* Table Dropdown */
+.table-dropdown {
+    padding: 4px 8px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, transparent);
+    border-radius: 2px;
+    font-size: 12px;
+    outline: none;
+}
+
+.table-dropdown:focus {
+    border-color: var(--accent-color);
+}
+
+/* Empty State (Workspace) */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--fg-secondary);
+    flex: 1;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+}
+
+.empty-state-text {
+    font-size: 14px;
+}
+
 /* Mode Banner */
 .mode-banner {
     padding: 6px 12px;

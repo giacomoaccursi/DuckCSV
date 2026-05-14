@@ -4,5 +4,6 @@ node_modules
 .vscode-test/
 *.vsix
 
-# Generated bundle (source is in media/src/)
+# Generated bundles (source is in media/src/)
 media/script.js
+media/workspace.js

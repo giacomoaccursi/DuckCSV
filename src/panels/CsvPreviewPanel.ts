@@ -11,7 +11,6 @@
 
 import * as vscode from 'vscode';
 import { basename } from 'path';
-import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { TableExporter } from '../services/TableExporter';
@@ -54,7 +53,6 @@ export class CsvPreviewPanel {
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    _engine: DuckDbEngine,
     tableManager: TableManager,
     queryExecutor: QueryExecutor,
     tableExporter: TableExporter,

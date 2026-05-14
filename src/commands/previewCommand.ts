@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { extname, basename, dirname, join } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
+import { CsvWorkspacePanel } from '../panels/CsvWorkspacePanel';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
@@ -16,11 +17,11 @@ const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
 export type EditMode = 'readonly' | 'edit';
 
 /**
- * Register all preview/edit commands.
+ * Register all commands.
  */
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
-  engine: DuckDbEngine,
+  _engine: DuckDbEngine,
   tableManager: TableManager,
   queryExecutor: QueryExecutor,
   tableExporter: TableExporter,
@@ -29,22 +30,25 @@ export function registerPreviewCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'csv-enhanced.preview',
-      (uri?: vscode.Uri) => openPreview(context, engine, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'readonly')
+      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'readonly')
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, engine, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside, 'readonly')
+      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside, 'readonly')
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.edit',
-      (uri?: vscode.Uri) => openPreview(context, engine, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'edit')
+      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'edit')
+    ),
+    vscode.commands.registerCommand(
+      'csv-enhanced.workspace',
+      (uri?: vscode.Uri) => openWorkspace(context, tableManager, queryExecutor, configService, uri)
     )
   );
 }
 
 async function openPreview(
   context: vscode.ExtensionContext,
-  engine: DuckDbEngine,
   tableManager: TableManager,
   queryExecutor: QueryExecutor,
   tableExporter: TableExporter,
@@ -68,7 +72,6 @@ async function openPreview(
     return;
   }
 
-  // In readonly mode, compute the _edit output path (modifications go there)
   let savePath: string;
   if (mode === 'edit') {
     savePath = resolvedUri.fsPath;
@@ -78,5 +81,33 @@ async function openPreview(
     savePath = join(dir, `${name}_edit${ext}`);
   }
 
-  CsvPreviewPanel.createOrShow(context.extensionUri, engine, tableManager, queryExecutor, tableExporter, configService, resolvedUri, viewColumn, mode, savePath);
+  CsvPreviewPanel.createOrShow(context.extensionUri, tableManager, queryExecutor, tableExporter, configService, resolvedUri, viewColumn, mode, savePath);
+}
+
+async function openWorkspace(
+  context: vscode.ExtensionContext,
+  tableManager: TableManager,
+  queryExecutor: QueryExecutor,
+  configService: ConfigService,
+  uri?: vscode.Uri
+): Promise<void> {
+  // If called with a URI, validate it
+  let initialUri: vscode.Uri | undefined;
+  if (uri) {
+    const ext = extname(uri.fsPath).toLowerCase();
+    if (SUPPORTED_EXTENSIONS.has(ext)) {
+      initialUri = uri;
+    }
+  } else {
+    // Try active editor
+    const activeUri = vscode.window.activeTextEditor?.document.uri;
+    if (activeUri) {
+      const ext = extname(activeUri.fsPath).toLowerCase();
+      if (SUPPORTED_EXTENSIONS.has(ext)) {
+        initialUri = activeUri;
+      }
+    }
+  }
+
+  CsvWorkspacePanel.createOrShow(context.extensionUri, tableManager, queryExecutor, configService, initialUri);
 }

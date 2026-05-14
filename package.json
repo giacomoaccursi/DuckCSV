@@ -34,7 +34,8 @@
     "activationEvents": [
         "onCommand:csv-enhanced.preview",
         "onCommand:csv-enhanced.previewToSide",
-        "onCommand:csv-enhanced.edit"
+        "onCommand:csv-enhanced.edit",
+        "onCommand:csv-enhanced.workspace"
     ],
     "main": "./dist/extension.js",
     "contributes": {
@@ -56,6 +57,12 @@
                 "title": "Open Preview (Edit)",
                 "category": "CSV",
                 "icon": "$(edit)"
+            },
+            {
+                "command": "csv-enhanced.workspace",
+                "title": "Open Workspace",
+                "category": "CSV",
+                "icon": "$(multiple-windows)"
             }
         ],
         "menus": {
@@ -98,6 +105,10 @@
                 },
                 {
                     "command": "csv-enhanced.edit",
+                    "when": "true"
+                },
+                {
+                    "command": "csv-enhanced.workspace",
                     "when": "true"
                 }
             ]
@@ -194,7 +205,7 @@
         "vscode:prepublish": "pnpm run package",
         "compile": "npm run build:webview && webpack",
         "watch": "webpack --watch",
-        "build:webview": "esbuild media/src/main.js --bundle --outfile=media/script.js --format=iife --target=es2020",
+        "build:webview": "esbuild media/src/main.js --bundle --outfile=media/script.js --format=iife --target=es2020 && esbuild media/src/workspace-main.js --bundle --outfile=media/workspace.js --format=iife --target=es2020",
         "package": "npm run build:webview && webpack --mode production --devtool hidden-source-map",
         "compile-tests": "tsc -p . --outDir out",
         "watch-tests": "tsc -p . -w --outDir out",
