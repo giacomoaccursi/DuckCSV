@@ -155,10 +155,10 @@ export class TableManager {
     const colName = this.quoteIdentifier(headers[columnIndex]);
     const quoted = this.quoteIdentifier(tableName);
     const result = conn.query(
-      `SELECT DISTINCT ${colName} FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != '' ORDER BY ${colName}`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${quoted} WHERE ${colName} IS NOT NULL ORDER BY ${colName}`
     );
 
-    return this.arrowTableToRows(result).map((row: string[]) => row[0]);
+    return this.arrowTableToRows(result).map((row: string[]) => row[0]).filter(v => v !== '');
   }
 
   async updateCell(tableName: string, rowid: number, columnIndex: number, value: string): Promise<void> {
