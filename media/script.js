@@ -66,6 +66,7 @@
   }
 
   function handleExtensionMessage(message) {
+    console.log('[CSV Enhanced] Received message:', message.type, message);
     switch (message.type) {
       case 'dataPage':
         onDataPageReceived(message.data);
@@ -79,6 +80,8 @@
       case 'error':
         showError(message.message);
         break;
+      default:
+        console.warn('[CSV Enhanced] Unknown message type:', message.type);
     }
   }
 
@@ -500,8 +503,10 @@
   // ─── 7. Init & Event Binding ──────────────────────────────────────────────
 
   function init() {
+    console.log('[CSV Enhanced] Webview init started');
     bindEvents();
     showLoading();
+    console.log('[CSV Enhanced] Sending ready message');
     sendMessage({ type: 'ready' });
   }
 

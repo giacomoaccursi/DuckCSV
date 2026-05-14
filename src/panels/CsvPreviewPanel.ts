@@ -73,19 +73,21 @@ export class CsvPreviewPanel {
     this.config = config;
     this.currentUri = uri;
 
-    this.panel.webview.html = this.buildHtml();
-
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
       (msg: WebviewMessage) => this.handleMessage(msg),
       null,
       this.disposables
     );
+
+    // Set HTML last — script will send 'ready' when loaded
+    this.panel.webview.html = this.buildHtml();
   }
 
   // ─── Message Handling ────────────────────────────────────────────────────
 
   private async handleMessage(message: WebviewMessage): Promise<void> {
+    console.log('[CSV Enhanced] Panel received message:', message.type);
     switch (message.type) {
       case 'ready':
         await this.loadDocument();
@@ -153,15 +155,18 @@ export class CsvPreviewPanel {
   // ─── Data Loading ────────────────────────────────────────────────────────
 
   private async loadDocument(): Promise<void> {
+    console.log('[CSV Enhanced] loadDocument called for:', this.currentUri.fsPath);
     this.postMessage({ type: 'loading', loading: true });
 
     try {
       this.document = await this.parserService.loadDocument(this.currentUri);
+      console.log('[CSV Enhanced] Document loaded:', this.document.getTotalRows(), 'rows');
       this.pageOffset = 0;
       this.panel.title = `Preview: ${this.document.fileName}`;
       this.sendCurrentPage();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to load CSV file';
+      console.error('[CSV Enhanced] loadDocument error:', msg);
       this.postMessage({ type: 'error', message: msg });
     } finally {
       this.postMessage({ type: 'loading', loading: false });
@@ -174,6 +179,8 @@ export class CsvPreviewPanel {
     const pageSize = this.config.pageSize;
     const rows = this.document.getPage(0, this.pageOffset + pageSize);
     const filteredCount = this.document.getFilteredRowCount();
+
+    console.log('[CSV Enhanced] sendCurrentPage: rows=', rows.length, 'filtered=', filteredCount);
 
     const payload: DataPagePayload = {
       headers: this.document.headers,
