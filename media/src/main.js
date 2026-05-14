@@ -13,7 +13,7 @@ import { showLoading, hideLoading, showTable, showError, toggleLoadMore, updateS
 import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { onQueryResult, clearQuery, resetQueryState, isQueryActive, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection, handleSelectAll } from './selection.js';
 
 const DEBOUNCE_MS = 300;
@@ -177,9 +177,11 @@ function bindEvents() {
       if (isNaN(colIdx)) { return; }
 
       // Normal click → sort (delayed for dblclick disambiguation)
+      // Ignore sort when query results are displayed
       if (headerClickTimer) { clearTimeout(headerClickTimer); }
       headerClickTimer = setTimeout(() => {
         headerClickTimer = null;
+        if (isQueryActive()) { return; }
         let newDirection = 'asc';
         if (state.sort.columnIndex === colIdx) {
           if (state.sort.direction === 'asc') { newDirection = 'desc'; }

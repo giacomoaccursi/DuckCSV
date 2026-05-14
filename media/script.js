@@ -632,6 +632,9 @@
 
   // media/src/query.js
   var queryActive = false;
+  function isQueryActive() {
+    return queryActive;
+  }
   function onQueryResult(data) {
     if (data.error) {
       showQueryError(data.error);
@@ -1168,6 +1171,9 @@
         }
         headerClickTimer = setTimeout(() => {
           headerClickTimer = null;
+          if (isQueryActive()) {
+            return;
+          }
           let newDirection = "asc";
           if (state.sort.columnIndex === colIdx) {
             if (state.sort.direction === "asc") {
