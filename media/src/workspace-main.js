@@ -40,7 +40,7 @@ function onDataPageReceived(data) {
   resetQueryState();
 
   state.headers = data.headers;
-  state.originalHeaders = data.headers;
+  // Don't overwrite originalHeaders — it's set by onTableListReceived with all table names + columns
   state.columnTypes = data.columnTypes || [];
   state.rows = data.rows;
   state.rowids = data.rowids || [];
