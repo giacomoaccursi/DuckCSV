@@ -992,6 +992,17 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
+  function insertAtCursor(input, text) {
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const value = input.value;
+    const needsSpace = start > 0 && value[start - 1] !== ' ' ? ' ' : '';
+    input.value = value.slice(0, start) + needsSpace + text + ' ' + value.slice(end);
+    const newPos = start + needsSpace.length + text.length + 1;
+    input.setSelectionRange(newPos, newPos);
+    input.focus();
+  }
+
   // ─── 9. Init & Event Binding ──────────────────────────────────────────────
 
   function init() {
@@ -1096,6 +1107,14 @@
 
         const colIdx = parseInt(th.dataset.columnIndex, 10);
         if (isNaN(colIdx)) { return; }
+
+        // If query input has focus, insert column name into query
+        if (dom.queryInput && dom.queryInput === document.activeElement) {
+          const colName = state.headers[colIdx] || '';
+          const quoted = /[^a-zA-Z0-9_]/.test(colName) ? `"${colName}"` : colName;
+          insertAtCursor(dom.queryInput, quoted);
+          return;
+        }
 
         let newDirection = 'asc';
         if (state.sort.columnIndex === colIdx) {
