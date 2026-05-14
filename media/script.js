@@ -1108,14 +1108,6 @@
         const colIdx = parseInt(th.dataset.columnIndex, 10);
         if (isNaN(colIdx)) { return; }
 
-        // If query input has focus, insert column name into query
-        if (dom.queryInput && dom.queryInput === document.activeElement) {
-          const colName = state.headers[colIdx] || '';
-          const quoted = /[^a-zA-Z0-9_]/.test(colName) ? `"${colName}"` : colName;
-          insertAtCursor(dom.queryInput, quoted);
-          return;
-        }
-
         let newDirection = 'asc';
         if (state.sort.columnIndex === colIdx) {
           if (state.sort.direction === 'asc') { newDirection = 'desc'; }
@@ -1123,6 +1115,21 @@
         }
 
         sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+      });
+
+      // Double-click header to insert column name into query
+      dom.tableHeader.addEventListener('dblclick', (e) => {
+        if (e.target.closest('.filter-btn')) { return; }
+        if (e.target.closest('.resize-handle')) { return; }
+        const th = e.target.closest('th.sortable-header');
+        if (!th || !dom.queryInput) { return; }
+
+        const colIdx = parseInt(th.dataset.columnIndex, 10);
+        if (isNaN(colIdx)) { return; }
+
+        const colName = state.headers[colIdx] || '';
+        const quoted = /[^a-zA-Z0-9_]/.test(colName) ? `"${colName}"` : colName;
+        insertAtCursor(dom.queryInput, quoted);
       });
 
       // Column resize (delegated mousedown on resize handles)
