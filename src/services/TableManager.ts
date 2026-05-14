@@ -152,7 +152,7 @@ export class TableManager {
     const colName = this.quoteIdentifier(headers[columnIndex]);
     const quoted = this.quoteIdentifier(tableName);
     const result = await this.engine.query(
-      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${quoted} WHERE ${colName} IS NOT NULL ORDER BY ${colName}`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${quoted} WHERE ${colName} IS NOT NULL ORDER BY ${colName} LIMIT 1000`
     );
 
     return result.rows.map(row => row[0]).filter(v => v !== '');
