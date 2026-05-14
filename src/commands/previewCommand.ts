@@ -57,11 +57,17 @@ async function openPreview(
   viewColumn: vscode.ViewColumn,
   mode: EditMode
 ): Promise<void> {
-  const resolvedUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+  let resolvedUri = uri ?? vscode.window.activeTextEditor?.document.uri;
 
   if (!resolvedUri) {
-    vscode.window.showErrorMessage('No CSV file to preview. Please open a CSV file first.');
-    return;
+    // No active editor — open file picker
+    const picked = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      filters: { 'CSV Files': ['csv', 'tsv'] },
+      title: 'Select a CSV file to preview',
+    });
+    if (!picked || picked.length === 0) { return; }
+    resolvedUri = picked[0];
   }
 
   const ext = extname(resolvedUri.fsPath).toLowerCase();
