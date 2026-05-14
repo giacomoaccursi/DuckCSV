@@ -14,6 +14,15 @@ export interface SortState {
 /** Map of columnIndex → selected values */
 export type ColumnFilters = Record<number, string[]>;
 
+// ─── Table Info (Workspace) ──────────────────────────────────────────────────
+
+export interface TableInfo {
+  name: string;
+  headers: string[];
+  rowCount: number;
+  filePath: string;
+}
+
 // ─── Webview Payloads ────────────────────────────────────────────────────────
 
 export interface DataPagePayload {
@@ -64,7 +73,8 @@ export type ExtensionMessage =
   | { type: 'queryResult'; data: QueryResultPayload }
   | { type: 'modeInfo'; mode: 'readonly' | 'edit'; savePath: string }
   | { type: 'error'; message: string }
-  | { type: 'loading'; loading: boolean };
+  | { type: 'loading'; loading: boolean }
+  | { type: 'tableList'; tables: TableInfo[] };
 
 // ─── Messages: Webview → Extension ──────────────────────────────────────────
 
@@ -82,4 +92,7 @@ export type WebviewMessage =
   | { type: 'executeQuery'; sql: string; mode: 'inline' | 'side' }
   | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }
-  | { type: 'openAsText' };
+  | { type: 'openAsText' }
+  | { type: 'addTable'; filePath: string }
+  | { type: 'removeTable'; tableName: string }
+  | { type: 'switchTable'; tableName: string };

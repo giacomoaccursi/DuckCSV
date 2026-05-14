@@ -11,7 +11,10 @@
 
 import * as vscode from 'vscode';
 import { basename } from 'path';
-import { DuckDbService } from '../services/DuckDbService';
+import { DuckDbEngine } from '../services/DuckDbEngine';
+import { TableManager } from '../services/TableManager';
+import { QueryExecutor } from '../services/QueryExecutor';
+import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
 import { WebviewMessage, ExtensionMessage, DataPagePayload, SortState, ColumnFilters } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
@@ -24,13 +27,16 @@ export class CsvPreviewPanel {
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
-  private readonly duckDb: DuckDbService;
+  private readonly tableManager: TableManager;
+  private readonly queryExecutor: QueryExecutor;
+  private readonly tableExporter: TableExporter;
   private readonly config: ConfigService;
   private readonly disposables: vscode.Disposable[] = [];
   private readonly mode: EditMode;
   private readonly savePath: string;
 
   private currentUri: vscode.Uri;
+  private tableName: string = '';
   private fileName: string = '';
   private fileSize: number = 0;
   private delimiter: string = '';
@@ -48,7 +54,10 @@ export class CsvPreviewPanel {
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    duckDb: DuckDbService,
+    _engine: DuckDbEngine,
+    tableManager: TableManager,
+    queryExecutor: QueryExecutor,
+    tableExporter: TableExporter,
     config: ConfigService,
     uri: vscode.Uri,
     viewColumn: vscode.ViewColumn | undefined,
@@ -79,7 +88,7 @@ export class CsvPreviewPanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, duckDb, config, uri, mode, savePath);
+    const instance = new CsvPreviewPanel(panel, extensionUri, tableManager, queryExecutor, tableExporter, config, uri, mode, savePath);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -88,7 +97,9 @@ export class CsvPreviewPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    duckDb: DuckDbService,
+    tableManager: TableManager,
+    queryExecutor: QueryExecutor,
+    tableExporter: TableExporter,
     config: ConfigService,
     uri: vscode.Uri,
     mode: EditMode,
@@ -96,7 +107,9 @@ export class CsvPreviewPanel {
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
-    this.duckDb = duckDb;
+    this.tableManager = tableManager;
+    this.queryExecutor = queryExecutor;
+    this.tableExporter = tableExporter;
     this.config = config;
     this.currentUri = uri;
     this.mode = mode;
@@ -160,6 +173,11 @@ export class CsvPreviewPanel {
       case 'openAsText':
         await vscode.window.showTextDocument(this.currentUri);
         return;
+      case 'addTable':
+      case 'removeTable':
+      case 'switchTable':
+        // Workspace messages — handled by workspace panel (future)
+        return;
     }
   }
 
@@ -173,9 +191,15 @@ export class CsvPreviewPanel {
       this.fileSize = stat.size;
       this.fileName = basename(this.currentUri.fsPath);
 
-      const meta = await this.duckDb.loadFile(this.currentUri);
+      // Drop previous table if it was loaded for this panel
+      if (this.tableName) {
+        await this.tableManager.dropTable(this.tableName);
+      }
+
+      const meta = await this.tableManager.loadTable(this.currentUri, 'csv');
+      this.tableName = meta.name;
       this.headers = meta.headers;
-      this.totalRows = meta.totalRows;
+      this.totalRows = meta.rowCount;
       this.delimiter = meta.delimiter;
 
       this.panel.title = `Preview: ${this.fileName}`;
@@ -192,7 +216,7 @@ export class CsvPreviewPanel {
       const pageSize = this.config.pageSize;
       const limit = this.pageOffset + pageSize;
 
-      const result = await this.duckDb.getDataPage({
+      const result = await this.tableManager.getDataPage(this.tableName, {
         filters: this.filters,
         sort: this.sort,
         searchTerm: this.searchTerm,
@@ -228,7 +252,7 @@ export class CsvPreviewPanel {
 
   private async handleGetColumnValues(columnIndex: number): Promise<void> {
     try {
-      const values = await this.duckDb.getUniqueValues(columnIndex);
+      const values = await this.tableManager.getUniqueValues(this.tableName, columnIndex);
       this.postMessage({
         type: 'columnValues',
         data: { columnIndex, values, totalCount: values.length },
@@ -240,7 +264,7 @@ export class CsvPreviewPanel {
 
   private async handleEditCell(rowid: number, columnIndex: number, value: string): Promise<void> {
     try {
-      await this.duckDb.updateCell(rowid, columnIndex, value);
+      await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
       this.isDirty = true;
       await this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
@@ -251,7 +275,7 @@ export class CsvPreviewPanel {
 
   private async handleAddRow(): Promise<void> {
     try {
-      await this.duckDb.addRow();
+      await this.tableManager.addRow(this.tableName);
       this.totalRows++;
       this.isDirty = true;
       this.filters = {};
@@ -266,7 +290,7 @@ export class CsvPreviewPanel {
 
   private async handleDeleteRow(rowid: number): Promise<void> {
     try {
-      await this.duckDb.deleteRow(rowid);
+      await this.tableManager.deleteRow(this.tableName, rowid);
       this.totalRows--;
       this.isDirty = true;
       await this.persistToDisk();
@@ -280,7 +304,7 @@ export class CsvPreviewPanel {
 
   private async persistToDisk(): Promise<void> {
     try {
-      await this.duckDb.exportToCsv(this.savePath);
+      await this.tableExporter.exportTable(this.tableName, this.savePath);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to save file';
       vscode.window.showErrorMessage(`CSV save error: ${msg}`);
@@ -288,7 +312,7 @@ export class CsvPreviewPanel {
   }
 
   private async handleQuery(sql: string, mode: 'inline' | 'side'): Promise<void> {
-    const result = await this.duckDb.executeQuery(sql);
+    const result = await this.queryExecutor.execute(sql, this.tableName);
     const payload = { ...result, sql };
 
     if (mode === 'inline') {

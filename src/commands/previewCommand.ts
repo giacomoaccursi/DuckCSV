@@ -5,7 +5,10 @@
 import * as vscode from 'vscode';
 import { extname, basename, dirname, join } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
-import { DuckDbService } from '../services/DuckDbService';
+import { DuckDbEngine } from '../services/DuckDbEngine';
+import { TableManager } from '../services/TableManager';
+import { QueryExecutor } from '../services/QueryExecutor';
+import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
 
 const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
@@ -17,28 +20,34 @@ export type EditMode = 'readonly' | 'edit';
  */
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
-  duckDb: DuckDbService,
+  engine: DuckDbEngine,
+  tableManager: TableManager,
+  queryExecutor: QueryExecutor,
+  tableExporter: TableExporter,
   configService: ConfigService
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'csv-enhanced.preview',
-      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Active, 'readonly')
+      (uri?: vscode.Uri) => openPreview(context, engine, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'readonly')
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Beside, 'readonly')
+      (uri?: vscode.Uri) => openPreview(context, engine, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside, 'readonly')
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.edit',
-      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Active, 'edit')
+      (uri?: vscode.Uri) => openPreview(context, engine, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'edit')
     )
   );
 }
 
 async function openPreview(
   context: vscode.ExtensionContext,
-  duckDb: DuckDbService,
+  engine: DuckDbEngine,
+  tableManager: TableManager,
+  queryExecutor: QueryExecutor,
+  tableExporter: TableExporter,
   configService: ConfigService,
   uri: vscode.Uri | undefined,
   viewColumn: vscode.ViewColumn,
@@ -69,5 +78,5 @@ async function openPreview(
     savePath = join(dir, `${name}_edit${ext}`);
   }
 
-  CsvPreviewPanel.createOrShow(context.extensionUri, duckDb, configService, resolvedUri, viewColumn, mode, savePath);
+  CsvPreviewPanel.createOrShow(context.extensionUri, engine, tableManager, queryExecutor, tableExporter, configService, resolvedUri, viewColumn, mode, savePath);
 }
