@@ -208,8 +208,8 @@ export class TableManager {
     const colName = this.quoteIdentifier(headers[columnIndex]);
     const quoted = this.quoteIdentifier(tableName);
 
-    // Try INTEGER first, then BIGINT, then DOUBLE, then DATE
-    const candidates = ['INTEGER', 'BIGINT', 'DOUBLE', 'DATE'];
+    // Try types from most restrictive to least
+    const candidates = ['BOOLEAN', 'BIGINT', 'DOUBLE', 'DATE', 'TIMESTAMP'];
 
     for (const targetType of candidates) {
       try {
