@@ -102,6 +102,10 @@ export class CsvWorkspacePanel {
   private async handleMessage(message: WebviewMessage): Promise<void> {
     switch (message.type) {
       case 'ready':
+        // Start fresh — drop all previously loaded tables
+        await this.tableManager.dropAllTables();
+        this.activeTable = '';
+
         if (this.pendingInitialUri) {
           await this.addTableFromUri(this.pendingInitialUri);
           this.pendingInitialUri = undefined;

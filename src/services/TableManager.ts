@@ -80,6 +80,14 @@ export class TableManager {
     this.tables.delete(name);
   }
 
+  async dropAllTables(): Promise<void> {
+    const conn = await this.engine.getConnection();
+    for (const name of this.tables.keys()) {
+      conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
+    }
+    this.tables.clear();
+  }
+
   getLoadedTables(): TableMeta[] {
     return Array.from(this.tables.values());
   }
