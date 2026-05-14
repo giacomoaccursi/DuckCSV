@@ -294,6 +294,33 @@ body {
     background-color: var(--hover-bg);
 }
 
+/* Sortable Headers */
+#csvTable thead th.sortable-header {
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+#csvTable thead th.sortable-header:hover {
+    background-color: var(--hover-bg);
+}
+
+#csvTable thead th.sort-active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+.header-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sort-indicator {
+    font-size: 10px;
+    opacity: 0.9;
+    margin-left: 4px;
+    flex-shrink: 0;
+}
+
 /* Search highlight in cells */
 .search-match {
     background-color: var(--vscode-editor-findMatchBackground);
