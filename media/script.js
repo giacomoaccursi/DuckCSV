@@ -72,6 +72,11 @@
     addRowBtn: document.getElementById('addRowBtn'),
     loadMoreBtn: document.getElementById('loadMoreBtn'),
     loadMoreContainer: document.getElementById('loadMoreContainer'),
+    queryInput: document.getElementById('queryInput'),
+    queryRunBtn: document.getElementById('queryRunBtn'),
+    querySideBtn: document.getElementById('querySideBtn'),
+    queryClearBtn: document.getElementById('queryClearBtn'),
+    queryError: document.getElementById('queryError'),
   };
 
   // ─── 3. Messaging ─────────────────────────────────────────────────────────
@@ -90,6 +95,9 @@
         break;
       case 'cellEditConfirm':
         onCellEditConfirm();
+        break;
+      case 'queryResult':
+        onQueryResult(message.data);
         break;
       case 'loading':
         message.loading ? showLoading() : hideLoading();
@@ -484,6 +492,90 @@
     updateStats();
   }
 
+  // ─── 8. Query Results ─────────────────────────────────────────────────────
+
+  let queryActive = false;
+
+  function onQueryResult(data) {
+    if (data.error) {
+      showQueryError(data.error);
+      return;
+    }
+
+    hideQueryError();
+    queryActive = true;
+    toggle(dom.queryClearBtn, true);
+
+    // Render query result in the table (different headers/rows)
+    state.headers = data.headers;
+    state.rows = data.rows;
+    state.originalIndices = [];
+    state.filteredRows = data.rowCount;
+    state.totalRows = data.rowCount;
+    state.hasMore = false;
+
+    renderHeader();
+    renderQueryRows(data.rows, data.headers);
+    showTable();
+    toggleLoadMore(false);
+
+    if (dom.stats) {
+      dom.stats.textContent = `Query: ${data.rowCount} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
+    }
+  }
+
+  function renderQueryRows(rows, headers) {
+    if (!dom.tableBody) { return; }
+
+    if (rows.length === 0) {
+      dom.tableBody.innerHTML = '<tr><td colspan="100" class="empty-message">No results</td></tr>';
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < rows.length; i++) {
+      const tr = document.createElement('tr');
+
+      const numTd = document.createElement('td');
+      numTd.className = 'row-number';
+      numTd.textContent = i + 1;
+      tr.appendChild(numTd);
+
+      rows[i].forEach((cell) => {
+        const td = document.createElement('td');
+        td.textContent = cell || '';
+        td.title = cell || '';
+        tr.appendChild(td);
+      });
+
+      fragment.appendChild(tr);
+    }
+
+    dom.tableBody.innerHTML = '';
+    dom.tableBody.appendChild(fragment);
+  }
+
+  function clearQuery() {
+    queryActive = false;
+    toggle(dom.queryClearBtn, false);
+    hideQueryError();
+    if (dom.queryInput) { dom.queryInput.value = ''; }
+    sendMessage({ type: 'clearQuery' });
+  }
+
+  function showQueryError(msg) {
+    if (dom.queryError) {
+      dom.queryError.textContent = msg;
+      dom.queryError.classList.remove('hidden');
+    }
+  }
+
+  function hideQueryError() {
+    if (dom.queryError) {
+      dom.queryError.classList.add('hidden');
+    }
+  }
+
   // ─── 8. UI Helpers ────────────────────────────────────────────────────────
 
   function onDataPageReceived(data) {
@@ -696,6 +788,37 @@
 
     if (dom.addRowBtn) {
       dom.addRowBtn.addEventListener('click', () => sendMessage({ type: 'addRow' }));
+    }
+
+    // Query bar
+    if (dom.queryRunBtn) {
+      dom.queryRunBtn.addEventListener('click', () => {
+        const sql = dom.queryInput ? dom.queryInput.value.trim() : '';
+        if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
+      });
+    }
+
+    if (dom.querySideBtn) {
+      dom.querySideBtn.addEventListener('click', () => {
+        const sql = dom.queryInput ? dom.queryInput.value.trim() : '';
+        if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'side' }); }
+      });
+    }
+
+    if (dom.queryClearBtn) {
+      dom.queryClearBtn.addEventListener('click', () => clearQuery());
+    }
+
+    if (dom.queryInput) {
+      dom.queryInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const sql = dom.queryInput.value.trim();
+          if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
+        } else if (e.key === 'Escape') {
+          if (queryActive) { clearQuery(); }
+        }
+      });
     }
 
     if (dom.loadMoreBtn) {

@@ -7,9 +7,10 @@ import * as vscode from 'vscode';
 import { basename } from 'path';
 import { CsvParserService } from '../services/CsvParserService';
 import { CsvWriterService } from '../services/CsvWriterService';
+import { QueryService } from '../services/QueryService';
 import { ConfigService } from '../services/ConfigService';
 import { CsvDocument } from '../models/CsvDocument';
-import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
+import { WebviewMessage, ExtensionMessage, DataPagePayload, QueryResultPayload } from '../types';
 import { getNonce } from '../utils/nonce';
 
 export class CsvPreviewPanel {
@@ -20,6 +21,7 @@ export class CsvPreviewPanel {
   private readonly extensionUri: vscode.Uri;
   private readonly parserService: CsvParserService;
   private readonly writerService: CsvWriterService;
+  private readonly queryService: QueryService;
   private readonly config: ConfigService;
   private readonly disposables: vscode.Disposable[] = [];
 
@@ -33,6 +35,7 @@ export class CsvPreviewPanel {
     extensionUri: vscode.Uri,
     parserService: CsvParserService,
     writerService: CsvWriterService,
+    queryService: QueryService,
     config: ConfigService,
     uri: vscode.Uri,
     viewColumn?: vscode.ViewColumn
@@ -57,7 +60,7 @@ export class CsvPreviewPanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, parserService, writerService, config, uri);
+    const instance = new CsvPreviewPanel(panel, extensionUri, parserService, writerService, queryService, config, uri);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -68,6 +71,7 @@ export class CsvPreviewPanel {
     extensionUri: vscode.Uri,
     parserService: CsvParserService,
     writerService: CsvWriterService,
+    queryService: QueryService,
     config: ConfigService,
     uri: vscode.Uri
   ) {
@@ -75,6 +79,7 @@ export class CsvPreviewPanel {
     this.extensionUri = extensionUri;
     this.parserService = parserService;
     this.writerService = writerService;
+    this.queryService = queryService;
     this.config = config;
     this.currentUri = uri;
 
@@ -153,6 +158,14 @@ export class CsvPreviewPanel {
         this.handleDeleteRow(message.originalRowIndex);
         break;
 
+      case 'executeQuery':
+        this.handleQuery(message.sql, message.mode);
+        break;
+
+      case 'clearQuery':
+        this.sendCurrentPage();
+        break;
+
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(message.text);
         vscode.window.showInformationMessage('Copied to clipboard');
@@ -206,6 +219,95 @@ export class CsvPreviewPanel {
 
     // Re-send current page (indices have shifted)
     this.sendCurrentPage();
+  }
+
+  // ─── Query Execution ─────────────────────────────────────────────────────
+
+  private handleQuery(sql: string, mode: 'inline' | 'side'): void {
+    if (!this.document) { return; }
+
+    const result = this.queryService.execute(this.document, sql);
+
+    const payload: QueryResultPayload = {
+      headers: result.headers,
+      rows: result.rows,
+      rowCount: result.rowCount,
+      executionTimeMs: result.executionTimeMs,
+      sql,
+      error: result.error,
+    };
+
+    if (mode === 'inline') {
+      this.postMessage({ type: 'queryResult', data: payload });
+    } else {
+      // Open result in a side panel
+      this.openQueryResultPanel(payload);
+    }
+  }
+
+  private openQueryResultPanel(payload: QueryResultPayload): void {
+    const panel = vscode.window.createWebviewPanel(
+      'csvQueryResult',
+      `Query Result`,
+      vscode.ViewColumn.Beside,
+      { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')] }
+    );
+
+    const webview = panel.webview;
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'media', 'styles.css')
+    );
+    const nonce = getNonce();
+
+    const rowsHtml = payload.error
+      ? `<div class="error-container"><div class="error-message"><span>${this.escapeHtml(payload.error)}</span></div></div>`
+      : this.buildResultTableHtml(payload);
+
+    panel.webview.html = /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <link href="${styleUri}" rel="stylesheet">
+  <title>Query Result</title>
+</head>
+<body>
+  <div id="app">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="stats">SQL: ${this.escapeHtml(payload.sql)}</span>
+      </div>
+      <div class="toolbar-right">
+        <span class="stats">${payload.rowCount} rows \u2022 ${payload.executionTimeMs.toFixed(1)}ms</span>
+      </div>
+    </div>
+    <div class="table-container">
+      <div class="table-wrapper">
+        ${rowsHtml}
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  private buildResultTableHtml(payload: QueryResultPayload): string {
+    const headerCells = payload.headers.map(h => `<th>${this.escapeHtml(h)}</th>`).join('');
+    const bodyRows = payload.rows.map((row, i) => {
+      const cells = row.map(cell => `<td title="${this.escapeHtml(cell)}">${this.escapeHtml(cell)}</td>`).join('');
+      return `<tr><td class="row-number">${i + 1}</td>${cells}</tr>`;
+    }).join('');
+
+    return `<table id="csvTable">
+      <thead><tr><th class="row-number-header">#</th>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>`;
+  }
+
+  private escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // ─── Data Loading ────────────────────────────────────────────────────────
@@ -321,6 +423,27 @@ export class CsvPreviewPanel {
       <div class="toolbar-right">
         <span id="stats" class="stats"></span>
       </div>
+    </div>
+
+    <div class="query-bar">
+      <input type="text" id="queryInput" class="query-input" placeholder="SQL: SELECT * WHERE Status = 'Active' ORDER BY Name LIMIT 100" />
+      <button id="queryRunBtn" class="btn" title="Run query inline (replaces current view)">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <path fill="currentColor" d="M4 2l10 6-10 6V2z"/>
+        </svg>
+      </button>
+      <button id="querySideBtn" class="btn" title="Run query in side panel">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <path fill="currentColor" d="M1 2h14v12H1V2zm1 1v10h6V3H2zm7 0v10h5V3H9z"/>
+          <path fill="currentColor" d="M10.5 6.5l3 1.5-3 1.5v-3z"/>
+        </svg>
+      </button>
+      <button id="queryClearBtn" class="btn hidden" title="Clear query and return to data">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.5 9.8L10.8 11.5 8 8.7l-2.8 2.8-.7-.7L7.3 8 4.5 5.2l.7-.7L8 7.3l2.8-2.8.7.7L8.7 8l2.8 2.8z"/>
+        </svg>
+      </button>
+      <span id="queryError" class="query-error hidden"></span>
     </div>
 
     <div id="errorContainer" class="error-container hidden">

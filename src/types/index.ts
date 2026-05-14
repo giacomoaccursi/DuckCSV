@@ -72,12 +72,22 @@ export interface CellEditConfirmPayload {
   value: string;
 }
 
+export interface QueryResultPayload {
+  headers: string[];
+  rows: string[][];
+  rowCount: number;
+  executionTimeMs: number;
+  sql: string;
+  error?: string;
+}
+
 // ─── Messages: Extension → Webview ──────────────────────────────────────────
 
 export type ExtensionMessage =
   | { type: 'dataPage'; data: DataPagePayload }
   | { type: 'columnValues'; data: ColumnValuesPayload }
   | { type: 'cellEditConfirm'; data: CellEditConfirmPayload }
+  | { type: 'queryResult'; data: QueryResultPayload }
   | { type: 'error'; message: string }
   | { type: 'loading'; loading: boolean };
 
@@ -94,5 +104,7 @@ export type WebviewMessage =
   | { type: 'editCell'; originalRowIndex: number; columnIndex: number; value: string }
   | { type: 'addRow' }
   | { type: 'deleteRow'; originalRowIndex: number }
+  | { type: 'executeQuery'; sql: string; mode: 'inline' | 'side' }
+  | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' };
