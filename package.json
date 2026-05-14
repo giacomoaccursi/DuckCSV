@@ -33,22 +33,29 @@
     },
     "activationEvents": [
         "onCommand:csv-enhanced.preview",
-        "onCommand:csv-enhanced.previewToSide"
+        "onCommand:csv-enhanced.previewToSide",
+        "onCommand:csv-enhanced.edit"
     ],
     "main": "./dist/extension.js",
     "contributes": {
         "commands": [
             {
                 "command": "csv-enhanced.preview",
-                "title": "Open Preview",
+                "title": "Open Preview (Read-only)",
                 "category": "CSV",
                 "icon": "$(open-preview)"
             },
             {
                 "command": "csv-enhanced.previewToSide",
-                "title": "Open Preview to the Side",
+                "title": "Open Preview to the Side (Read-only)",
                 "category": "CSV",
                 "icon": "$(open-preview)"
+            },
+            {
+                "command": "csv-enhanced.edit",
+                "title": "Open Preview (Edit)",
+                "category": "CSV",
+                "icon": "$(edit)"
             }
         ],
         "menus": {
@@ -87,6 +94,10 @@
                 },
                 {
                     "command": "csv-enhanced.previewToSide",
+                    "when": "true"
+                },
+                {
+                    "command": "csv-enhanced.edit",
                     "when": "true"
                 }
             ]

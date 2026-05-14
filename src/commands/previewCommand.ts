@@ -1,17 +1,19 @@
 /**
- * Command handlers for CSV preview.
+ * Command handlers for CSV preview and edit.
  */
 
 import * as vscode from 'vscode';
-import { extname, basename } from 'path';
+import { extname, basename, dirname, join } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
 import { DuckDbService } from '../services/DuckDbService';
 import { ConfigService } from '../services/ConfigService';
 
 const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
 
+export type EditMode = 'readonly' | 'edit';
+
 /**
- * Register all preview-related commands.
+ * Register all preview/edit commands.
  */
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
@@ -21,11 +23,15 @@ export function registerPreviewCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'csv-enhanced.preview',
-      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Active)
+      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Active, 'readonly')
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Beside)
+      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Beside, 'readonly')
+    ),
+    vscode.commands.registerCommand(
+      'csv-enhanced.edit',
+      (uri?: vscode.Uri) => openPreview(context, duckDb, configService, uri, vscode.ViewColumn.Active, 'edit')
     )
   );
 }
@@ -35,7 +41,8 @@ async function openPreview(
   duckDb: DuckDbService,
   configService: ConfigService,
   uri: vscode.Uri | undefined,
-  viewColumn: vscode.ViewColumn
+  viewColumn: vscode.ViewColumn,
+  mode: EditMode
 ): Promise<void> {
   const resolvedUri = uri ?? vscode.window.activeTextEditor?.document.uri;
 
@@ -52,5 +59,15 @@ async function openPreview(
     return;
   }
 
-  CsvPreviewPanel.createOrShow(context.extensionUri, duckDb, configService, resolvedUri, viewColumn);
+  // In readonly mode, compute the _edit output path (modifications go there)
+  let savePath: string;
+  if (mode === 'edit') {
+    savePath = resolvedUri.fsPath;
+  } else {
+    const dir = dirname(resolvedUri.fsPath);
+    const name = basename(resolvedUri.fsPath, ext);
+    savePath = join(dir, `${name}_edit${ext}`);
+  }
+
+  CsvPreviewPanel.createOrShow(context.extensionUri, duckDb, configService, resolvedUri, viewColumn, mode, savePath);
 }

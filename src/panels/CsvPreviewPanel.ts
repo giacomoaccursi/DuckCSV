@@ -16,6 +16,7 @@ import { ConfigService } from '../services/ConfigService';
 import { WebviewMessage, ExtensionMessage, DataPagePayload, SortState, ColumnFilters } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
 import { openQueryResultPanel } from './QueryResultPanel';
+import { EditMode } from '../commands/previewCommand';
 
 export class CsvPreviewPanel {
   private static readonly viewType = 'csvPreview';
@@ -26,6 +27,8 @@ export class CsvPreviewPanel {
   private readonly duckDb: DuckDbService;
   private readonly config: ConfigService;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly mode: EditMode;
+  private readonly savePath: string;
 
   private currentUri: vscode.Uri;
   private fileName: string = '';
@@ -48,10 +51,12 @@ export class CsvPreviewPanel {
     duckDb: DuckDbService,
     config: ConfigService,
     uri: vscode.Uri,
-    viewColumn?: vscode.ViewColumn
+    viewColumn: vscode.ViewColumn | undefined,
+    mode: EditMode,
+    savePath: string
   ): void {
     const column = viewColumn || vscode.ViewColumn.Beside;
-    const key = uri.toString();
+    const key = `${uri.toString()}:${mode}`;
 
     const existing = CsvPreviewPanel.panels.get(key);
     if (existing) {
@@ -59,9 +64,13 @@ export class CsvPreviewPanel {
       return;
     }
 
+    const title = mode === 'edit'
+      ? `Edit: ${basename(uri.fsPath)}`
+      : `Preview: ${basename(uri.fsPath)}`;
+
     const panel = vscode.window.createWebviewPanel(
       CsvPreviewPanel.viewType,
-      `Preview: ${basename(uri.fsPath)}`,
+      title,
       column,
       {
         enableScripts: true,
@@ -70,7 +79,7 @@ export class CsvPreviewPanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, duckDb, config, uri);
+    const instance = new CsvPreviewPanel(panel, extensionUri, duckDb, config, uri, mode, savePath);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -81,13 +90,17 @@ export class CsvPreviewPanel {
     extensionUri: vscode.Uri,
     duckDb: DuckDbService,
     config: ConfigService,
-    uri: vscode.Uri
+    uri: vscode.Uri,
+    mode: EditMode,
+    savePath: string
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.duckDb = duckDb;
     this.config = config;
     this.currentUri = uri;
+    this.mode = mode;
+    this.savePath = savePath;
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
@@ -262,7 +275,7 @@ export class CsvPreviewPanel {
 
   private async persistToDisk(): Promise<void> {
     try {
-      await this.duckDb.exportToCsv(this.currentUri.fsPath);
+      await this.duckDb.exportToCsv(this.savePath);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to save file';
       vscode.window.showErrorMessage(`CSV save error: ${msg}`);
@@ -300,7 +313,7 @@ export class CsvPreviewPanel {
   }
 
   private dispose(): void {
-    CsvPreviewPanel.panels.delete(this.currentUri.toString());
+    CsvPreviewPanel.panels.delete(`${this.currentUri.toString()}:${this.mode}`);
     while (this.disposables.length) {
       const d = this.disposables.pop();
       d?.dispose();
