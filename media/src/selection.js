@@ -16,6 +16,41 @@ import { sendMessage } from './messaging.js';
 let selection = null;
 let selectionMode = 'none'; // 'cell' | 'row' | 'column' | 'none'
 let isDragging = false;
+let autoScrollInterval = null;
+
+function startAutoScroll(ev) {
+  stopAutoScroll();
+
+  const wrapper = document.querySelector('.table-wrapper');
+  if (!wrapper) { return; }
+
+  const rect = wrapper.getBoundingClientRect();
+  const edgeSize = 40;
+
+  autoScrollInterval = setInterval(() => {
+    const y = ev.clientY;
+    const x = ev.clientX;
+
+    if (y < rect.top + edgeSize) {
+      wrapper.scrollTop -= 20;
+    } else if (y > rect.bottom - edgeSize) {
+      wrapper.scrollTop += 20;
+    }
+
+    if (x < rect.left + edgeSize) {
+      wrapper.scrollLeft -= 20;
+    } else if (x > rect.right - edgeSize) {
+      wrapper.scrollLeft += 20;
+    }
+  }, 50);
+}
+
+function stopAutoScroll() {
+  if (autoScrollInterval) {
+    clearInterval(autoScrollInterval);
+    autoScrollInterval = null;
+  }
+}
 
 export function getSelection() { return selection; }
 
@@ -69,7 +104,10 @@ export function handleRowNumberClick(e) {
   applyHighlights();
 
   // Drag to extend row selection
+  let lastEvent = e;
   const onMove = (ev) => {
+    lastEvent = ev;
+    startAutoScroll(ev);
     const rowEl = ev.target.closest('tr[data-row-index]');
     if (!rowEl) { return; }
     const newRow = parseInt(rowEl.dataset.rowIndex, 10);
@@ -80,6 +118,7 @@ export function handleRowNumberClick(e) {
 
   const onUp = () => {
     isDragging = false;
+    stopAutoScroll();
     document.body.classList.remove('selecting');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
@@ -124,6 +163,7 @@ export function handleHeaderClickForSelection(colIdx, e) {
 
   // Drag to extend column selection
   const onMove = (ev) => {
+    startAutoScroll(ev);
     const selCell = ev.target.closest('.column-select-cell');
     if (!selCell) { return; }
     const newCol = parseInt(selCell.dataset.columnIndex, 10);
@@ -134,6 +174,7 @@ export function handleHeaderClickForSelection(colIdx, e) {
 
   const onUp = () => {
     isDragging = false;
+    stopAutoScroll();
     document.body.classList.remove('selecting');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
