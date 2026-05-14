@@ -13,7 +13,7 @@ import { showLoading, hideLoading, showTable, showError, updateStats, showToolti
 import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, isQueryActive, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 
 const DEBOUNCE_MS = 300;
@@ -121,8 +121,16 @@ function bindEvents() {
   // Query bar
   if (dom.queryRunBtn) {
     dom.queryRunBtn.addEventListener('click', () => {
+      if (isQueryRunning()) {
+        sendMessage({ type: 'cancelQuery' });
+        setQueryRunning(false);
+        return;
+      }
       const sql = dom.queryInput ? dom.queryInput.value.trim() : '';
-      if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
+      if (sql) {
+        setQueryRunning(true);
+        sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
+      }
     });
   }
   if (dom.querySideBtn) {
@@ -140,7 +148,10 @@ function bindEvents() {
         e.preventDefault();
         closeAutocomplete();
         const sql = dom.queryInput.value.trim();
-        if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
+        if (sql) {
+          setQueryRunning(true);
+          sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
+        }
       } else if (e.key === 'Escape') {
         clearQuery();
       }

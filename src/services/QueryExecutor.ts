@@ -17,6 +17,10 @@ export interface QueryResult {
 export class QueryExecutor {
   constructor(private readonly engine: DuckDbEngine) {}
 
+  cancel(): void {
+    this.engine.cancel();
+  }
+
   async execute(sql: string, defaultTable?: string): Promise<QueryResult> {
     const start = performance.now();
 

@@ -88,6 +88,7 @@ export type WebviewMessage =
   | { type: 'addRow' }
   | { type: 'deleteRow'; rowid: number }
   | { type: 'executeQuery'; sql: string; mode: 'inline' | 'side' }
+  | { type: 'cancelQuery' }
   | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' }

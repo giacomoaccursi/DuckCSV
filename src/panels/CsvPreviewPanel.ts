@@ -157,6 +157,9 @@ export class CsvPreviewPanel {
         return this.handleDeleteRow(message.rowid);
       case 'executeQuery':
         return this.handleQuery(message.sql, message.mode);
+      case 'cancelQuery':
+        this.queryExecutor.cancel();
+        return;
       case 'clearQuery':
         return this.sendCurrentPage();
       case 'copyToClipboard':

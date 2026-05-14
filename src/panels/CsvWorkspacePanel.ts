@@ -133,6 +133,10 @@ export class CsvWorkspacePanel {
       case 'executeQuery':
         return this.handleQuery(message.sql, message.mode);
 
+      case 'cancelQuery':
+        this.queryExecutor.cancel();
+        return;
+
       case 'clearQuery':
         return this.sendCurrentPage();
 

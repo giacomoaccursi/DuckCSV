@@ -12,10 +12,34 @@ import { showTable } from './ui.js';
 // ─── Query State ─────────────────────────────────────────────────────────────
 
 let queryActive = false;
+let queryRunning = false;
 
 export function isQueryActive() { return queryActive; }
+export function isQueryRunning() { return queryRunning; }
+
+export function setQueryRunning(running) {
+  queryRunning = running;
+  const runBtn = document.getElementById('queryRunBtn');
+  const queryInput = document.getElementById('queryInput');
+
+  if (running) {
+    if (runBtn) {
+      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><rect fill="currentColor" x="4" y="4" width="8" height="8"/></svg>';
+      runBtn.title = 'Stop query';
+    }
+    if (queryInput) { queryInput.disabled = true; }
+  } else {
+    if (runBtn) {
+      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M4 2l10 6-10 6V2z"/></svg>';
+      runBtn.title = 'Run query inline';
+    }
+    if (queryInput) { queryInput.disabled = false; }
+  }
+}
 
 export function onQueryResult(data) {
+  setQueryRunning(false);
+
   // If error and no rows, it's a real error (syntax, missing table, etc.)
   if (data.error && !data.rows.length) {
     showQueryError(data.error);
