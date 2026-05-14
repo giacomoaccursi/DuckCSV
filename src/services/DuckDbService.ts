@@ -143,7 +143,7 @@ export class DuckDbService implements vscode.Disposable {
     searchTerm: string;
     offset: number;
     limit: number;
-  }): Promise<{ rows: string[][]; filteredCount: number }> {
+  }): Promise<{ rows: string[][]; rowids: number[]; filteredCount: number }> {
     await this.ensureReady();
 
     const headers = this.getHeaders();
@@ -156,14 +156,17 @@ export class DuckDbService implements vscode.Disposable {
     const countResult = this.conn.query(`SELECT COUNT(*) as cnt FROM csv ${whereStr}`);
     const filteredCount = Number(countResult.get(0)?.cnt ?? 0);
 
-    // Get page
+    // Get page with rowid for editing support
     const pageResult = this.conn.query(
-      `SELECT * FROM csv ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
+      `SELECT rowid, * FROM csv ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
-    const rows = this.arrowTableToRows(pageResult);
+    const allRows = this.arrowTableToRows(pageResult);
+    // First column is rowid, rest is data
+    const rowids = allRows.map(row => parseInt(row[0], 10));
+    const rows = allRows.map(row => row.slice(1));
 
-    return { rows, filteredCount };
+    return { rows, rowids, filteredCount };
   }
 
   // ─── Unique Values ───────────────────────────────────────────────────────

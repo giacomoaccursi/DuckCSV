@@ -202,6 +202,7 @@ export class CsvPreviewPanel {
       const payload: DataPagePayload = {
         headers: this.headers,
         rows: result.rows,
+        rowids: result.rowids,
         totalRows: this.totalRows,
         filteredRows: result.filteredCount,
         pageOffset: 0,

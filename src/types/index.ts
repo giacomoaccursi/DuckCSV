@@ -19,6 +19,7 @@ export type ColumnFilters = Record<number, string[]>;
 export interface DataPagePayload {
   headers: string[];
   rows: string[][];
+  rowids: number[];
   totalRows: number;
   filteredRows: number;
   pageOffset: number;

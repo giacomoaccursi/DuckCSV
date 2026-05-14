@@ -40,7 +40,7 @@
   const state = {
     headers: [],
     rows: [],
-    originalIndices: [],
+    rowids: [],
     totalRows: 0,
     filteredRows: 0,
     hasMore: false,
@@ -188,17 +188,17 @@
 
     const fragment = document.createDocumentFragment();
     for (let i = 0; i < state.rows.length; i++) {
-      fragment.appendChild(createRow(state.rows[i], i, state.originalIndices[i]));
+      fragment.appendChild(createRow(state.rows[i], i, state.rowids[i]));
     }
 
     dom.tableBody.innerHTML = '';
     dom.tableBody.appendChild(fragment);
   }
 
-  function createRow(row, displayIndex, originalIndex) {
+  function createRow(row, displayIndex, rowid) {
     const tr = document.createElement('tr');
     tr.dataset.rowIndex = displayIndex;
-    tr.dataset.originalIndex = originalIndex;
+    tr.dataset.rowid = rowid;
 
     // Row number
     const numTd = document.createElement('td');
@@ -226,7 +226,7 @@
 
       td.title = 'Double-click to edit';
       td.dataset.columnIndex = colIndex;
-      td.dataset.originalIndex = originalIndex;
+      td.dataset.rowid = rowid;
       td.dataset.fullText = text;
       tr.appendChild(td);
     });
@@ -411,7 +411,7 @@
   function startCellEdit(td) {
     if (editingCell) { commitEdit(); }
 
-    const originalIndex = parseInt(td.dataset.originalIndex, 10);
+    const rowid = parseInt(td.dataset.rowid, 10);
     const columnIndex = parseInt(td.dataset.columnIndex, 10);
     const currentValue = td.dataset.fullText || '';
 
@@ -427,7 +427,7 @@
     input.focus();
     input.select();
 
-    editingCell = { td, input, originalIndex, columnIndex, originalValue: currentValue };
+    editingCell = { td, input, rowid, columnIndex, originalValue: currentValue };
 
     input.addEventListener('keydown', handleEditKeydown);
     input.addEventListener('blur', handleEditBlur);
@@ -455,7 +455,7 @@
   function commitEdit() {
     if (!editingCell) { return; }
 
-    const { td, input, originalIndex, columnIndex, originalValue } = editingCell;
+    const { td, input, rowid, columnIndex, originalValue } = editingCell;
     const newValue = input.value;
 
     input.removeEventListener('keydown', handleEditKeydown);
@@ -470,7 +470,7 @@
     if (newValue !== originalValue) {
       td.classList.add('cell-modified');
       setTimeout(() => td.classList.remove('cell-modified'), 1500);
-      sendMessage({ type: 'editCell', originalRowIndex: originalIndex, columnIndex, value: newValue });
+      sendMessage({ type: 'editCell', rowid, columnIndex, value: newValue });
     }
   }
 
@@ -509,7 +509,7 @@
     // Render query result in the table (different headers/rows)
     state.headers = data.headers;
     state.rows = data.rows;
-    state.originalIndices = [];
+    state.rowids = [];
     state.filteredRows = data.rowCount;
     state.totalRows = data.rowCount;
     state.hasMore = false;
@@ -734,9 +734,12 @@
   // ─── 10. UI Helpers ───────────────────────────────────────────────────────
 
   function onDataPageReceived(data) {
+    queryActive = false;
+    toggle(dom.queryClearBtn, false);
+
     state.headers = data.headers;
     state.rows = data.rows;
-    state.originalIndices = data.originalIndices;
+    state.rowids = data.rowids || [];
     state.totalRows = data.totalRows;
     state.filteredRows = data.filteredRows;
     state.hasMore = data.hasMore;
@@ -1061,11 +1064,11 @@
       e.preventDefault();
 
       const text = cell.dataset.fullText || cell.textContent;
-      const originalIndex = parseInt(cell.dataset.originalIndex, 10);
+      const rowid = parseInt(cell.dataset.rowid, 10);
 
       showContextMenu(e.pageX, e.pageY, [
         { label: 'Copy cell', action: () => sendMessage({ type: 'copyToClipboard', text }) },
-        { label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', originalRowIndex: originalIndex }) },
+        { label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', rowid }) },
       ]);
     });
   }
