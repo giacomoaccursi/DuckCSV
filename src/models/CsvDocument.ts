@@ -1,20 +1,29 @@
 /**
  * CsvDocument — In-memory representation of a parsed CSV file.
  *
- * All data operations (filter, sort, search, pagination) happen here.
+ * All data operations (filter, sort, search, pagination, editing) happen here.
  * The webview never touches raw data directly.
  */
 
 import { SortState, SortDirection, ColumnFilters } from '../types';
 
+export interface PageResult {
+  rows: string[][];
+  originalIndices: number[];
+}
+
 export class CsvDocument {
   readonly headers: string[];
   readonly fileName: string;
   readonly fileSize: number;
-  readonly delimiter: string;
+  /** Human-readable delimiter name (e.g. "Comma") */
+  readonly delimiterName: string;
+  /** Raw delimiter character used for serialization */
+  readonly delimiterChar: string;
 
-  private readonly data: string[][];
+  private data: string[][];
   private readonly totalRows: number;
+  private dirty: boolean = false;
 
   // ─── Query State ─────────────────────────────────────────────────────────
 
@@ -32,17 +41,19 @@ export class CsvDocument {
     data: string[][];
     fileName: string;
     fileSize: number;
-    delimiter: string;
+    delimiterName: string;
+    delimiterChar: string;
   }) {
     this.headers = params.headers;
     this.data = params.data;
     this.totalRows = params.data.length;
     this.fileName = params.fileName;
     this.fileSize = params.fileSize;
-    this.delimiter = params.delimiter;
+    this.delimiterName = params.delimiterName;
+    this.delimiterChar = params.delimiterChar;
   }
 
-  // ─── Public API ──────────────────────────────────────────────────────────
+  // ─── Public Getters ──────────────────────────────────────────────────────
 
   getTotalRows(): number {
     return this.totalRows;
@@ -64,14 +75,25 @@ export class CsvDocument {
     return this.searchTerm;
   }
 
+  isDirty(): boolean {
+    return this.dirty;
+  }
+
+  // ─── Pagination ──────────────────────────────────────────────────────────
+
   /**
-   * Get a page of rows from the current result set (filtered + sorted).
+   * Get a page of rows with their original indices.
    */
-  getPage(offset: number, limit: number): string[][] {
+  getPage(offset: number, limit: number): PageResult {
     const indices = this.getResultIndices();
     const pageIndices = indices.slice(offset, offset + limit);
-    return pageIndices.map(i => this.data[i]);
+    return {
+      rows: pageIndices.map(i => this.data[i]),
+      originalIndices: pageIndices,
+    };
   }
+
+  // ─── Unique Values ───────────────────────────────────────────────────────
 
   /**
    * Get all unique values for a column (from the full dataset, not filtered).
@@ -98,7 +120,53 @@ export class CsvDocument {
     return sorted;
   }
 
-  // ─── Mutators (invalidate cache) ────────────────────────────────────────
+  // ─── Cell Editing ────────────────────────────────────────────────────────
+
+  /**
+   * Update a single cell value. Invalidates relevant caches.
+   */
+  setCellValue(originalRowIndex: number, columnIndex: number, value: string): void {
+    if (originalRowIndex < 0 || originalRowIndex >= this.data.length) {
+      return;
+    }
+    if (columnIndex < 0 || columnIndex >= this.headers.length) {
+      return;
+    }
+
+    this.data[originalRowIndex][columnIndex] = value;
+    this.dirty = true;
+
+    // Invalidate caches affected by this change
+    this.uniqueValuesCache.delete(columnIndex);
+    this.invalidateResults();
+  }
+
+  /**
+   * Serialize the document back to CSV string for writing to disk.
+   */
+  serialize(): string {
+    const delimiter = this.delimiterChar;
+    const lines: string[] = [];
+
+    // Header
+    lines.push(this.headers.map(h => this.quoteField(h, delimiter)).join(delimiter));
+
+    // Data rows
+    for (const row of this.data) {
+      lines.push(row.map(cell => this.quoteField(cell ?? '', delimiter)).join(delimiter));
+    }
+
+    return lines.join('\n') + '\n';
+  }
+
+  /**
+   * Mark the document as saved (no longer dirty).
+   */
+  markClean(): void {
+    this.dirty = false;
+  }
+
+  // ─── Query Mutators ──────────────────────────────────────────────────────
 
   setSort(columnIndex: number, direction: SortDirection): void {
     this.sort = { columnIndex, direction };
@@ -115,14 +183,14 @@ export class CsvDocument {
     this.invalidateResults();
   }
 
-  resetState(): void {
+  resetQueryState(): void {
     this.sort = { columnIndex: -1, direction: 'none' };
     this.filters = {};
     this.searchTerm = '';
     this.invalidateResults();
   }
 
-  // ─── Internal: Compute Result Indices ────────────────────────────────────
+  // ─── Internal: Result Computation ────────────────────────────────────────
 
   private invalidateResults(): void {
     this.resultIndices = null;
@@ -150,7 +218,6 @@ export class CsvDocument {
       }));
 
     if (activeFilters.length === 0) {
-      // No filters: all indices
       return Array.from({ length: this.totalRows }, (_, i) => i);
     }
 
@@ -208,6 +275,8 @@ export class CsvDocument {
     return sorted;
   }
 
+  // ─── Internal: Helpers ───────────────────────────────────────────────────
+
   private detectNumericColumn(colIdx: number): boolean {
     const sampleSize = Math.min(this.totalRows, 200);
     let numericCount = 0;
@@ -231,5 +300,15 @@ export class CsvDocument {
 
   private parseNumber(val: string): number {
     return Number(val.replace(/[,\s]/g, '')) || 0;
+  }
+
+  /**
+   * Quote a field if it contains the delimiter, quotes, or newlines.
+   */
+  private quoteField(field: string, delimiter: string): string {
+    if (field.includes(delimiter) || field.includes('"') || field.includes('\n') || field.includes('\r')) {
+      return '"' + field.replace(/"/g, '""') + '"';
+    }
+    return field;
   }
 }

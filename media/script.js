@@ -1,10 +1,7 @@
 /**
  * CSV Enhanced — Webview Script
  *
- * Purely presentational. All data logic (sort, filter, search, pagination)
- * is handled by the extension backend. This script only:
- *  - Renders data received from the extension
- *  - Sends user interactions as messages to the extension
+ * Purely presentational. All data logic is in the extension backend.
  *
  * Sections:
  *  1. VS Code API & State
@@ -12,8 +9,9 @@
  *  3. Messaging
  *  4. Rendering
  *  5. Column Filter Dropdown
- *  6. UI Helpers
- *  7. Init & Event Binding
+ *  6. Cell Editing
+ *  7. UI Helpers
+ *  8. Init & Event Binding
  */
 
 (function () {
@@ -23,9 +21,13 @@
 
   const vscode = acquireVsCodeApi();
 
+  const DEBOUNCE_MS = 300;
+  let searchTimeout = null;
+
   const state = {
     headers: [],
     rows: [],
+    originalIndices: [],
     totalRows: 0,
     filteredRows: 0,
     hasMore: false,
@@ -35,12 +37,9 @@
     sort: { columnIndex: -1, direction: 'none' },
     filters: {},
     searchTerm: '',
-    // Column values for filter dropdown
-    columnValues: null, // { columnIndex, values }
+    isDirty: false,
+    columnValues: null,
   };
-
-  const DEBOUNCE_MS = 300;
-  let searchTimeout = null;
 
   // ─── 2. DOM References ─────────────────────────────────────────────────────
 
@@ -66,7 +65,6 @@
   }
 
   function handleExtensionMessage(message) {
-    console.log('[CSV Enhanced] Received message:', message.type, message);
     switch (message.type) {
       case 'dataPage':
         onDataPageReceived(message.data);
@@ -74,14 +72,15 @@
       case 'columnValues':
         onColumnValuesReceived(message.data);
         break;
+      case 'cellEditConfirm':
+        onCellEditConfirm(message.data);
+        break;
       case 'loading':
         message.loading ? showLoading() : hideLoading();
         break;
       case 'error':
         showError(message.message);
         break;
-      default:
-        console.warn('[CSV Enhanced] Unknown message type:', message.type);
     }
   }
 
@@ -111,7 +110,6 @@
       const content = document.createElement('div');
       content.className = 'header-content';
 
-      // Text
       const textSpan = document.createElement('span');
       textSpan.className = 'header-text';
       textSpan.textContent = header || `Column ${i + 1}`;
@@ -129,7 +127,6 @@
         }
       }
       content.appendChild(sortIndicator);
-
       th.appendChild(content);
 
       // Filter button
@@ -138,12 +135,9 @@
       filterBtn.title = 'Filter column';
       filterBtn.dataset.columnIndex = i;
       filterBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16"><path fill="currentColor" d="M1 2h14l-5.5 6.5V14l-3-2V8.5L1 2z"/></svg>';
-
-      // Highlight if filter is active on this column
       if (state.filters[i] && state.filters[i].length > 0) {
         filterBtn.classList.add('filter-active');
       }
-
       th.appendChild(filterBtn);
 
       th.title = (header || `Column ${i + 1}`) + ' (click to sort, funnel to filter)';
@@ -163,28 +157,29 @@
     }
 
     const fragment = document.createDocumentFragment();
-
     for (let i = 0; i < state.rows.length; i++) {
-      fragment.appendChild(createRow(state.rows[i], i));
+      fragment.appendChild(createRow(state.rows[i], i, state.originalIndices[i]));
     }
 
     dom.tableBody.innerHTML = '';
     dom.tableBody.appendChild(fragment);
   }
 
-  function createRow(row, index) {
+  function createRow(row, displayIndex, originalIndex) {
     const tr = document.createElement('tr');
-    tr.dataset.rowIndex = index;
+    tr.dataset.rowIndex = displayIndex;
+    tr.dataset.originalIndex = originalIndex;
 
     // Row number
     const numTd = document.createElement('td');
     numTd.className = 'row-number';
-    numTd.textContent = index + 1;
+    numTd.textContent = displayIndex + 1;
     tr.appendChild(numTd);
 
     // Data cells
     row.forEach((cell, colIndex) => {
       const td = document.createElement('td');
+      td.className = 'editable-cell';
       const text = cell || '';
 
       if (state.searchTerm && text.toLowerCase().includes(state.searchTerm.toLowerCase())) {
@@ -193,8 +188,9 @@
         td.textContent = text;
       }
 
-      td.title = text;
+      td.title = 'Double-click to edit';
       td.dataset.columnIndex = colIndex;
+      td.dataset.originalIndex = originalIndex;
       td.dataset.fullText = text;
       tr.appendChild(td);
     });
@@ -215,29 +211,21 @@
   function openFilterDropdown(columnIndex, anchorEl) {
     closeFilterDropdown();
 
-    // Request values from backend
     sendMessage({ type: 'getColumnValues', columnIndex });
-
-    // Store which column we're filtering — values arrive async
     state.columnValues = { columnIndex, values: null };
 
-    // Create dropdown
     const dropdown = document.createElement('div');
     dropdown.className = 'filter-dropdown';
     dropdown.dataset.columnIndex = columnIndex;
 
-    // Position below the header
     const rect = anchorEl.closest('th').getBoundingClientRect();
     dropdown.style.left = rect.left + 'px';
     dropdown.style.top = rect.bottom + 'px';
-
-    // Loading state
     dropdown.innerHTML = '<div class="filter-dropdown-loading">Loading values...</div>';
 
     document.body.appendChild(dropdown);
     activeDropdown = dropdown;
 
-    // Close on outside click
     setTimeout(() => {
       document.addEventListener('mousedown', handleDropdownOutsideClick);
     }, 0);
@@ -246,7 +234,6 @@
   function onColumnValuesReceived(data) {
     if (!activeDropdown || !state.columnValues) { return; }
     if (state.columnValues.columnIndex !== data.columnIndex) { return; }
-
     state.columnValues.values = data.values;
     renderFilterDropdownContent(data.columnIndex, data.values);
   }
@@ -259,14 +246,12 @@
 
     activeDropdown.innerHTML = '';
 
-    // Search input
     const searchBox = document.createElement('input');
     searchBox.type = 'text';
     searchBox.className = 'filter-search';
     searchBox.placeholder = 'Search values...';
     activeDropdown.appendChild(searchBox);
 
-    // Buttons row
     const btnRow = document.createElement('div');
     btnRow.className = 'filter-btn-row';
 
@@ -282,7 +267,6 @@
     btnRow.appendChild(clearBtn);
     activeDropdown.appendChild(btnRow);
 
-    // Values list
     const list = document.createElement('div');
     list.className = 'filter-values-list';
 
@@ -301,11 +285,8 @@
         checkbox.value = value;
         checkbox.checked = selectionSet.has(value);
         checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            selectionSet.add(value);
-          } else {
-            selectionSet.delete(value);
-          }
+          if (checkbox.checked) { selectionSet.add(value); }
+          else { selectionSet.delete(value); }
         });
 
         const text = document.createElement('span');
@@ -322,13 +303,11 @@
     renderList('');
     activeDropdown.appendChild(list);
 
-    // Apply button
     const applyBtn = document.createElement('button');
     applyBtn.className = 'btn btn-primary btn-sm filter-apply-btn';
     applyBtn.textContent = 'Apply';
     activeDropdown.appendChild(applyBtn);
 
-    // Event handlers
     searchBox.addEventListener('input', () => renderList(searchBox.value.trim()));
 
     selectAllBtn.addEventListener('click', () => {
@@ -344,7 +323,6 @@
     applyBtn.addEventListener('click', () => {
       const newFilters = { ...state.filters };
       if (selectionSet.size === 0 || selectionSet.size === values.length) {
-        // No filter or all selected = remove filter for this column
         delete newFilters[columnIndex];
       } else {
         newFilters[columnIndex] = Array.from(selectionSet);
@@ -371,11 +349,120 @@
     }
   }
 
-  // ─── 6. UI Helpers ────────────────────────────────────────────────────────
+  // ─── 6. Cell Editing ──────────────────────────────────────────────────────
+
+  let editingCell = null;
+
+  function startCellEdit(td) {
+    if (editingCell) { commitEdit(); }
+
+    const originalIndex = parseInt(td.dataset.originalIndex, 10);
+    const columnIndex = parseInt(td.dataset.columnIndex, 10);
+    const currentValue = td.dataset.fullText || '';
+
+    // Replace cell content with input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'cell-edit-input';
+    input.value = currentValue;
+
+    td.innerHTML = '';
+    td.appendChild(input);
+    td.classList.add('editing');
+
+    input.focus();
+    input.select();
+
+    editingCell = { td, input, originalIndex, columnIndex, originalValue: currentValue };
+
+    // Event handlers
+    input.addEventListener('keydown', handleEditKeydown);
+    input.addEventListener('blur', handleEditBlur);
+  }
+
+  function handleEditKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      commitEdit();
+      // Move to next cell
+      const nextTd = editingCell ? null : findNextEditableCell(e.shiftKey);
+      if (nextTd) { startCellEdit(nextTd); }
+    }
+  }
+
+  function handleEditBlur() {
+    // Small delay to allow Tab handling to fire first
+    setTimeout(() => {
+      if (editingCell) { commitEdit(); }
+    }, 50);
+  }
+
+  function commitEdit() {
+    if (!editingCell) { return; }
+
+    const { td, input, originalIndex, columnIndex, originalValue } = editingCell;
+    const newValue = input.value;
+
+    // Clean up
+    input.removeEventListener('keydown', handleEditKeydown);
+    input.removeEventListener('blur', handleEditBlur);
+    td.classList.remove('editing');
+
+    editingCell = null;
+
+    // Update cell display
+    td.textContent = newValue;
+    td.dataset.fullText = newValue;
+
+    // Send to backend if value changed
+    if (newValue !== originalValue) {
+      td.classList.add('cell-modified');
+      setTimeout(() => td.classList.remove('cell-modified'), 1500);
+      sendMessage({ type: 'editCell', originalRowIndex: originalIndex, columnIndex, value: newValue });
+    }
+  }
+
+  function cancelEdit() {
+    if (!editingCell) { return; }
+
+    const { td, input, originalValue } = editingCell;
+
+    input.removeEventListener('keydown', handleEditKeydown);
+    input.removeEventListener('blur', handleEditBlur);
+    td.classList.remove('editing');
+
+    td.textContent = originalValue;
+    editingCell = null;
+  }
+
+  function findNextEditableCell(reverse) {
+    // Simple: find the next td.editable-cell in DOM order
+    const cells = Array.from(document.querySelectorAll('td.editable-cell'));
+    if (cells.length === 0) { return null; }
+
+    // This is a simplified version — just returns null for now
+    // Full implementation would track current position
+    return null;
+  }
+
+  function onCellEditConfirm(data) {
+    // Backend confirmed the edit — could update dirty indicator
+    state.isDirty = true;
+    updateStats();
+  }
+
+  // ─── 7. UI Helpers ────────────────────────────────────────────────────────
 
   function onDataPageReceived(data) {
     state.headers = data.headers;
     state.rows = data.rows;
+    state.originalIndices = data.originalIndices;
     state.totalRows = data.totalRows;
     state.filteredRows = data.filteredRows;
     state.hasMore = data.hasMore;
@@ -385,8 +472,8 @@
     state.sort = data.sort;
     state.filters = data.filters;
     state.searchTerm = data.searchTerm;
+    state.isDirty = data.isDirty;
 
-    // Sync search input (don't override if user is typing)
     if (dom.searchInput && document.activeElement !== dom.searchInput) {
       dom.searchInput.value = data.searchTerm;
     }
@@ -424,6 +511,10 @@
     const activeFilterCount = Object.keys(state.filters).length;
     if (activeFilterCount > 0) {
       parts.push(`\u2022 ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`);
+    }
+
+    if (state.isDirty) {
+      parts.push('\u2022 Modified');
     }
 
     dom.stats.textContent = parts.join(' ');
@@ -500,13 +591,11 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
-  // ─── 7. Init & Event Binding ──────────────────────────────────────────────
+  // ─── 8. Init & Event Binding ──────────────────────────────────────────────
 
   function init() {
-    console.log('[CSV Enhanced] Webview init started');
     bindEvents();
     showLoading();
-    console.log('[CSV Enhanced] Sending ready message');
     sendMessage({ type: 'ready' });
   }
 
@@ -541,16 +630,13 @@
     // Sort on header click (delegated)
     if (dom.tableHeader) {
       dom.tableHeader.addEventListener('click', (e) => {
-        // Ignore clicks on filter button
         if (e.target.closest('.filter-btn')) { return; }
-
         const th = e.target.closest('th.sortable-header');
         if (!th) { return; }
 
         const colIdx = parseInt(th.dataset.columnIndex, 10);
         if (isNaN(colIdx)) { return; }
 
-        // Cycle: none → asc → desc → none
         let newDirection = 'asc';
         if (state.sort.columnIndex === colIdx) {
           if (state.sort.direction === 'asc') { newDirection = 'desc'; }
@@ -565,18 +651,24 @@
     document.addEventListener('click', (e) => {
       const filterBtn = e.target.closest('.filter-btn');
       if (!filterBtn) { return; }
-
       e.stopPropagation();
       const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
       if (isNaN(colIdx)) { return; }
-
       openFilterDropdown(colIdx, filterBtn);
     });
 
-    // Tooltip on truncated cells
+    // Double-click to edit cell (delegated)
+    document.addEventListener('dblclick', (e) => {
+      const td = e.target.closest('td.editable-cell');
+      if (!td) { return; }
+      startCellEdit(td);
+    });
+
+    // Tooltip on truncated cells (skip if editing)
     document.addEventListener('mouseover', (e) => {
+      if (editingCell) { return; }
       const cell = e.target.closest('td, th');
-      if (cell && cell.scrollWidth > cell.clientWidth) {
+      if (cell && cell.scrollWidth > cell.clientWidth && !cell.classList.contains('editing')) {
         const text = cell.dataset.fullText || cell.textContent;
         showTooltip(text, e.pageX, e.pageY);
       }
@@ -588,7 +680,7 @@
 
     // Right-click to copy cell
     document.addEventListener('contextmenu', (e) => {
-      const cell = e.target.closest('td');
+      const cell = e.target.closest('td.editable-cell');
       if (!cell) { return; }
       e.preventDefault();
       const text = cell.dataset.fullText || cell.textContent;

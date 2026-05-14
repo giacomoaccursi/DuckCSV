@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { extname, basename } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
 import { CsvParserService } from '../services/CsvParserService';
+import { CsvWriterService } from '../services/CsvWriterService';
 import { ConfigService } from '../services/ConfigService';
 
 const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
@@ -16,26 +17,25 @@ const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
   parserService: CsvParserService,
+  writerService: CsvWriterService,
   configService: ConfigService
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'csv-enhanced.preview',
-      (uri?: vscode.Uri) => openPreview(context, parserService, configService, uri, vscode.ViewColumn.Active)
+      (uri?: vscode.Uri) => openPreview(context, parserService, writerService, configService, uri, vscode.ViewColumn.Active)
     ),
     vscode.commands.registerCommand(
       'csv-enhanced.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, parserService, configService, uri, vscode.ViewColumn.Beside)
+      (uri?: vscode.Uri) => openPreview(context, parserService, writerService, configService, uri, vscode.ViewColumn.Beside)
     )
   );
 }
 
-/**
- * Resolve the target URI and open the CSV preview panel.
- */
 async function openPreview(
   context: vscode.ExtensionContext,
   parserService: CsvParserService,
+  writerService: CsvWriterService,
   configService: ConfigService,
   uri: vscode.Uri | undefined,
   viewColumn: vscode.ViewColumn
@@ -55,5 +55,5 @@ async function openPreview(
     return;
   }
 
-  CsvPreviewPanel.createOrShow(context.extensionUri, parserService, configService, resolvedUri, viewColumn);
+  CsvPreviewPanel.createOrShow(context.extensionUri, parserService, writerService, configService, resolvedUri, viewColumn);
 }

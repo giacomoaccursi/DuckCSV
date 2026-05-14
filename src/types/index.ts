@@ -44,6 +44,8 @@ export interface ValidationResult {
 export interface DataPagePayload {
   headers: string[];
   rows: string[][];
+  /** Original row indices (in the full dataset) for each row in `rows` */
+  originalIndices: number[];
   totalRows: number;
   filteredRows: number;
   pageOffset: number;
@@ -55,6 +57,7 @@ export interface DataPagePayload {
   sort: SortState;
   filters: ColumnFilters;
   searchTerm: string;
+  isDirty: boolean;
 }
 
 export interface ColumnValuesPayload {
@@ -63,11 +66,18 @@ export interface ColumnValuesPayload {
   totalCount: number;
 }
 
+export interface CellEditConfirmPayload {
+  originalRowIndex: number;
+  columnIndex: number;
+  value: string;
+}
+
 // ─── Messages: Extension → Webview ──────────────────────────────────────────
 
 export type ExtensionMessage =
   | { type: 'dataPage'; data: DataPagePayload }
   | { type: 'columnValues'; data: ColumnValuesPayload }
+  | { type: 'cellEditConfirm'; data: CellEditConfirmPayload }
   | { type: 'error'; message: string }
   | { type: 'loading'; loading: boolean };
 
@@ -81,5 +91,6 @@ export type WebviewMessage =
   | { type: 'search'; term: string }
   | { type: 'getColumnValues'; columnIndex: number }
   | { type: 'setFilters'; filters: ColumnFilters }
+  | { type: 'editCell'; originalRowIndex: number; columnIndex: number; value: string }
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' };

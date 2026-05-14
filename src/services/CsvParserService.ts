@@ -31,8 +31,8 @@ export class CsvParserService {
     }
 
     const sample = getSample(textContent, 10);
-    const delimiter = detectDelimiter(sample, this.config.delimiter);
-    const parseResult = parseCSV(textContent, { delimiter });
+    const delimiterChar = detectDelimiter(sample, this.config.delimiter);
+    const parseResult = parseCSV(textContent, { delimiter: delimiterChar });
 
     const validation = validateCSV(parseResult);
     if (!validation.valid) {
@@ -44,7 +44,8 @@ export class CsvParserService {
       data: parseResult.data,
       fileName: basename(uri.fsPath),
       fileSize: stat.size,
-      delimiter: getDelimiterName(delimiter),
+      delimiterName: getDelimiterName(delimiterChar),
+      delimiterChar,
     });
   }
 
