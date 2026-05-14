@@ -14,7 +14,7 @@ import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection } from './selection.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection, handleSelectAll } from './selection.js';
 
 const DEBOUNCE_MS = 300;
 let searchTimeout = null;
@@ -181,6 +181,10 @@ function bindEvents() {
 
     // Column select row click
     dom.tableHeader.addEventListener('click', (e) => {
+      // Select all on # click
+      const corner = e.target.closest('.row-number-header');
+      if (corner) { handleSelectAll(); return; }
+
       const selCell = e.target.closest('.column-select-cell');
       if (!selCell) { return; }
       const colIdx = parseInt(selCell.dataset.columnIndex, 10);

@@ -66,6 +66,16 @@ export function handleRowNumberClick(e) {
   applyHighlights();
 }
 
+export function handleSelectAll() {
+  const maxRow = state.rows.length - 1;
+  const maxCol = state.headers.length - 1;
+  if (maxRow < 0 || maxCol < 0) { return; }
+
+  selection = { startRow: 0, startCol: 0, endRow: maxRow, endCol: maxCol };
+  selectionMode = 'cell';
+  applyHighlights();
+}
+
 export function handleHeaderClickForSelection(colIdx, e) {
   const maxRow = state.rows.length - 1;
   if (maxRow < 0) { return; }
