@@ -831,8 +831,8 @@ body.selecting {
 
 /* Scrollbar styling */
 .table-wrapper::-webkit-scrollbar {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
 }
 
 .table-wrapper::-webkit-scrollbar-track {
