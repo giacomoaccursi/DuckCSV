@@ -273,40 +273,4 @@ function bindEvents() {
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
-bindDragAndDrop();
 sendMessage({ type: 'ready' });
-
-// ─── Drag and Drop ───────────────────────────────────────────────────────────
-
-function bindDragAndDrop() {
-  const app = document.getElementById('app');
-  if (!app) { return; }
-
-  app.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-    app.classList.add('drag-over');
-  });
-
-  app.addEventListener('dragleave', (e) => {
-    if (!app.contains(e.relatedTarget)) {
-      app.classList.remove('drag-over');
-    }
-  });
-
-  app.addEventListener('drop', (e) => {
-    e.preventDefault();
-    app.classList.remove('drag-over');
-
-    // Try to get file paths from the drop
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.path && (file.path.endsWith('.csv') || file.path.endsWith('.tsv'))) {
-          sendMessage({ type: 'addTable', filePath: file.path });
-        }
-      }
-    }
-  });
-}

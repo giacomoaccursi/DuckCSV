@@ -135,13 +135,6 @@ body {
     font-size: 14px;
 }
 
-/* Drag and Drop */
-#app.drag-over {
-    outline: 2px dashed var(--accent-color);
-    outline-offset: -4px;
-    background-color: rgba(66, 135, 245, 0.05);
-}
-
 /* Mode Banner */
 .mode-banner {
     padding: 6px 12px;
@@ -195,7 +188,7 @@ body {
     background-color: transparent;
     color: var(--fg-primary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 2px;
     cursor: pointer;
     font-size: 13px;
     gap: 4px;
