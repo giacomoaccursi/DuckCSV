@@ -22,6 +22,7 @@ export interface QueryResult {
 }
 
 export class DuckDbService implements vscode.Disposable {
+  private currentDelimiter: string = ',';
   private db: any = null;
   private conn: any = null;
   private initPromise: Promise<void> | null = null;
@@ -95,6 +96,7 @@ export class DuckDbService implements vscode.Disposable {
     const headers = this.getHeaders();
     const totalRows = this.getTotalRows();
     const delimiter = this.detectDelimiter(filePath);
+    this.currentDelimiter = this.delimiterNameToChar(delimiter);
 
     return { headers, totalRows, delimiter };
   }
@@ -222,18 +224,47 @@ export class DuckDbService implements vscode.Disposable {
   async exportToCsv(outputPath: string): Promise<void> {
     await this.ensureReady();
 
-    const headers = this.getHeaders();
-    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-
-    // Write to temp file then rename (DuckDB can't overwrite a file it read from)
-    const tmpPath = outputPath + '.tmp';
-    const escapedTmp = tmpPath.replace(/'/g, "''");
-
-    this.conn.query(`COPY (SELECT ${columns} FROM csv) TO '${escapedTmp}' (FORMAT CSV, HEADER)`);
-
-    // Rename temp to original
     const fs = require('fs');
-    fs.renameSync(tmpPath, outputPath);
+    const headers = this.getHeaders();
+
+    // Detect delimiter from the original file format
+    const delimiter = this.detectCurrentDelimiter();
+
+    // Build CSV content from in-memory table
+    const headerLine = headers.map(h => this.quoteField(h, delimiter)).join(delimiter);
+
+    const dataResult = this.conn.query(
+      `SELECT ${headers.map(h => this.quoteIdentifier(h)).join(', ')} FROM csv`
+    );
+    const rows = this.arrowTableToRows(dataResult);
+
+    const lines = [headerLine];
+    for (const row of rows) {
+      lines.push(row.map(cell => this.quoteField(cell, delimiter)).join(delimiter));
+    }
+
+    fs.writeFileSync(outputPath, lines.join('\n') + '\n', 'utf8');
+  }
+
+  private detectCurrentDelimiter(): string {
+    return this.currentDelimiter;
+  }
+
+  private delimiterNameToChar(name: string): string {
+    switch (name) {
+      case 'Comma': return ',';
+      case 'Semicolon': return ';';
+      case 'Tab': return '\t';
+      case 'Pipe': return '|';
+      default: return ',';
+    }
+  }
+
+  private quoteField(value: string, delimiter: string): string {
+    if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
