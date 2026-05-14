@@ -266,8 +266,15 @@ export class CsvPreviewPanel {
     try {
       await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
       this.isDirty = true;
+
+      // Refresh column types (may have changed if column was cast to VARCHAR)
+      this.columnTypes = await this.tableManager.getColumnTypes(this.tableName);
+
       await this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
+
+      // Re-send page to update type labels in header
+      await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
     }
