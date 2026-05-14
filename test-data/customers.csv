@@ -1,7 +1,7 @@
 customer_id,name,email,city,country
-3,Alice Martin,alice@example.com,Paris,France
-2,Bob Johnson,bob@example.com,London,UK
-3,Carlos Ruiz,carlos@example.com,Madrid,Spain
+ciao,Alice Martin,alice@example.com,Paris,France
+cia,Bob Johnson,bob@example.com,London,UK
+ciaoo,Carlos Ruiz,carlos@example.com,Madrid,Spain
 4,Diana Chen,diana@example.com,Tokyo,Japan
 5,Erik Svensson,erik@example.com,Stockholm,Sweden
 6,Fatima Al-Hassan,fatima@example.com,Dubai,UAE

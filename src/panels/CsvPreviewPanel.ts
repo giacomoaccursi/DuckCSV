@@ -68,6 +68,7 @@ export class CsvPreviewPanel {
     const existing = CsvPreviewPanel.panels.get(key);
     if (existing) {
       existing.panel.reveal(column);
+      existing.reloadFromDisk();
       return;
     }
 
@@ -331,6 +332,11 @@ export class CsvPreviewPanel {
     this.searchTerm = '';
     this.pageOffset = 0;
     this.isDirty = false;
+  }
+
+  private reloadFromDisk(): void {
+    this.resetState();
+    this.loadDocument();
   }
 
   private postMessage(message: ExtensionMessage): void {
