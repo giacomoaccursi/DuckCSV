@@ -158,7 +158,7 @@ export class TableManager {
   async addRow(tableName: string): Promise<void> {
     const conn = await this.engine.getConnection();
     const headers = await this.getHeaders(tableName);
-    const nulls = headers.map(() => "''").join(', ');
+    const nulls = headers.map(() => "NULL").join(', ');
     conn.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
   }
 
