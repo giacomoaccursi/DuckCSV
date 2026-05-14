@@ -920,6 +920,12 @@
     const maxCol = Math.max(selection.startCol, selection.endCol);
     const delimiter = getDelimiterChar(state.delimiter);
     const lines = [];
+    const headerCells = [];
+    for (let c = minCol; c <= maxCol; c++) {
+      const h = state.headers[c] || "";
+      headerCells.push(quoteIfNeeded(h, delimiter));
+    }
+    lines.push(headerCells.join(delimiter));
     for (let r = minRow; r <= maxRow; r++) {
       if (r >= state.rows.length) {
         break;
@@ -927,15 +933,17 @@
       const cells = [];
       for (let c = minCol; c <= maxCol; c++) {
         const val = state.rows[r][c] || "";
-        if (val.includes(delimiter) || val.includes('"') || val.includes("\n")) {
-          cells.push('"' + val.replace(/"/g, '""') + '"');
-        } else {
-          cells.push(val);
-        }
+        cells.push(quoteIfNeeded(val, delimiter));
       }
       lines.push(cells.join(delimiter));
     }
     return lines.join("\n");
+  }
+  function quoteIfNeeded(val, delimiter) {
+    if (val.includes(delimiter) || val.includes('"') || val.includes("\n")) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
   }
   function getDelimiterChar(delimiterName) {
     switch (delimiterName) {
