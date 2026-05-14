@@ -141,7 +141,7 @@ function getCompletions(inputEl) {
 
   const lower = word.toLowerCase();
 
-  const columnNames = state.headers
+  const columnNames = state.originalHeaders
     .filter(h => h)
     .map(h => /[^a-zA-Z0-9_]/.test(h) ? `"${h}"` : h);
 
@@ -163,7 +163,7 @@ function renderItems() {
     div.textContent = item;
 
     const unquoted = item.replace(/^"|"$/g, '');
-    if (state.headers.includes(item) || state.headers.includes(unquoted)) {
+    if (state.originalHeaders.includes(item) || state.originalHeaders.includes(unquoted)) {
       const badge = document.createElement('span');
       badge.className = 'ac-badge';
       badge.textContent = 'column';

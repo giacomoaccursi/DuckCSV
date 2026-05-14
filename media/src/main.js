@@ -36,6 +36,7 @@ function onDataPageReceived(data) {
   resetQueryState();
 
   state.headers = data.headers;
+  state.originalHeaders = data.headers; // preserve for autocomplete
   state.rows = data.rows;
   state.rowids = data.rowids || [];
   state.totalRows = data.totalRows;

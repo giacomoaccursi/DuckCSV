@@ -22,7 +22,8 @@ export const SQL_KEYWORDS = [
 ];
 
 export const state = {
-  headers: [],
+  headers: [],        // current displayed headers (may change with query results)
+  originalHeaders: [], // always the file's original headers (for autocomplete)
   rows: [],
   rowids: [],
   totalRows: 0,

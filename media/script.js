@@ -68,6 +68,9 @@
   ];
   var state = {
     headers: [],
+    // current displayed headers (may change with query results)
+    originalHeaders: [],
+    // always the file's original headers (for autocomplete)
     rows: [],
     rowids: [],
     totalRows: 0,
@@ -744,7 +747,7 @@
       return { word: "", items: [] };
     }
     const lower = word.toLowerCase();
-    const columnNames = state.headers.filter((h) => h).map((h) => /[^a-zA-Z0-9_]/.test(h) ? `"${h}"` : h);
+    const columnNames = state.originalHeaders.filter((h) => h).map((h) => /[^a-zA-Z0-9_]/.test(h) ? `"${h}"` : h);
     const allItems = SQL_KEYWORDS.concat(columnNames);
     const matches = allItems.filter(
       (item) => item.toLowerCase().startsWith(lower) && item.toLowerCase() !== lower
@@ -761,7 +764,7 @@
       div.className = "ac-item" + (i === acSelectedIndex ? " ac-item-active" : "");
       div.textContent = item;
       const unquoted = item.replace(/^"|"$/g, "");
-      if (state.headers.includes(item) || state.headers.includes(unquoted)) {
+      if (state.originalHeaders.includes(item) || state.originalHeaders.includes(unquoted)) {
         const badge = document.createElement("span");
         badge.className = "ac-badge";
         badge.textContent = "column";
@@ -1005,6 +1008,7 @@
   function onDataPageReceived(data) {
     resetQueryState();
     state.headers = data.headers;
+    state.originalHeaders = data.headers;
     state.rows = data.rows;
     state.rowids = data.rowids || [];
     state.totalRows = data.totalRows;
