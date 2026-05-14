@@ -14,7 +14,7 @@ import { showLoading, hideLoading, showTable, showError, updateStats, showToolti
 import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, isQueryActive, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
@@ -136,8 +136,16 @@ function bindEvents() {
 
   if (queryRunBtn) {
     queryRunBtn.addEventListener('click', () => {
+      if (isQueryRunning()) {
+        sendMessage({ type: 'cancelQuery' });
+        setQueryRunning(false);
+        return;
+      }
       const sql = queryInput ? queryInput.value.trim() : '';
-      if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
+      if (sql) {
+        setQueryRunning(true);
+        sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
+      }
     });
   }
   if (querySideBtn) {
@@ -155,7 +163,10 @@ function bindEvents() {
         e.preventDefault();
         closeAutocomplete();
         const sql = queryInput.value.trim();
-        if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'inline' }); }
+        if (sql) {
+          setQueryRunning(true);
+          sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
+        }
       } else if (e.key === 'Escape') {
         clearQuery();
       }
