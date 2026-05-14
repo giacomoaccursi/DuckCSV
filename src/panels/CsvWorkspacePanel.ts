@@ -135,6 +135,16 @@ export class CsvWorkspacePanel {
 
       case 'cancelQuery':
         this.queryExecutor.cancel();
+        // Worker was terminated — need to reload tables
+        if (this.activeTable) {
+          // Re-load all tables from their file paths
+          const tablesToReload = this.tableManager.getLoadedTables().map(t => ({ name: t.name, path: t.filePath }));
+          await this.tableManager.dropAllTables();
+          for (const t of tablesToReload) {
+            await this.tableManager.loadTable(vscode.Uri.file(t.path), t.name);
+          }
+          await this.sendCurrentPage();
+        }
         return;
 
       case 'clearQuery':

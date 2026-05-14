@@ -159,6 +159,8 @@ export class CsvPreviewPanel {
         return this.handleQuery(message.sql, message.mode);
       case 'cancelQuery':
         this.queryExecutor.cancel();
+        // Worker was terminated — need to reload the table
+        await this.loadDocument();
         return;
       case 'clearQuery':
         return this.sendCurrentPage();

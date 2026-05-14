@@ -58,6 +58,8 @@ export class DuckDbEngine implements vscode.Disposable {
     return this.initPromise;
   }
 
+  private intentionalTermination = false;
+
   private spawnWorker(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const workerPath = join(__dirname, 'duckdb-worker.js');
@@ -87,12 +89,14 @@ export class DuckDbEngine implements vscode.Disposable {
         this.rejectAllPending(err);
       });
 
-      this.worker.on('exit', (code) => {
-        if (code !== 0) {
-          this.rejectAllPending(new Error(`Worker exited with code ${code}`));
+      this.worker.on('exit', () => {
+        // Only reset state if this wasn't an intentional termination
+        // (intentional termination already cleaned up in terminate())
+        if (!this.intentionalTermination) {
+          this.worker = null;
+          this.initPromise = null;
         }
-        this.worker = null;
-        this.initPromise = null;
+        this.intentionalTermination = false;
       });
 
       // Send init message with WASM directory
@@ -101,6 +105,7 @@ export class DuckDbEngine implements vscode.Disposable {
   }
 
   private terminate(): void {
+    this.intentionalTermination = true;
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
