@@ -553,6 +553,12 @@ body.resizing {
     cursor: default;
 }
 
+.editable-cell.selected {
+    background-color: var(--active-bg) !important;
+    outline: 1px solid var(--accent-color);
+    outline-offset: -1px;
+}
+
 .editable-cell.editing {
     padding: 0 !important;
     background-color: var(--vscode-input-background) !important;

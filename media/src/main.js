@@ -14,6 +14,7 @@ import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection } from './selection.js';
 
 const DEBOUNCE_MS = 300;
 let searchTimeout = null;
@@ -147,6 +148,10 @@ function bindEvents() {
       const colIdx = parseInt(th.dataset.columnIndex, 10);
       if (isNaN(colIdx)) { return; }
 
+      // Ctrl/Cmd+Click → select column
+      if (handleHeaderClickForSelection(colIdx, e)) { return; }
+
+      // Normal click → sort (delayed for dblclick disambiguation)
       if (headerClickTimer) { clearTimeout(headerClickTimer); }
       headerClickTimer = setTimeout(() => {
         headerClickTimer = null;
@@ -190,7 +195,23 @@ function bindEvents() {
   // Cell editing
   document.addEventListener('dblclick', (e) => {
     const td = e.target.closest('td.editable-cell');
-    if (td) { startCellEdit(td); }
+    if (td) { clearSelection(); startCellEdit(td); }
+  });
+
+  // Cell/row selection (single click)
+  document.addEventListener('click', (e) => {
+    // Row number click → select row
+    const rowNum = e.target.closest('td.row-number');
+    if (rowNum) { handleRowNumberClick(e); return; }
+
+    // Cell click → select cell (only if not editing and not on interactive elements)
+    const td = e.target.closest('td.editable-cell');
+    if (td && !isEditing()) { handleCellClick(e); }
+  });
+
+  // Keyboard: Cmd+C to copy selection
+  document.addEventListener('keydown', (e) => {
+    handleCopyShortcut(e);
   });
 
   // Tooltip

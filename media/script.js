@@ -772,6 +772,136 @@
     closeAutocomplete();
   }
 
+  // media/src/selection.js
+  var selection = null;
+  var selectionMode = "none";
+  function clearSelection() {
+    selection = null;
+    selectionMode = "none";
+    removeHighlights();
+  }
+  function handleCellClick(e) {
+    const td = e.target.closest("td.editable-cell");
+    if (!td) {
+      return;
+    }
+    const row = parseInt(td.closest("tr").dataset.rowIndex, 10);
+    const col = parseInt(td.dataset.columnIndex, 10);
+    if (isNaN(row) || isNaN(col)) {
+      return;
+    }
+    if (e.shiftKey && selection) {
+      selection.endRow = row;
+      selection.endCol = col;
+    } else {
+      selection = { startRow: row, startCol: col, endRow: row, endCol: col };
+      selectionMode = "cell";
+    }
+    applyHighlights();
+  }
+  function handleRowNumberClick(e) {
+    const td = e.target.closest("td.row-number");
+    if (!td) {
+      return;
+    }
+    const tr = td.closest("tr");
+    const row = parseInt(tr.dataset.rowIndex, 10);
+    if (isNaN(row)) {
+      return;
+    }
+    const maxCol = state.headers.length - 1;
+    if (e.shiftKey && selection) {
+      selection.endRow = row;
+      selection.startCol = 0;
+      selection.endCol = maxCol;
+    } else {
+      selection = { startRow: row, startCol: 0, endRow: row, endCol: maxCol };
+      selectionMode = "row";
+    }
+    applyHighlights();
+  }
+  function handleHeaderClickForSelection(colIdx, e) {
+    if (!e.ctrlKey && !e.metaKey) {
+      return false;
+    }
+    const maxRow = state.rows.length - 1;
+    if (maxRow < 0) {
+      return false;
+    }
+    if (e.shiftKey && selection) {
+      selection.endCol = colIdx;
+      selection.startRow = 0;
+      selection.endRow = maxRow;
+    } else {
+      selection = { startRow: 0, startCol: colIdx, endRow: maxRow, endCol: colIdx };
+      selectionMode = "column";
+    }
+    applyHighlights();
+    return true;
+  }
+  function handleCopyShortcut(e) {
+    if (!(e.metaKey || e.ctrlKey) || e.key !== "c") {
+      return;
+    }
+    if (!selection) {
+      return;
+    }
+    e.preventDefault();
+    const text = getSelectionText();
+    if (text) {
+      sendMessage({ type: "copyToClipboard", text });
+    }
+  }
+  function getSelectionText() {
+    if (!selection) {
+      return "";
+    }
+    const minRow = Math.min(selection.startRow, selection.endRow);
+    const maxRow = Math.max(selection.startRow, selection.endRow);
+    const minCol = Math.min(selection.startCol, selection.endCol);
+    const maxCol = Math.max(selection.startCol, selection.endCol);
+    const lines = [];
+    for (let r = minRow; r <= maxRow; r++) {
+      if (r >= state.rows.length) {
+        break;
+      }
+      const cells = [];
+      for (let c = minCol; c <= maxCol; c++) {
+        cells.push(state.rows[r][c] || "");
+      }
+      lines.push(cells.join("	"));
+    }
+    return lines.join("\n");
+  }
+  function applyHighlights() {
+    removeHighlights();
+    if (!selection) {
+      return;
+    }
+    const minRow = Math.min(selection.startRow, selection.endRow);
+    const maxRow = Math.max(selection.startRow, selection.endRow);
+    const minCol = Math.min(selection.startCol, selection.endCol);
+    const maxCol = Math.max(selection.startCol, selection.endCol);
+    const rows = dom.tableBody.querySelectorAll("tr");
+    rows.forEach((tr) => {
+      const rowIdx = parseInt(tr.dataset.rowIndex, 10);
+      if (isNaN(rowIdx) || rowIdx < minRow || rowIdx > maxRow) {
+        return;
+      }
+      const cells = tr.querySelectorAll("td.editable-cell");
+      cells.forEach((td) => {
+        const colIdx = parseInt(td.dataset.columnIndex, 10);
+        if (colIdx >= minCol && colIdx <= maxCol) {
+          td.classList.add("selected");
+        }
+      });
+    });
+  }
+  function removeHighlights() {
+    const selected = dom.tableBody.querySelectorAll("td.selected");
+    selected.forEach((td) => td.classList.remove("selected"));
+  }
+
   // media/src/main.js
   var DEBOUNCE_MS = 300;
   var searchTimeout = null;
@@ -920,6 +1050,9 @@
         if (isNaN(colIdx)) {
           return;
         }
+        if (handleHeaderClickForSelection(colIdx, e)) {
+          return;
+        }
         if (headerClickTimer) {
           clearTimeout(headerClickTimer);
         }
@@ -976,8 +1109,23 @@
     document.addEventListener("dblclick", (e) => {
       const td = e.target.closest("td.editable-cell");
       if (td) {
+        clearSelection();
         startCellEdit(td);
       }
+    });
+    document.addEventListener("click", (e) => {
+      const rowNum = e.target.closest("td.row-number");
+      if (rowNum) {
+        handleRowNumberClick(e);
+        return;
+      }
+      const td = e.target.closest("td.editable-cell");
+      if (td && !isEditing()) {
+        handleCellClick(e);
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      handleCopyShortcut(e);
     });
     document.addEventListener("mouseover", (e) => {
       if (isEditing()) {
