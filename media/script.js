@@ -641,27 +641,17 @@
     acDropdown.style.top = rect.bottom + 2 + 'px';
     acDropdown.style.minWidth = Math.min(rect.width, 250) + 'px';
 
-    renderAutocompleteItems(word);
+    renderAutocompleteItems();
   }
 
-  function renderAutocompleteItems(currentWord) {
+  function renderAutocompleteItems() {
     if (!acDropdown) { return; }
     acDropdown.innerHTML = '';
 
     acItems.forEach((item, i) => {
       const div = document.createElement('div');
       div.className = 'ac-item' + (i === acSelectedIndex ? ' ac-item-active' : '');
-
-      // Highlight the matching prefix
-      const matchLen = currentWord.length;
-      const matchSpan = document.createElement('span');
-      matchSpan.className = 'ac-match';
-      matchSpan.textContent = item.slice(0, matchLen);
-      const restSpan = document.createElement('span');
-      restSpan.textContent = item.slice(matchLen);
-
-      div.appendChild(matchSpan);
-      div.appendChild(restSpan);
+      div.textContent = item;
 
       // Indicate if it's a column name
       if (state.headers.includes(item)) {
@@ -672,8 +662,9 @@
       }
 
       div.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // Prevent blur
-        acceptCompletion(dom.queryInput, item, currentWord);
+        e.preventDefault();
+        const { word } = getCompletions(dom.queryInput);
+        acceptCompletion(dom.queryInput, item, word);
       });
 
       acDropdown.appendChild(div);
@@ -712,16 +703,14 @@
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       acSelectedIndex = (acSelectedIndex + 1) % acItems.length;
-      const { word } = getCompletions(dom.queryInput);
-      renderAutocompleteItems(word);
+      renderAutocompleteItems();
       return true;
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       acSelectedIndex = (acSelectedIndex - 1 + acItems.length) % acItems.length;
-      const { word } = getCompletions(dom.queryInput);
-      renderAutocompleteItems(word);
+      renderAutocompleteItems();
       return true;
     }
 

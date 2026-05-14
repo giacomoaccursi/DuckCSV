@@ -203,11 +203,6 @@ body {
     background-color: var(--hover-bg);
 }
 
-.ac-match {
-    font-weight: 700;
-    color: var(--accent-color);
-}
-
 .ac-badge {
     margin-left: auto;
     font-size: 10px;
