@@ -681,8 +681,10 @@
 
     const lower = word.toLowerCase();
 
-    // Combine keywords + column names
-    const columnNames = state.headers.filter(h => h);
+    // Combine keywords + column names (quote names with spaces/special chars)
+    const columnNames = state.headers
+      .filter(h => h)
+      .map(h => /[^a-zA-Z0-9_]/.test(h) ? `"${h}"` : h);
     const allItems = SQL_KEYWORDS.concat(columnNames);
 
     const matches = allItems.filter(item =>
@@ -731,7 +733,8 @@
       div.textContent = item;
 
       // Indicate if it's a column name
-      if (state.headers.includes(item)) {
+      const unquoted = item.replace(/^"|"$/g, '');
+      if (state.headers.includes(item) || state.headers.includes(unquoted)) {
         const badge = document.createElement('span');
         badge.className = 'ac-badge';
         badge.textContent = 'column';
