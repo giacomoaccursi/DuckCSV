@@ -170,18 +170,39 @@ export class TableManager {
     const escapedValue = value.replace(/'/g, "''");
     const quoted = this.quoteIdentifier(tableName);
 
-    try {
-      conn.query(
-        `UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`
-      );
-    } catch {
-      // Cast failed — convert the entire column to VARCHAR and retry
-      conn.query(
-        `ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`
-      );
-      conn.query(
-        `UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`
-      );
+    // Get current column type to detect if value is incompatible
+    const types = await this.getColumnTypes(tableName);
+    const currentType = types[columnIndex];
+
+    // Check if value can be cast to current type
+    let needsTypeChange = false;
+    if (currentType && currentType !== 'VARCHAR') {
+      try {
+        const check = conn.query(
+          `SELECT TRY_CAST('${escapedValue}' AS ${currentType}) IS NOT NULL as ok`
+        );
+        const castable = check.get(0)?.ok;
+        if (!castable && value !== '') {
+          needsTypeChange = true;
+        }
+      } catch {
+        needsTypeChange = true;
+      }
+    }
+
+    if (needsTypeChange) {
+      // Convert column to VARCHAR first, then update
+      conn.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+      conn.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+    } else {
+      // Direct update (value is compatible with current type)
+      try {
+        conn.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+      } catch {
+        // Fallback: cast to VARCHAR and retry
+        conn.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+        conn.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+      }
     }
 
     // After update, try to tighten the column type if it's currently VARCHAR
@@ -307,12 +328,33 @@ export class TableManager {
       const row: string[] = [];
       for (let j = 0; j < numCols; j++) {
         const val = table.getChildAt(j)?.get(i);
-        row.push(val === null || val === undefined ? '' : String(val));
+        row.push(this.formatArrowValue(val));
       }
       rows.push(row);
     }
 
     return rows;
+  }
+
+  private formatArrowValue(val: any): string {
+    if (val === null || val === undefined) { return ''; }
+
+    // Handle Date objects (DuckDB DATE/TIMESTAMP come as epoch ms or Date objects)
+    if (val instanceof Date) {
+      return val.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
+    // Handle BigInt
+    if (typeof val === 'bigint') {
+      return val.toString();
+    }
+
+    // Handle numeric timestamps (epoch days for DATE, epoch ms for TIMESTAMP)
+    if (typeof val === 'number' && !isFinite(val)) {
+      return '';
+    }
+
+    return String(val);
   }
 
   private detectDelimiterFromContent(content: string): { name: string; char: string } {

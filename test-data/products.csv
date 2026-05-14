@@ -1,9 +1,9 @@
 product_id,name,category,price,stock
-501,Wireless Mouse,Electronics,29.99,2
-502,Mechanical Keyboard,Electronics,129.99,22
-503,USB-C Cable,Accessories,14.99,3
-504,Monitor Stand,Furniture,99.99,30
-505,Desk Lamp,Furniture,19.99,200
-506,Webcam HD,Electronics,49.99,90
-507,Mouse Pad XL,Accessories,12.99,300
-333,3,,,ciao
+501,Wireless Mouse,Electronics,30,2
+502,Mechanical ke,Electronics,130,22.2
+503,USB-C Cable,Accessories,15,3
+504,Monitor Stand,Furniture,100,30.33
+505,Desk Lamp,Furniture,20,200
+506,Webcam HD,Electronics,50,90
+507,Mouse Pad XL,Accessories,13,300
+333,3,,c

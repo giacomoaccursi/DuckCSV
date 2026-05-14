@@ -56,11 +56,18 @@ export class TableExporter {
       const row: string[] = [];
       for (let j = 0; j < numCols; j++) {
         const val = table.getChildAt(j)?.get(i);
-        row.push(val === null || val === undefined ? '' : String(val));
+        row.push(this.formatValue(val));
       }
       rows.push(row);
     }
 
     return rows;
+  }
+
+  private formatValue(val: any): string {
+    if (val === null || val === undefined) { return ''; }
+    if (val instanceof Date) { return val.toISOString().split('T')[0]; }
+    if (typeof val === 'bigint') { return val.toString(); }
+    return String(val);
   }
 }
