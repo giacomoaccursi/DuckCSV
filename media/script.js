@@ -69,6 +69,7 @@
     refreshBtn: document.getElementById('refreshBtn'),
     openAsTextBtn: document.getElementById('openAsTextBtn'),
     colorBtn: document.getElementById('colorBtn'),
+    addRowBtn: document.getElementById('addRowBtn'),
     loadMoreBtn: document.getElementById('loadMoreBtn'),
     loadMoreContainer: document.getElementById('loadMoreContainer'),
   };
@@ -578,6 +579,50 @@
     el.classList.toggle('hidden', !visible);
   }
 
+  // ─── Context Menu ────────────────────────────────────────────────────────
+
+  let contextMenuEl = null;
+
+  function showContextMenu(x, y, items) {
+    closeContextMenu();
+
+    contextMenuEl = document.createElement('div');
+    contextMenuEl.className = 'context-menu';
+    contextMenuEl.style.left = x + 'px';
+    contextMenuEl.style.top = y + 'px';
+
+    items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'context-menu-item';
+      btn.textContent = item.label;
+      btn.addEventListener('click', () => {
+        item.action();
+        closeContextMenu();
+      });
+      contextMenuEl.appendChild(btn);
+    });
+
+    document.body.appendChild(contextMenuEl);
+
+    setTimeout(() => {
+      document.addEventListener('mousedown', handleContextMenuOutsideClick);
+    }, 0);
+  }
+
+  function closeContextMenu() {
+    if (contextMenuEl) {
+      contextMenuEl.remove();
+      contextMenuEl = null;
+    }
+    document.removeEventListener('mousedown', handleContextMenuOutsideClick);
+  }
+
+  function handleContextMenuOutsideClick(e) {
+    if (contextMenuEl && !contextMenuEl.contains(e.target)) {
+      closeContextMenu();
+    }
+  }
+
   // ─── Tooltip ───────────────────────────────────────────────────────────────
 
   let tooltipEl = null;
@@ -649,6 +694,10 @@
       dom.colorBtn.addEventListener('click', () => toggleColumnColors());
     }
 
+    if (dom.addRowBtn) {
+      dom.addRowBtn.addEventListener('click', () => sendMessage({ type: 'addRow' }));
+    }
+
     if (dom.loadMoreBtn) {
       dom.loadMoreBtn.addEventListener('click', () => {
         dom.loadMoreBtn.disabled = true;
@@ -708,13 +757,19 @@
       if (e.target.closest('td, th')) { hideTooltip(); }
     });
 
-    // Right-click to copy cell
+    // Right-click context menu on cells
     document.addEventListener('contextmenu', (e) => {
       const cell = e.target.closest('td.editable-cell');
       if (!cell) { return; }
       e.preventDefault();
+
       const text = cell.dataset.fullText || cell.textContent;
-      sendMessage({ type: 'copyToClipboard', text });
+      const originalIndex = parseInt(cell.dataset.originalIndex, 10);
+
+      showContextMenu(e.pageX, e.pageY, [
+        { label: 'Copy cell', action: () => sendMessage({ type: 'copyToClipboard', text }) },
+        { label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', originalRowIndex: originalIndex }) },
+      ]);
     });
   }
 

@@ -92,5 +92,7 @@ export type WebviewMessage =
   | { type: 'getColumnValues'; columnIndex: number }
   | { type: 'setFilters'; filters: ColumnFilters }
   | { type: 'editCell'; originalRowIndex: number; columnIndex: number; value: string }
+  | { type: 'addRow' }
+  | { type: 'deleteRow'; originalRowIndex: number }
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' };

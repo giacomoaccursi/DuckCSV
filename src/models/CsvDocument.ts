@@ -22,7 +22,7 @@ export class CsvDocument {
   readonly delimiterChar: string;
 
   private data: string[][];
-  private readonly totalRows: number;
+
   private dirty: boolean = false;
 
   // ─── Query State ─────────────────────────────────────────────────────────
@@ -46,7 +46,6 @@ export class CsvDocument {
   }) {
     this.headers = params.headers;
     this.data = params.data;
-    this.totalRows = params.data.length;
     this.fileName = params.fileName;
     this.fileSize = params.fileSize;
     this.delimiterName = params.delimiterName;
@@ -56,7 +55,7 @@ export class CsvDocument {
   // ─── Public Getters ──────────────────────────────────────────────────────
 
   getTotalRows(): number {
-    return this.totalRows;
+    return this.data.length;
   }
 
   getFilteredRowCount(): number {
@@ -136,9 +135,43 @@ export class CsvDocument {
     this.data[originalRowIndex][columnIndex] = value;
     this.dirty = true;
 
-    // Invalidate caches affected by this change
     this.uniqueValuesCache.delete(columnIndex);
     this.invalidateResults();
+  }
+
+  // ─── Row Operations ──────────────────────────────────────────────────────
+
+  /**
+   * Append an empty row at the end of the dataset.
+   * Returns the original index of the new row.
+   */
+  addRow(): number {
+    const emptyRow = new Array(this.headers.length).fill('');
+    this.data.push(emptyRow);
+    this.dirty = true;
+
+    this.uniqueValuesCache.clear();
+    this.invalidateResults();
+
+    return this.data.length - 1;
+  }
+
+  /**
+   * Delete a row by its original index.
+   * Returns true if the row was deleted.
+   */
+  deleteRow(originalRowIndex: number): boolean {
+    if (originalRowIndex < 0 || originalRowIndex >= this.data.length) {
+      return false;
+    }
+
+    this.data.splice(originalRowIndex, 1);
+    this.dirty = true;
+
+    this.uniqueValuesCache.clear();
+    this.invalidateResults();
+
+    return true;
   }
 
   /**
@@ -218,11 +251,11 @@ export class CsvDocument {
       }));
 
     if (activeFilters.length === 0) {
-      return Array.from({ length: this.totalRows }, (_, i) => i);
+      return Array.from({ length: this.data.length }, (_, i) => i);
     }
 
     const result: number[] = [];
-    for (let i = 0; i < this.totalRows; i++) {
+    for (let i = 0; i < this.data.length; i++) {
       const row = this.data[i];
       const passes = activeFilters.every(f => f.valueSet.has(row[f.columnIndex] ?? ''));
       if (passes) {
@@ -278,7 +311,7 @@ export class CsvDocument {
   // ─── Internal: Helpers ───────────────────────────────────────────────────
 
   private detectNumericColumn(colIdx: number): boolean {
-    const sampleSize = Math.min(this.totalRows, 200);
+    const sampleSize = Math.min(this.data.length, 200);
     let numericCount = 0;
     let nonEmptyCount = 0;
 

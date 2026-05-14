@@ -145,6 +145,14 @@ export class CsvPreviewPanel {
         this.handleCellEdit(message.originalRowIndex, message.columnIndex, message.value);
         break;
 
+      case 'addRow':
+        this.handleAddRow();
+        break;
+
+      case 'deleteRow':
+        this.handleDeleteRow(message.originalRowIndex);
+        break;
+
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(message.text);
         vscode.window.showInformationMessage('Copied to clipboard');
@@ -164,11 +172,40 @@ export class CsvPreviewPanel {
     this.document.setCellValue(originalRowIndex, columnIndex, value);
     this.writerService.scheduleWrite(this.currentUri, this.document);
 
-    // Confirm edit to webview
     this.postMessage({
       type: 'cellEditConfirm',
       data: { originalRowIndex, columnIndex, value },
     });
+  }
+
+  // ─── Row Operations ─────────────────────────────────────────────────────
+
+  private handleAddRow(): void {
+    if (!this.document) { return; }
+
+    // Clear filters/search so the new empty row is visible
+    this.document.resetQueryState();
+    this.document.addRow();
+    this.writerService.scheduleWrite(this.currentUri, this.document);
+
+    // Jump to last page to show the new row
+    const total = this.document.getFilteredRowCount();
+    const pageSize = this.config.pageSize;
+    this.pageOffset = Math.max(0, total - pageSize);
+
+    this.sendCurrentPage();
+  }
+
+  private handleDeleteRow(originalRowIndex: number): void {
+    if (!this.document) { return; }
+
+    const deleted = this.document.deleteRow(originalRowIndex);
+    if (!deleted) { return; }
+
+    this.writerService.scheduleWrite(this.currentUri, this.document);
+
+    // Re-send current page (indices have shifted)
+    this.sendCurrentPage();
   }
 
   // ─── Data Loading ────────────────────────────────────────────────────────
@@ -272,6 +309,11 @@ export class CsvPreviewPanel {
         <button id="colorBtn" class="btn" title="Toggle column colors for better readability">
           <svg width="16" height="16" viewBox="0 0 16 16">
             <path fill="currentColor" d="M8 1C4.1 1 1 4.1 1 8s3.1 7 7 7 7-3.1 7-7-3.1-7-7-7zm0 1c1.2 0 2.3.4 3.2 1H8V3h-.5V2.02c.2-.01.3-.02.5-.02zM4.8 3h2.7v3H2.3A5.97 5.97 0 0 1 4.8 3zM2 8c0-.4 0-.7.1-1h5.4v2H2.1C2 8.7 2 8.4 2 8zm2.8 5A5.97 5.97 0 0 1 2.3 10h5.2v3H4.8zm3.7 0V10h5.2a5.97 5.97 0 0 1-2.5 3H8.5zm5.4-4H8.5V6h5.4c.1.3.1.6.1 1s0 .7-.1 1z"/>
+          </svg>
+        </button>
+        <button id="addRowBtn" class="btn" title="Add new row at the end">
+          <svg width="16" height="16" viewBox="0 0 16 16">
+            <path fill="currentColor" d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
           </svg>
         </button>
         <input type="text" id="searchInput" class="search-input" placeholder="Search..." />
