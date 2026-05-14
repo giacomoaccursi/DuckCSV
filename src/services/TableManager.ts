@@ -182,11 +182,47 @@ export class TableManager {
       conn.query(
         `UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`
       );
+    }
 
-      // Update cached metadata
-      const meta = this.tables.get(tableName);
-      if (meta) {
-        meta.headers = await this.getHeaders(tableName);
+    // After update, try to tighten the column type if it's currently VARCHAR
+    await this.tryTightenColumnType(tableName, columnIndex);
+
+    // Update cached metadata
+    const meta = this.tables.get(tableName);
+    if (meta) {
+      meta.headers = await this.getHeaders(tableName);
+      meta.columnTypes = await this.getColumnTypes(tableName);
+    }
+  }
+
+  /**
+   * If a column is VARCHAR, check if all values can be cast to a tighter type (BIGINT, DOUBLE, DATE).
+   * If so, alter the column type.
+   */
+  private async tryTightenColumnType(tableName: string, columnIndex: number): Promise<void> {
+    const conn = await this.engine.getConnection();
+    const types = await this.getColumnTypes(tableName);
+    if (types[columnIndex] !== 'VARCHAR') { return; }
+
+    const headers = await this.getHeaders(tableName);
+    const colName = this.quoteIdentifier(headers[columnIndex]);
+    const quoted = this.quoteIdentifier(tableName);
+
+    // Try INTEGER first, then BIGINT, then DOUBLE, then DATE
+    const candidates = ['INTEGER', 'BIGINT', 'DOUBLE', 'DATE'];
+
+    for (const targetType of candidates) {
+      try {
+        const check = conn.query(
+          `SELECT COUNT(*) = COUNT(TRY_CAST(${colName} AS ${targetType})) as ok FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != ''`
+        );
+        const allCastable = check.get(0)?.ok;
+        if (allCastable) {
+          conn.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${targetType}`);
+          return;
+        }
+      } catch {
+        // Skip this type
       }
     }
   }
