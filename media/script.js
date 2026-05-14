@@ -791,6 +791,7 @@
   // media/src/selection.js
   var selection = null;
   var selectionMode = "none";
+  var isDragging = false;
   function clearSelection() {
     selection = null;
     selectionMode = "none";
@@ -826,15 +827,31 @@
       return;
     }
     const maxCol = state.headers.length - 1;
-    if (e.shiftKey && selection) {
-      selection.endRow = row;
-      selection.startCol = 0;
-      selection.endCol = maxCol;
-    } else {
-      selection = { startRow: row, startCol: 0, endRow: row, endCol: maxCol };
-      selectionMode = "row";
-    }
+    selection = { startRow: row, startCol: 0, endRow: row, endCol: maxCol };
+    selectionMode = "row";
+    isDragging = true;
+    document.body.classList.add("selecting");
     applyHighlights();
+    const onMove2 = (ev) => {
+      const rowEl = ev.target.closest("tr[data-row-index]");
+      if (!rowEl) {
+        return;
+      }
+      const newRow = parseInt(rowEl.dataset.rowIndex, 10);
+      if (isNaN(newRow)) {
+        return;
+      }
+      selection.endRow = newRow;
+      applyHighlights();
+    };
+    const onUp = () => {
+      isDragging = false;
+      document.body.classList.remove("selecting");
+      document.removeEventListener("mousemove", onMove2);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove2);
+    document.addEventListener("mouseup", onUp);
   }
   function handleSelectAll() {
     const maxRow = state.rows.length - 1;
@@ -851,15 +868,31 @@
     if (maxRow < 0) {
       return;
     }
-    if (e.shiftKey && selection) {
-      selection.endCol = colIdx;
-      selection.startRow = 0;
-      selection.endRow = maxRow;
-    } else {
-      selection = { startRow: 0, startCol: colIdx, endRow: maxRow, endCol: colIdx };
-      selectionMode = "column";
-    }
+    selection = { startRow: 0, startCol: colIdx, endRow: maxRow, endCol: colIdx };
+    selectionMode = "column";
+    isDragging = true;
+    document.body.classList.add("selecting");
     applyHighlights();
+    const onMove2 = (ev) => {
+      const selCell = ev.target.closest(".column-select-cell");
+      if (!selCell) {
+        return;
+      }
+      const newCol = parseInt(selCell.dataset.columnIndex, 10);
+      if (isNaN(newCol)) {
+        return;
+      }
+      selection.endCol = newCol;
+      applyHighlights();
+    };
+    const onUp = () => {
+      isDragging = false;
+      document.body.classList.remove("selecting");
+      document.removeEventListener("mousemove", onMove2);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove2);
+    document.addEventListener("mouseup", onUp);
   }
   function handleCopyShortcut(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key !== "c") {
@@ -1131,21 +1164,19 @@
       dom.tableHeader.addEventListener("mousedown", (e) => {
         if (e.target.classList.contains("resize-handle")) {
           initResize(e);
+          return;
         }
-      });
-      dom.tableHeader.addEventListener("click", (e) => {
         const corner = e.target.closest(".row-number-header");
         if (corner) {
           handleSelectAll();
           return;
         }
         const selCell = e.target.closest(".column-select-cell");
-        if (!selCell) {
-          return;
-        }
-        const colIdx = parseInt(selCell.dataset.columnIndex, 10);
-        if (!isNaN(colIdx)) {
-          handleHeaderClickForSelection(colIdx, e);
+        if (selCell) {
+          const colIdx = parseInt(selCell.dataset.columnIndex, 10);
+          if (!isNaN(colIdx)) {
+            handleHeaderClickForSelection(colIdx, e);
+          }
         }
       });
     }
@@ -1167,7 +1198,7 @@
         startCellEdit(td);
       }
     });
-    document.addEventListener("click", (e) => {
+    document.addEventListener("mousedown", (e) => {
       const rowNum = e.target.closest("td.row-number");
       if (rowNum) {
         handleRowNumberClick(e);

@@ -175,20 +175,21 @@ function bindEvents() {
       insertAtCursor(dom.queryInput, quoted);
     });
 
+    // Column select row mousedown (supports drag)
     dom.tableHeader.addEventListener('mousedown', (e) => {
-      if (e.target.classList.contains('resize-handle')) { initResize(e); }
-    });
+      // Resize handle
+      if (e.target.classList.contains('resize-handle')) { initResize(e); return; }
 
-    // Column select row click
-    dom.tableHeader.addEventListener('click', (e) => {
       // Select all on # click
       const corner = e.target.closest('.row-number-header');
       if (corner) { handleSelectAll(); return; }
 
+      // Column select box
       const selCell = e.target.closest('.column-select-cell');
-      if (!selCell) { return; }
-      const colIdx = parseInt(selCell.dataset.columnIndex, 10);
-      if (!isNaN(colIdx)) { handleHeaderClickForSelection(colIdx, e); }
+      if (selCell) {
+        const colIdx = parseInt(selCell.dataset.columnIndex, 10);
+        if (!isNaN(colIdx)) { handleHeaderClickForSelection(colIdx, e); }
+      }
     });
   }
 
@@ -208,8 +209,8 @@ function bindEvents() {
   });
 
   // Cell/row selection (single click)
-  document.addEventListener('click', (e) => {
-    // Row number click → select row
+  document.addEventListener('mousedown', (e) => {
+    // Row number mousedown → select row (supports drag)
     const rowNum = e.target.closest('td.row-number');
     if (rowNum) { handleRowNumberClick(e); return; }
 

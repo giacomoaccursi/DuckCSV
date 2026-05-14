@@ -493,6 +493,10 @@ body.resizing {
     user-select: none;
 }
 
+body.selecting {
+    user-select: none;
+}
+
 /* Filter Dropdown */
 .filter-dropdown {
     position: fixed;
