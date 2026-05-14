@@ -436,6 +436,28 @@ body {
     color: var(--accent-color);
 }
 
+/* Column Resize Handle */
+.resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background-color 0.15s;
+}
+
+.resize-handle:hover,
+body.resizing .resize-handle {
+    background-color: var(--accent-color);
+}
+
+body.resizing {
+    cursor: col-resize !important;
+    user-select: none;
+}
+
 /* Filter Dropdown */
 .filter-dropdown {
     position: fixed;

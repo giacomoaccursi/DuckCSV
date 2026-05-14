@@ -173,6 +173,11 @@
       }
       th.appendChild(filterBtn);
 
+      // Resize handle
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'resize-handle';
+      th.appendChild(resizeHandle);
+
       th.title = (header || `Column ${i + 1}`) + ' (click to sort, funnel to filter)';
       tr.appendChild(th);
     });
@@ -388,7 +393,56 @@
     }
   }
 
-  // ─── 6. Column Coloring ───────────────────────────────────────────────────
+  // ─── 6. Column Resize ──────────────────────────────────────────────────────
+
+  let resizeState = null; // { th, startX, startWidth }
+
+  function initResize(e) {
+    const handle = e.target;
+    if (!handle.classList.contains('resize-handle')) { return; }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const th = handle.parentElement;
+    const startX = e.pageX;
+    const startWidth = th.offsetWidth;
+
+    resizeState = { th, startX, startWidth };
+    document.body.classList.add('resizing');
+
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('mouseup', onResizeEnd);
+  }
+
+  function onResizeMove(e) {
+    if (!resizeState) { return; }
+    const diff = e.pageX - resizeState.startX;
+    const newWidth = Math.max(40, resizeState.startWidth + diff);
+    resizeState.th.style.width = newWidth + 'px';
+    resizeState.th.style.minWidth = newWidth + 'px';
+    resizeState.th.style.maxWidth = newWidth + 'px';
+
+    // Also resize the corresponding column cells
+    const colIdx = resizeState.th.dataset.columnIndex;
+    if (colIdx !== undefined) {
+      const cells = dom.tableBody.querySelectorAll(`td[data-column-index="${colIdx}"]`);
+      cells.forEach(td => {
+        td.style.width = newWidth + 'px';
+        td.style.minWidth = newWidth + 'px';
+        td.style.maxWidth = newWidth + 'px';
+      });
+    }
+  }
+
+  function onResizeEnd() {
+    resizeState = null;
+    document.body.classList.remove('resizing');
+    document.removeEventListener('mousemove', onResizeMove);
+    document.removeEventListener('mouseup', onResizeEnd);
+  }
+
+  // ─── 7. Column Coloring ───────────────────────────────────────────────────
 
   function toggleColumnColors() {
     state.colorColumnsEnabled = !state.colorColumnsEnabled;
@@ -1013,6 +1067,7 @@
     if (dom.tableHeader) {
       dom.tableHeader.addEventListener('click', (e) => {
         if (e.target.closest('.filter-btn')) { return; }
+        if (e.target.closest('.resize-handle')) { return; }
         const th = e.target.closest('th.sortable-header');
         if (!th) { return; }
 
@@ -1026,6 +1081,13 @@
         }
 
         sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+      });
+
+      // Column resize (delegated mousedown on resize handles)
+      dom.tableHeader.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('resize-handle')) {
+          initResize(e);
+        }
       });
     }
 
