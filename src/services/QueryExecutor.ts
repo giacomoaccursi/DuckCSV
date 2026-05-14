@@ -39,6 +39,9 @@ export class QueryExecutor {
         rowCount: rows.length,
         totalCount,
         executionTimeMs: performance.now() - start,
+        error: totalCount > MAX_DISPLAY_ROWS
+          ? `Showing first ${MAX_DISPLAY_ROWS.toLocaleString()} of ${totalCount.toLocaleString()} rows`
+          : undefined,
       };
     } catch (err: unknown) {
       return {

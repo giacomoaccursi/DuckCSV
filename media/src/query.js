@@ -16,7 +16,8 @@ let queryActive = false;
 export function isQueryActive() { return queryActive; }
 
 export function onQueryResult(data) {
-  if (data.error) {
+  // If error and no rows, it's a real error (syntax, missing table, etc.)
+  if (data.error && !data.rows.length) {
     showQueryError(data.error);
     return;
   }
@@ -29,7 +30,7 @@ export function onQueryResult(data) {
   state.rows = data.rows;
   state.rowids = [];
   state.filteredRows = data.rowCount;
-  state.totalRows = data.rowCount;
+  state.totalRows = data.totalCount;
 
   renderHeader();
   renderQueryRows(data.rows);
