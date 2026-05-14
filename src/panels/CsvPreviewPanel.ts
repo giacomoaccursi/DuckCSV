@@ -344,6 +344,12 @@ export class CsvPreviewPanel {
 
   private dispose(): void {
     CsvPreviewPanel.panels.delete(`${this.currentUri.toString()}:${this.mode}`);
+
+    // Clean up the table from DuckDB
+    if (this.tableName) {
+      this.tableManager.dropTable(this.tableName).catch(() => {});
+    }
+
     while (this.disposables.length) {
       const d = this.disposables.pop();
       d?.dispose();
