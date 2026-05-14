@@ -193,6 +193,30 @@ body {
     font-size: 13px;
     gap: 4px;
     transition: background-color 0.1s, border-color 0.1s;
+    position: relative;
+}
+
+.btn[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background-color: var(--vscode-editorHoverWidget-background, #252526);
+    color: var(--vscode-editorHoverWidget-foreground, #ccc);
+    border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+    font-size: 11px;
+    white-space: nowrap;
+    border-radius: 2px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.toolbar-right .btn[data-tooltip]:hover::after,
+.query-bar .btn[data-tooltip]:hover::after {
+    left: auto;
+    right: 0;
 }
 
 .btn:hover {
