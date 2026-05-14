@@ -273,4 +273,51 @@ function bindEvents() {
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
+bindDragAndDrop();
 sendMessage({ type: 'ready' });
+
+// ─── Drag and Drop ───────────────────────────────────────────────────────────
+
+function bindDragAndDrop() {
+  const app = document.getElementById('app');
+  if (!app) { return; }
+
+  // Prevent default to allow drop
+  app.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    app.classList.add('drag-over');
+  });
+
+  app.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  app.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.target === app || !app.contains(e.relatedTarget)) {
+      app.classList.remove('drag-over');
+    }
+  });
+
+  app.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    app.classList.remove('drag-over');
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // In Electron, File objects have a .path property with the full filesystem path
+        const filePath = file.path || '';
+        if (filePath && (filePath.endsWith('.csv') || filePath.endsWith('.tsv'))) {
+          sendMessage({ type: 'addTable', filePath });
+        }
+      }
+    }
+  });
+}

@@ -55,6 +55,7 @@ export class CsvWorkspacePanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
+        enableForms: true,
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')],
       }
     );

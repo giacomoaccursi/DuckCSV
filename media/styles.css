@@ -135,6 +135,12 @@ body {
     font-size: 14px;
 }
 
+/* Drag and Drop */
+#app.drag-over {
+    outline: 2px dashed var(--accent-color);
+    outline-offset: -4px;
+}
+
 /* Mode Banner */
 .mode-banner {
     padding: 6px 12px;
