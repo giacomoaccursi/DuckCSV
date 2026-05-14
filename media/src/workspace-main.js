@@ -15,7 +15,7 @@ import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, isQueryActive, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection, handleSelectAll } from './selection.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
 
@@ -244,7 +244,7 @@ function bindEvents() {
     if (td && !isEditing()) { handleCellClick(e); }
   });
 
-  document.addEventListener('keydown', (e) => { handleCopyShortcut(e); });
+  document.addEventListener('keydown', (e) => { handleCopyShortcut(e); handleArrowNavigation(e); });
 
   // Tooltip
   document.addEventListener('mouseover', (e) => {

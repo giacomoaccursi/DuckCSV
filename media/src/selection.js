@@ -55,6 +55,12 @@ export function handleRowNumberClick(e) {
 
   const maxCol = state.headers.length - 1;
 
+  // Toggle: if same row already selected, deselect
+  if (selection && selectionMode === 'row' && selection.startRow === row && selection.endRow === row) {
+    clearSelection();
+    return;
+  }
+
   selection = { startRow: row, startCol: 0, endRow: row, endCol: maxCol };
   selectionMode = 'row';
   isDragging = true;
@@ -88,6 +94,12 @@ export function handleSelectAll() {
   const maxCol = state.headers.length - 1;
   if (maxRow < 0 || maxCol < 0) { return; }
 
+  // Toggle: if already all selected, deselect
+  if (selection && selection.startRow === 0 && selection.startCol === 0 && selection.endRow === maxRow && selection.endCol === maxCol) {
+    clearSelection();
+    return;
+  }
+
   selection = { startRow: 0, startCol: 0, endRow: maxRow, endCol: maxCol };
   selectionMode = 'cell';
   applyHighlights();
@@ -96,6 +108,12 @@ export function handleSelectAll() {
 export function handleHeaderClickForSelection(colIdx, e) {
   const maxRow = state.rows.length - 1;
   if (maxRow < 0) { return; }
+
+  // Toggle: if same column already selected, deselect
+  if (selection && selectionMode === 'column' && selection.startCol === colIdx && selection.endCol === colIdx) {
+    clearSelection();
+    return;
+  }
 
   selection = { startRow: 0, startCol: colIdx, endRow: maxRow, endCol: colIdx };
   selectionMode = 'column';
@@ -135,6 +153,39 @@ export function handleCopyShortcut(e) {
   if (text) {
     sendMessage({ type: 'copyToClipboard', text });
   }
+}
+
+export function handleArrowNavigation(e) {
+  if (!selection) { return false; }
+  if (e.target.tagName === 'INPUT') { return false; }
+
+  const { key } = e;
+  if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'Tab') {
+    return false;
+  }
+
+  e.preventDefault();
+
+  let row = selection.endRow;
+  let col = selection.endCol;
+  const maxRow = state.rows.length - 1;
+  const maxCol = state.headers.length - 1;
+
+  if (key === 'ArrowUp') { row = Math.max(0, row - 1); }
+  else if (key === 'ArrowDown') { row = Math.min(maxRow, row + 1); }
+  else if (key === 'ArrowLeft') { col = Math.max(0, col - 1); }
+  else if (key === 'ArrowRight' || key === 'Tab') { col = Math.min(maxCol, col + 1); }
+
+  selection = { startRow: row, startCol: col, endRow: row, endCol: col };
+  selectionMode = 'cell';
+  applyHighlights();
+  scrollCellIntoView(row, col);
+  return true;
+}
+
+function scrollCellIntoView(row, col) {
+  const td = dom.tableBody.querySelector(`tr[data-row-index="${row}"] td[data-column-index="${col}"]`);
+  if (td) { td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
 }
 
 function getSelectionText() {

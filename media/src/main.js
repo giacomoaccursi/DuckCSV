@@ -14,7 +14,7 @@ import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, isQueryActive, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, clearSelection, handleSelectAll } from './selection.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 
 const DEBOUNCE_MS = 300;
 let searchTimeout = null;
@@ -261,6 +261,7 @@ function bindEvents() {
   // Keyboard: Cmd+C to copy selection
   document.addEventListener('keydown', (e) => {
     handleCopyShortcut(e);
+    handleArrowNavigation(e);
   });
 
   // Tooltip

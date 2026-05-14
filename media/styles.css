@@ -406,7 +406,7 @@ body {
 
 /* Column Select Row */
 .column-select-row th {
-    padding: 2px 12px;
+    padding: 1px 12px;
     border-bottom: 1px solid var(--border-color);
     border-right: 1px solid var(--border-color);
     background-color: var(--header-bg);
@@ -432,11 +432,16 @@ body {
 
 .column-select-box {
     width: 14px;
-    height: 6px;
+    height: 4px;
     margin: 0 auto;
     border-radius: 2px;
-    background-color: var(--border-color);
-    transition: background-color 0.15s;
+    background-color: var(--fg-secondary);
+    opacity: 0.5;
+    transition: background-color 0.15s, opacity 0.15s;
+}
+
+.column-select-cell:hover .column-select-box {
+    opacity: 1;
 }
 
 /* Header - STICKY! */
