@@ -1097,7 +1097,9 @@
       });
     }
 
-    // Sort on header click (delegated)
+    // Sort on header click (delegated) — delayed to distinguish from dblclick
+    let headerClickTimer = null;
+
     if (dom.tableHeader) {
       dom.tableHeader.addEventListener('click', (e) => {
         if (e.target.closest('.filter-btn')) { return; }
@@ -1108,17 +1110,24 @@
         const colIdx = parseInt(th.dataset.columnIndex, 10);
         if (isNaN(colIdx)) { return; }
 
-        let newDirection = 'asc';
-        if (state.sort.columnIndex === colIdx) {
-          if (state.sort.direction === 'asc') { newDirection = 'desc'; }
-          else if (state.sort.direction === 'desc') { newDirection = 'none'; }
-        }
-
-        sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+        // Delay sort to allow dblclick to cancel it
+        if (headerClickTimer) { clearTimeout(headerClickTimer); }
+        headerClickTimer = setTimeout(() => {
+          headerClickTimer = null;
+          let newDirection = 'asc';
+          if (state.sort.columnIndex === colIdx) {
+            if (state.sort.direction === 'asc') { newDirection = 'desc'; }
+            else if (state.sort.direction === 'desc') { newDirection = 'none'; }
+          }
+          sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+        }, 250);
       });
 
       // Double-click header to insert column name into query
       dom.tableHeader.addEventListener('dblclick', (e) => {
+        // Cancel the pending sort
+        if (headerClickTimer) { clearTimeout(headerClickTimer); headerClickTimer = null; }
+
         if (e.target.closest('.filter-btn')) { return; }
         if (e.target.closest('.resize-handle')) { return; }
         const th = e.target.closest('th.sortable-header');
