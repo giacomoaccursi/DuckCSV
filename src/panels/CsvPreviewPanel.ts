@@ -224,6 +224,7 @@ export class CsvPreviewPanel {
     try {
       await this.duckDb.updateCell(rowid, columnIndex, value);
       this.isDirty = true;
+      await this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
     } catch (error: unknown) {
       this.postError(error);
@@ -238,6 +239,7 @@ export class CsvPreviewPanel {
       this.filters = {};
       this.searchTerm = '';
       this.pageOffset = Math.max(0, this.totalRows - this.config.pageSize);
+      await this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -249,9 +251,21 @@ export class CsvPreviewPanel {
       await this.duckDb.deleteRow(rowid);
       this.totalRows--;
       this.isDirty = true;
+      await this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
+    }
+  }
+
+  // ─── Persistence ─────────────────────────────────────────────────────────
+
+  private async persistToDisk(): Promise<void> {
+    try {
+      await this.duckDb.exportToCsv(this.currentUri.fsPath);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to save file';
+      vscode.window.showErrorMessage(`CSV save error: ${msg}`);
     }
   }
 
