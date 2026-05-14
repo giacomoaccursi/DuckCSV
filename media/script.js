@@ -155,6 +155,9 @@
         } else if (state.sort.direction === 'desc') {
           sortIndicator.textContent = ' \u25BC';
         }
+      } else {
+        // Show hint that sorting is available
+        sortIndicator.textContent = ' \u21C5';
       }
       content.appendChild(sortIndicator);
       th.appendChild(content);

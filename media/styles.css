@@ -275,7 +275,6 @@ body {
 
 /* Table */
 #csvTable {
-    width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
@@ -406,7 +405,7 @@ body {
 }
 
 .sort-indicator {
-    font-size: 10px;
+    font-size: 14px;
     flex-shrink: 0;
 }
 
@@ -419,17 +418,16 @@ body {
     height: 20px;
     border: none;
     background: transparent;
-    color: var(--fg-primary);
+    color: inherit;
     cursor: pointer;
     border-radius: 2px;
-    opacity: 0.5;
-    transition: opacity 0.15s, background-color 0.15s;
+    opacity: 1;
+    transition: background-color 0.15s;
     vertical-align: middle;
     margin-left: 4px;
 }
 
 .filter-btn:hover {
-    opacity: 1;
     background-color: var(--hover-bg);
 }
 
