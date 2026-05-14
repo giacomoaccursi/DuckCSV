@@ -53,6 +53,7 @@
     isDirty: false,
     columnValues: null,
     colorColumnsEnabled: false,
+    columnWidths: {}, // columnIndex → width string (e.g. '150px')
   };
 
   // ─── 2. DOM References ─────────────────────────────────────────────────────
@@ -129,6 +130,13 @@
       const th = document.createElement('th');
       th.className = 'sortable-header';
       th.dataset.columnIndex = i;
+
+      // Apply saved column width
+      if (state.columnWidths[i]) {
+        th.style.width = state.columnWidths[i];
+        th.style.minWidth = state.columnWidths[i];
+        th.style.maxWidth = state.columnWidths[i];
+      }
 
       // Apply column color to header
       const colColor = getColumnColor(i);
@@ -219,6 +227,13 @@
       const td = document.createElement('td');
       td.className = 'editable-cell';
       const text = cell || '';
+
+      // Apply saved column width
+      if (state.columnWidths[colIndex]) {
+        td.style.width = state.columnWidths[colIndex];
+        td.style.minWidth = state.columnWidths[colIndex];
+        td.style.maxWidth = state.columnWidths[colIndex];
+      }
 
       // Apply column color
       const colColor = getColumnColor(colIndex);
@@ -419,18 +434,23 @@
     if (!resizeState) { return; }
     const diff = e.pageX - resizeState.startX;
     const newWidth = Math.max(40, resizeState.startWidth + diff);
-    resizeState.th.style.width = newWidth + 'px';
-    resizeState.th.style.minWidth = newWidth + 'px';
-    resizeState.th.style.maxWidth = newWidth + 'px';
+    const widthStr = newWidth + 'px';
 
-    // Also resize the corresponding column cells
+    resizeState.th.style.width = widthStr;
+    resizeState.th.style.minWidth = widthStr;
+    resizeState.th.style.maxWidth = widthStr;
+
+    // Save to state
     const colIdx = resizeState.th.dataset.columnIndex;
     if (colIdx !== undefined) {
+      state.columnWidths[colIdx] = widthStr;
+
+      // Also resize the corresponding column cells
       const cells = dom.tableBody.querySelectorAll(`td[data-column-index="${colIdx}"]`);
       cells.forEach(td => {
-        td.style.width = newWidth + 'px';
-        td.style.minWidth = newWidth + 'px';
-        td.style.maxWidth = newWidth + 'px';
+        td.style.width = widthStr;
+        td.style.minWidth = widthStr;
+        td.style.maxWidth = widthStr;
       });
     }
   }
