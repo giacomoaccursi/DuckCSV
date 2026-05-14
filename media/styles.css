@@ -78,7 +78,7 @@ body {
     padding: 2px 8px;
     background-color: var(--vscode-badge-background, rgba(128,128,128,0.2));
     color: var(--fg-primary);
-    border-radius: 10px;
+    border-radius: 2px;
     font-size: 11px;
 }
 
@@ -206,18 +206,17 @@ body {
 }
 
 .btn-primary {
-    background-color: var(--accent-color);
-    color: var(--bg-primary);
+    background-color: var(--vscode-button-secondaryBackground, rgba(255,255,255,0.1));
+    color: var(--fg-primary);
     border-color: var(--accent-color);
 }
 
 .btn-primary:hover {
-    opacity: 0.9;
+    background-color: var(--hover-bg);
 }
 
 .btn.btn-active {
-    background-color: var(--accent-color);
-    color: var(--bg-primary);
+    background-color: var(--hover-bg);
     border-color: var(--accent-color);
 }
 
@@ -303,7 +302,7 @@ body {
     z-index: 1002;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 2px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     max-height: 200px;
     overflow-y: auto;
@@ -332,7 +331,7 @@ body {
     color: var(--fg-secondary);
     background-color: var(--border-color);
     padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 /* Loading */
@@ -366,7 +365,7 @@ body {
     padding: 16px;
     background-color: var(--vscode-inputValidation-errorBackground);
     border: 1px solid var(--vscode-inputValidation-errorBorder);
-    border-radius: 4px;
+    border-radius: 2px;
     margin: 16px;
 }
 
@@ -643,7 +642,7 @@ body.selecting {
     z-index: 1000;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 2px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 220px;
     max-width: 320px;
@@ -787,7 +786,7 @@ body.selecting {
     z-index: 1001;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 2px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 140px;
     padding: 4px 0;
@@ -816,7 +815,7 @@ body.selecting {
     color: var(--vscode-editorHoverWidget-foreground);
     border: 1px solid var(--vscode-editorHoverWidget-border);
     padding: 6px 10px;
-    border-radius: 3px;
+    border-radius: 2px;
     font-size: 12px;
     z-index: 1000;
     max-width: 400px;
