@@ -13,7 +13,7 @@ import { showLoading, hideLoading, showTable, showError, updateStats, showToolti
 import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 
 const DEBOUNCE_MS = 300;
@@ -28,7 +28,10 @@ function handleExtensionMessage(message) {
     case 'cellEditConfirm': onCellEditConfirm(); break;
     case 'queryResult': onQueryResult(message.data); break;
     case 'modeInfo': showModeBanner(message.mode, message.savePath); break;
-    case 'loading': message.loading ? showLoading() : hideLoading(); break;
+    case 'loading':
+      if (message.loading) { showLoading(); setSystemLoading(true); }
+      else { hideLoading(); setSystemLoading(false); }
+      break;
     case 'error': showError(message.message); break;
   }
 }

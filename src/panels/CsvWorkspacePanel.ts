@@ -137,13 +137,19 @@ export class CsvWorkspacePanel {
         this.queryExecutor.cancel();
         // Worker was terminated — need to reload tables
         if (this.activeTable) {
-          // Re-load all tables from their file paths
-          const tablesToReload = this.tableManager.getLoadedTables().map(t => ({ name: t.name, path: t.filePath }));
-          await this.tableManager.dropAllTables();
-          for (const t of tablesToReload) {
-            await this.tableManager.loadTable(vscode.Uri.file(t.path), t.name);
+          this.postMessage({ type: 'loading', loading: true });
+          try {
+            const tablesToReload = this.tableManager.getLoadedTables().map(t => ({ name: t.name, path: t.filePath }));
+            await this.tableManager.dropAllTables();
+            for (const t of tablesToReload) {
+              await this.tableManager.loadTable(vscode.Uri.file(t.path), t.name);
+            }
+            await this.sendCurrentPage();
+          } catch (error: unknown) {
+            this.postError(error);
+          } finally {
+            this.postMessage({ type: 'loading', loading: false });
           }
-          await this.sendCurrentPage();
         }
         return;
 

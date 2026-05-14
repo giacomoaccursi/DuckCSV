@@ -17,6 +17,34 @@ let queryRunning = false;
 export function isQueryActive() { return queryActive; }
 export function isQueryRunning() { return queryRunning; }
 
+let systemLoading = false;
+
+export function isSystemLoading() { return systemLoading; }
+
+/**
+ * Block/unblock the entire query bar during system operations (loading tables, etc.)
+ * When loading, nothing is clickable or typeable.
+ */
+export function setSystemLoading(loading) {
+  systemLoading = loading;
+  const runBtn = document.getElementById('queryRunBtn');
+  const sideBtn = document.getElementById('querySideBtn');
+  const clearBtn = document.getElementById('queryClearBtn');
+  const queryInput = document.getElementById('queryInput');
+
+  if (loading) {
+    if (runBtn) { runBtn.disabled = true; }
+    if (sideBtn) { sideBtn.disabled = true; }
+    if (clearBtn) { clearBtn.disabled = true; }
+    if (queryInput) { queryInput.disabled = true; }
+  } else {
+    if (runBtn) { runBtn.disabled = false; }
+    if (sideBtn) { sideBtn.disabled = false; }
+    if (clearBtn) { clearBtn.disabled = false; }
+    if (queryInput) { queryInput.disabled = false; }
+  }
+}
+
 export function setQueryRunning(running) {
   queryRunning = running;
   const runBtn = document.getElementById('queryRunBtn');
@@ -26,6 +54,7 @@ export function setQueryRunning(running) {
     if (runBtn) {
       runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><rect fill="currentColor" x="4" y="4" width="8" height="8"/></svg>';
       runBtn.title = 'Stop query';
+      runBtn.disabled = false; // stop button must stay clickable
     }
     if (queryInput) { queryInput.disabled = true; }
   } else {
