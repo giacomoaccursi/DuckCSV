@@ -89,8 +89,7 @@ export class DuckDbService implements vscode.Disposable {
     this.conn.query("DROP TABLE IF EXISTS csv");
 
     // Load with all columns as VARCHAR to avoid type conversion errors on empty/mixed values
-    // Add explicit _rowid column for stable row identification
-    this.conn.query(`CREATE TABLE csv AS SELECT row_number() OVER () as _rowid, * FROM read_csv_auto('${filePath}', all_varchar=true)`);
+    this.conn.query(`CREATE TABLE csv AS SELECT * FROM read_csv_auto('${filePath}', all_varchar=true)`);
 
     // Get metadata
     const headers = this.getHeaders();
@@ -160,8 +159,10 @@ export class DuckDbService implements vscode.Disposable {
     const filteredCount = Number(countResult.get(0)?.cnt ?? 0);
 
     // Get page with rowid for editing support
+    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+
     const pageResult = this.conn.query(
-      `SELECT rowid, * FROM csv ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
+      `SELECT rowid, ${columns} FROM csv ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
     const allRows = this.arrowTableToRows(pageResult);
@@ -271,7 +272,7 @@ export class DuckDbService implements vscode.Disposable {
 
   getHeaders(): string[] {
     if (!this.conn) { return []; }
-    const result = this.conn.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'csv' AND column_name != '_rowid' ORDER BY ordinal_position");
+    const result = this.conn.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'csv' ORDER BY ordinal_position");
     return this.arrowTableToRows(result).map(row => row[0]);
   }
 
