@@ -87,8 +87,8 @@ export class DuckDbService implements vscode.Disposable {
     // Drop previous table if exists
     this.conn.query("DROP TABLE IF EXISTS csv");
 
-    // Load with auto-detection
-    this.conn.query(`CREATE TABLE csv AS SELECT * FROM read_csv_auto('${filePath}')`);
+    // Load with all columns as VARCHAR to avoid type conversion errors on empty/mixed values
+    this.conn.query(`CREATE TABLE csv AS SELECT * FROM read_csv_auto('${filePath}', all_varchar=true)`);
 
     // Get metadata
     const headers = this.getHeaders();
