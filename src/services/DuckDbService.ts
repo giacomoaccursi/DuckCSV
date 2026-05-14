@@ -88,7 +88,8 @@ export class DuckDbService implements vscode.Disposable {
     this.conn.query("DROP TABLE IF EXISTS csv");
 
     // Load with all columns as VARCHAR to avoid type conversion errors on empty/mixed values
-    this.conn.query(`CREATE TABLE csv AS SELECT * FROM read_csv_auto('${filePath}', all_varchar=true)`);
+    // Add explicit _rowid column for stable row identification
+    this.conn.query(`CREATE TABLE csv AS SELECT row_number() OVER () as _rowid, * FROM read_csv_auto('${filePath}', all_varchar=true)`);
 
     // Get metadata
     const headers = this.getHeaders();
@@ -221,15 +222,25 @@ export class DuckDbService implements vscode.Disposable {
   async exportToCsv(outputPath: string): Promise<void> {
     await this.ensureReady();
 
-    const escapedPath = outputPath.replace(/'/g, "''");
-    this.conn.query(`COPY csv TO '${escapedPath}' (FORMAT CSV, HEADER)`);
+    const headers = this.getHeaders();
+    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+
+    // Write to temp file then rename (DuckDB can't overwrite a file it read from)
+    const tmpPath = outputPath + '.tmp';
+    const escapedTmp = tmpPath.replace(/'/g, "''");
+
+    this.conn.query(`COPY (SELECT ${columns} FROM csv) TO '${escapedTmp}' (FORMAT CSV, HEADER)`);
+
+    // Rename temp to original
+    const fs = require('fs');
+    fs.renameSync(tmpPath, outputPath);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   getHeaders(): string[] {
     if (!this.conn) { return []; }
-    const result = this.conn.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'csv' ORDER BY ordinal_position");
+    const result = this.conn.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'csv' AND column_name != '_rowid' ORDER BY ordinal_position");
     return this.arrowTableToRows(result).map(row => row[0]);
   }
 
