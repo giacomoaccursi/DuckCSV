@@ -23,11 +23,6 @@ export class DuckDbEngine implements vscode.Disposable {
     return this.conn;
   }
 
-  async getDatabase(): Promise<any> {
-    await this.ensureReady();
-    return this.db;
-  }
-
   private ensureReady(): Promise<void> {
     if (!this.initPromise) {
       this.initPromise = this.initialize();

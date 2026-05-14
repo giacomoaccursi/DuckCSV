@@ -31,25 +31,24 @@ export class TableManager {
 
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
     const conn = await this.engine.getConnection();
-    const fs = require('fs');
+    const filePath = uri.fsPath.replace(/'/g, "''");
 
     const tableName = customName ?? this.deriveTableName(uri);
 
     // Drop if already exists
     conn.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
-    // Read file content ourselves to avoid DuckDB file caching
-    const content = fs.readFileSync(uri.fsPath, 'utf8');
+    // Load directly from file path (fast for large files)
+    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
 
-    // Register as a virtual file in DuckDB, then read from it
-    const db = await this.engine.getDatabase();
-    const virtualFileName = `__${tableName}_${Date.now()}.csv`;
-    db.registerFileText(virtualFileName, content);
-
-    conn.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${virtualFileName}', ignore_errors=true)`);
-
-    // Detect delimiter from content
-    const { name: delimiterName, char: delimiterChar } = this.detectDelimiterFromContent(content);
+    // Detect delimiter from first line
+    const fs = require('fs');
+    const firstChunk = Buffer.alloc(4096);
+    const fd = fs.openSync(uri.fsPath, 'r');
+    fs.readSync(fd, firstChunk, 0, 4096, 0);
+    fs.closeSync(fd);
+    const firstLine = firstChunk.toString('utf8').split('\n')[0] || '';
+    const { name: delimiterName, char: delimiterChar } = this.detectDelimiterFromLine(firstLine);
 
     // Get headers
     const headers = await this.getHeaders(tableName);
@@ -376,8 +375,7 @@ export class TableManager {
     return String(val);
   }
 
-  private detectDelimiterFromContent(content: string): { name: string; char: string } {
-    const firstLine = content.split('\n')[0] || '';
+  private detectDelimiterFromLine(firstLine: string): { name: string; char: string } {
     const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0, '|': 0 };
 
     for (const char of firstLine) {
