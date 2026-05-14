@@ -178,8 +178,14 @@ export class CsvWorkspacePanel {
   }
 
   private async handleAddTable(_filePath: string): Promise<void> {
-    // filePath comes from webview — user picked a file via VS Code API
-    // We use a file picker dialog instead
+    // If filePath provided (from drag and drop), use it directly
+    if (_filePath) {
+      const uri = vscode.Uri.file(_filePath);
+      await this.addTableFromUri(uri);
+      return;
+    }
+
+    // Otherwise open file picker
     const uris = await vscode.window.showOpenDialog({
       canSelectMany: true,
       filters: { 'CSV Files': ['csv', 'tsv'] },
