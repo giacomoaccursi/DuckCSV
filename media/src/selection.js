@@ -145,16 +145,22 @@ function getSelectionText() {
   const minCol = Math.min(selection.startCol, selection.endCol);
   const maxCol = Math.max(selection.startCol, selection.endCol);
 
-  // Use the file's delimiter for copy (matches the original format)
+  const isSingleCell = (minRow === maxRow && minCol === maxCol);
+
+  // Single cell: just copy the value, no header
+  if (isSingleCell) {
+    return state.rows[minRow]?.[minCol] || '';
+  }
+
+  // Multi-cell: include header + use file delimiter
   const delimiter = getDelimiterChar(state.delimiter);
 
   const lines = [];
 
-  // Include header row
+  // Header row
   const headerCells = [];
   for (let c = minCol; c <= maxCol; c++) {
-    const h = state.headers[c] || '';
-    headerCells.push(quoteIfNeeded(h, delimiter));
+    headerCells.push(quoteIfNeeded(state.headers[c] || '', delimiter));
   }
   lines.push(headerCells.join(delimiter));
 
@@ -163,8 +169,7 @@ function getSelectionText() {
     if (r >= state.rows.length) { break; }
     const cells = [];
     for (let c = minCol; c <= maxCol; c++) {
-      const val = state.rows[r][c] || '';
-      cells.push(quoteIfNeeded(val, delimiter));
+      cells.push(quoteIfNeeded(state.rows[r][c] || '', delimiter));
     }
     lines.push(cells.join(delimiter));
   }
