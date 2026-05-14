@@ -882,6 +882,7 @@
     const maxRow = Math.max(selection.startRow, selection.endRow);
     const minCol = Math.min(selection.startCol, selection.endCol);
     const maxCol = Math.max(selection.startCol, selection.endCol);
+    const delimiter = getDelimiterChar(state.delimiter);
     const lines = [];
     for (let r = minRow; r <= maxRow; r++) {
       if (r >= state.rows.length) {
@@ -889,11 +890,30 @@
       }
       const cells = [];
       for (let c = minCol; c <= maxCol; c++) {
-        cells.push(state.rows[r][c] || "");
+        const val = state.rows[r][c] || "";
+        if (val.includes(delimiter) || val.includes('"') || val.includes("\n")) {
+          cells.push('"' + val.replace(/"/g, '""') + '"');
+        } else {
+          cells.push(val);
+        }
       }
-      lines.push(cells.join("	"));
+      lines.push(cells.join(delimiter));
     }
     return lines.join("\n");
+  }
+  function getDelimiterChar(delimiterName) {
+    switch (delimiterName) {
+      case "Comma":
+        return ",";
+      case "Semicolon":
+        return ";";
+      case "Tab":
+        return "	";
+      case "Pipe":
+        return "|";
+      default:
+        return ",";
+    }
   }
   function applyHighlights() {
     removeHighlights();

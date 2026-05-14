@@ -112,17 +112,36 @@ function getSelectionText() {
   const minCol = Math.min(selection.startCol, selection.endCol);
   const maxCol = Math.max(selection.startCol, selection.endCol);
 
+  // Use the file's delimiter for copy (matches the original format)
+  const delimiter = getDelimiterChar(state.delimiter);
+
   const lines = [];
   for (let r = minRow; r <= maxRow; r++) {
     if (r >= state.rows.length) { break; }
     const cells = [];
     for (let c = minCol; c <= maxCol; c++) {
-      cells.push(state.rows[r][c] || '');
+      const val = state.rows[r][c] || '';
+      // Quote if value contains delimiter, quotes, or newlines
+      if (val.includes(delimiter) || val.includes('"') || val.includes('\n')) {
+        cells.push('"' + val.replace(/"/g, '""') + '"');
+      } else {
+        cells.push(val);
+      }
     }
-    lines.push(cells.join('\t'));
+    lines.push(cells.join(delimiter));
   }
 
   return lines.join('\n');
+}
+
+function getDelimiterChar(delimiterName) {
+  switch (delimiterName) {
+    case 'Comma': return ',';
+    case 'Semicolon': return ';';
+    case 'Tab': return '\t';
+    case 'Pipe': return '|';
+    default: return ',';
+  }
 }
 
 function applyHighlights() {
