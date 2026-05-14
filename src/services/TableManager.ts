@@ -324,11 +324,14 @@ export class TableManager {
     const numRows = table.numRows;
     const numCols = table.numCols;
 
+    // Get column types from schema to handle date/timestamp formatting
+    const colTypes: string[] = table.schema.fields.map((f: any) => f.type?.toString() || '');
+
     for (let i = 0; i < numRows; i++) {
       const row: string[] = [];
       for (let j = 0; j < numCols; j++) {
         const val = table.getChildAt(j)?.get(i);
-        row.push(this.formatArrowValue(val));
+        row.push(this.formatArrowValue(val, colTypes[j]));
       }
       rows.push(row);
     }
@@ -336,12 +339,12 @@ export class TableManager {
     return rows;
   }
 
-  private formatArrowValue(val: any): string {
+  private formatArrowValue(val: any, colType: string): string {
     if (val === null || val === undefined) { return ''; }
 
-    // Handle Date objects (DuckDB DATE/TIMESTAMP come as epoch ms or Date objects)
+    // Handle Date objects
     if (val instanceof Date) {
-      return val.toISOString().split('T')[0]; // YYYY-MM-DD
+      return val.toISOString().split('T')[0];
     }
 
     // Handle BigInt
@@ -349,9 +352,17 @@ export class TableManager {
       return val.toString();
     }
 
-    // Handle numeric timestamps (epoch days for DATE, epoch ms for TIMESTAMP)
-    if (typeof val === 'number' && !isFinite(val)) {
-      return '';
+    // Handle numeric values that represent dates (epoch ms or epoch days)
+    if (typeof val === 'number') {
+      const typeLower = colType.toLowerCase();
+      if (typeLower.includes('date') || typeLower.includes('timestamp')) {
+        // DuckDB dates come as epoch days (int32) or epoch ms
+        const ms = val > 1e10 ? val : val * 86400000; // if small number, it's days
+        const d = new Date(ms);
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split('T')[0];
+        }
+      }
     }
 
     return String(val);
