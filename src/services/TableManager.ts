@@ -156,9 +156,25 @@ export class TableManager {
     const escapedValue = value.replace(/'/g, "''");
     const quoted = this.quoteIdentifier(tableName);
 
-    conn.query(
-      `UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`
-    );
+    try {
+      conn.query(
+        `UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`
+      );
+    } catch {
+      // Cast failed — convert the entire column to VARCHAR and retry
+      conn.query(
+        `ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`
+      );
+      conn.query(
+        `UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`
+      );
+
+      // Update cached metadata
+      const meta = this.tables.get(tableName);
+      if (meta) {
+        meta.headers = await this.getHeaders(tableName);
+      }
+    }
   }
 
   async addRow(tableName: string): Promise<void> {
