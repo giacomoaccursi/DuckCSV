@@ -49,6 +49,7 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
             <path fill="currentColor" d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
           </svg>
         </button>
+        <button id="openWorkspaceBtn" class="btn btn-text" title="Open this file in a multi-table workspace">Workspace</button>
         <input type="text" id="searchInput" class="search-input" placeholder="Search..." />
       </div>
       <div class="toolbar-right">

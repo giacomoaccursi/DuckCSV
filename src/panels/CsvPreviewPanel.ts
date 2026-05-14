@@ -171,6 +171,9 @@ export class CsvPreviewPanel {
       case 'openAsText':
         await vscode.window.showTextDocument(this.currentUri);
         return;
+      case 'openWorkspace':
+        await vscode.commands.executeCommand('csv-enhanced.workspace', this.currentUri);
+        return;
       case 'addTable':
       case 'removeTable':
       case 'switchTable':

@@ -121,6 +121,9 @@ function bindEvents() {
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
   if (dom.addRowBtn) { dom.addRowBtn.addEventListener('click', () => sendMessage({ type: 'addRow' })); }
 
+  const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');
+  if (openWorkspaceBtn) { openWorkspaceBtn.addEventListener('click', () => sendMessage({ type: 'openWorkspace' })); }
+
   // Query bar
   if (dom.queryRunBtn) {
     dom.queryRunBtn.addEventListener('click', () => {

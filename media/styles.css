@@ -217,6 +217,11 @@ body {
     color: var(--bg-primary);
 }
 
+.btn-text {
+    font-size: 11px;
+    padding: 4px 8px;
+}
+
 .btn svg {
     width: 16px;
     height: 16px;

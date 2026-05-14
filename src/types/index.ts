@@ -93,6 +93,7 @@ export type WebviewMessage =
   | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' }
+  | { type: 'openWorkspace' }
   | { type: 'addTable'; filePath: string }
   | { type: 'removeTable'; tableName: string }
   | { type: 'switchTable'; tableName: string };
