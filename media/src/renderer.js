@@ -14,6 +14,32 @@ export function getColumnColor(colIndex) {
 export function renderHeader() {
   if (!dom.tableHeader) { return; }
 
+  dom.tableHeader.innerHTML = '';
+
+  // Selection row: small clickable boxes above each column
+  const selRow = document.createElement('tr');
+  selRow.className = 'column-select-row';
+
+  const selCorner = document.createElement('th');
+  selCorner.className = 'row-number-header column-select-corner';
+  selRow.appendChild(selCorner);
+
+  state.headers.forEach((_, i) => {
+    const selTh = document.createElement('th');
+    selTh.className = 'column-select-cell';
+    selTh.dataset.columnIndex = i;
+    selTh.title = 'Click to select entire column';
+
+    const box = document.createElement('div');
+    box.className = 'column-select-box';
+    selTh.appendChild(box);
+
+    selRow.appendChild(selTh);
+  });
+
+  dom.tableHeader.appendChild(selRow);
+
+  // Header row: column names, sort, filter, resize
   const tr = document.createElement('tr');
 
   const rowNumTh = document.createElement('th');
@@ -76,7 +102,6 @@ export function renderHeader() {
     tr.appendChild(th);
   });
 
-  dom.tableHeader.innerHTML = '';
   dom.tableHeader.appendChild(tr);
 }
 

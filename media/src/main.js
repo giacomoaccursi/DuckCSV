@@ -148,9 +148,6 @@ function bindEvents() {
       const colIdx = parseInt(th.dataset.columnIndex, 10);
       if (isNaN(colIdx)) { return; }
 
-      // Ctrl/Cmd+Click → select column
-      if (handleHeaderClickForSelection(colIdx, e)) { return; }
-
       // Normal click → sort (delayed for dblclick disambiguation)
       if (headerClickTimer) { clearTimeout(headerClickTimer); }
       headerClickTimer = setTimeout(() => {
@@ -180,6 +177,14 @@ function bindEvents() {
 
     dom.tableHeader.addEventListener('mousedown', (e) => {
       if (e.target.classList.contains('resize-handle')) { initResize(e); }
+    });
+
+    // Column select row click
+    dom.tableHeader.addEventListener('click', (e) => {
+      const selCell = e.target.closest('.column-select-cell');
+      if (!selCell) { return; }
+      const colIdx = parseInt(selCell.dataset.columnIndex, 10);
+      if (!isNaN(colIdx)) { handleHeaderClickForSelection(colIdx, e); }
     });
   }
 

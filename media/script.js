@@ -137,6 +137,23 @@
     if (!dom.tableHeader) {
       return;
     }
+    dom.tableHeader.innerHTML = "";
+    const selRow = document.createElement("tr");
+    selRow.className = "column-select-row";
+    const selCorner = document.createElement("th");
+    selCorner.className = "row-number-header column-select-corner";
+    selRow.appendChild(selCorner);
+    state.headers.forEach((_, i) => {
+      const selTh = document.createElement("th");
+      selTh.className = "column-select-cell";
+      selTh.dataset.columnIndex = i;
+      selTh.title = "Click to select entire column";
+      const box = document.createElement("div");
+      box.className = "column-select-box";
+      selTh.appendChild(box);
+      selRow.appendChild(selTh);
+    });
+    dom.tableHeader.appendChild(selRow);
     const tr = document.createElement("tr");
     const rowNumTh = document.createElement("th");
     rowNumTh.className = "row-number-header";
@@ -187,7 +204,6 @@
       th.title = (header || `Column ${i + 1}`) + " (click to sort, funnel to filter)";
       tr.appendChild(th);
     });
-    dom.tableHeader.innerHTML = "";
     dom.tableHeader.appendChild(tr);
   }
   function renderRows() {
@@ -821,12 +837,9 @@
     applyHighlights();
   }
   function handleHeaderClickForSelection(colIdx, e) {
-    if (!e.ctrlKey && !e.metaKey) {
-      return false;
-    }
     const maxRow = state.rows.length - 1;
     if (maxRow < 0) {
-      return false;
+      return;
     }
     if (e.shiftKey && selection) {
       selection.endCol = colIdx;
@@ -837,7 +850,6 @@
       selectionMode = "column";
     }
     applyHighlights();
-    return true;
   }
   function handleCopyShortcut(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key !== "c") {
@@ -1050,9 +1062,6 @@
         if (isNaN(colIdx)) {
           return;
         }
-        if (handleHeaderClickForSelection(colIdx, e)) {
-          return;
-        }
         if (headerClickTimer) {
           clearTimeout(headerClickTimer);
         }
@@ -1092,6 +1101,16 @@
       dom.tableHeader.addEventListener("mousedown", (e) => {
         if (e.target.classList.contains("resize-handle")) {
           initResize(e);
+        }
+      });
+      dom.tableHeader.addEventListener("click", (e) => {
+        const selCell = e.target.closest(".column-select-cell");
+        if (!selCell) {
+          return;
+        }
+        const colIdx = parseInt(selCell.dataset.columnIndex, 10);
+        if (!isNaN(colIdx)) {
+          handleHeaderClickForSelection(colIdx, e);
         }
       });
     }

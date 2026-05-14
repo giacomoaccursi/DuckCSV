@@ -282,6 +282,41 @@ body {
     table-layout: auto;
 }
 
+/* Column Select Row */
+.column-select-row th {
+    padding: 2px 12px;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    background-color: var(--header-bg);
+}
+
+.column-select-row th:last-child {
+    border-right: none;
+}
+
+.column-select-corner {
+    min-width: 60px;
+    max-width: 80px;
+}
+
+.column-select-cell {
+    cursor: pointer;
+    text-align: center;
+}
+
+.column-select-cell:hover .column-select-box {
+    background-color: var(--accent-color);
+}
+
+.column-select-box {
+    width: 14px;
+    height: 6px;
+    margin: 0 auto;
+    border-radius: 2px;
+    background-color: var(--border-color);
+    transition: background-color 0.15s;
+}
+
 /* Header - STICKY! */
 #csvTable thead {
     position: -webkit-sticky;

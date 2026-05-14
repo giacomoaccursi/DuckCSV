@@ -67,10 +67,8 @@ export function handleRowNumberClick(e) {
 }
 
 export function handleHeaderClickForSelection(colIdx, e) {
-  if (!e.ctrlKey && !e.metaKey) { return false; }
-
   const maxRow = state.rows.length - 1;
-  if (maxRow < 0) { return false; }
+  if (maxRow < 0) { return; }
 
   if (e.shiftKey && selection) {
     selection.endCol = colIdx;
@@ -82,7 +80,6 @@ export function handleHeaderClickForSelection(colIdx, e) {
   }
 
   applyHighlights();
-  return true; // consumed the event
 }
 
 export function handleCopyShortcut(e) {
