@@ -75,9 +75,13 @@ export function renderHeader() {
     sortIndicator.className = 'sort-indicator';
     if (state.sort.columnIndex === i) {
       th.classList.add('sort-active');
-      sortIndicator.textContent = state.sort.direction === 'asc' ? ' \u25B2' : ' \u25BC';
+      if (state.sort.direction === 'asc') {
+        sortIndicator.innerHTML = '<span class="sort-arrow active">\u25B2</span><span class="sort-arrow dim">\u25BC</span>';
+      } else {
+        sortIndicator.innerHTML = '<span class="sort-arrow dim">\u25B2</span><span class="sort-arrow active">\u25BC</span>';
+      }
     } else {
-      sortIndicator.textContent = ' \u21C5';
+      sortIndicator.innerHTML = '<span class="sort-arrow dim">\u25B2</span><span class="sort-arrow dim">\u25BC</span>';
     }
     content.appendChild(sortIndicator);
     th.appendChild(content);
