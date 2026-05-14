@@ -4,15 +4,18 @@
  * Purely presentational. All data logic is in the extension backend.
  *
  * Sections:
- *  1. VS Code API & State
- *  2. DOM References
- *  3. Messaging
- *  4. Rendering
- *  5. Column Filter Dropdown
- *  6. Column Coloring
- *  7. Cell Editing
- *  8. UI Helpers
- *  9. Init & Event Binding
+ *  1.  VS Code API & State
+ *  2.  DOM References
+ *  3.  Messaging
+ *  4.  Rendering (header + rows)
+ *  5.  Column Filter Dropdown
+ *  6.  Column Resize
+ *  7.  Column Coloring
+ *  8.  Cell Editing
+ *  9.  Query Results
+ *  10. Query Autocomplete
+ *  11. UI Helpers (loading, error, stats, tooltip, context menu)
+ *  12. Init & Event Binding
  */
 
 (function () {
@@ -481,7 +484,7 @@
     return COLUMN_COLORS[colIndex % COLUMN_COLORS.length];
   }
 
-  // ─── 7. Cell Editing ──────────────────────────────────────────────────────
+  // ─── 8. Cell Editing ──────────────────────────────────────────────────────
 
   let editingCell = null;
 
@@ -569,7 +572,7 @@
     updateStats();
   }
 
-  // ─── 8. Query Results ─────────────────────────────────────────────────────
+  // ─── 9. Query Results ─────────────────────────────────────────────────────
 
   let queryActive = false;
 
@@ -653,7 +656,7 @@
     }
   }
 
-  // ─── 9. Query Autocomplete ────────────────────────────────────────────────
+  // ─── 10. Query Autocomplete ────────────────────────────────────────────────
 
   const SQL_KEYWORDS = [
     'SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING',
@@ -811,7 +814,7 @@
     return false;
   }
 
-  // ─── 10. UI Helpers ───────────────────────────────────────────────────────
+  // ─── 11. UI Helpers ───────────────────────────────────────────────────────
 
   function onDataPageReceived(data) {
     queryActive = false;
@@ -1003,7 +1006,7 @@
     input.focus();
   }
 
-  // ─── 9. Init & Event Binding ──────────────────────────────────────────────
+  // ─── 12. Init & Event Binding ──────────────────────────────────────────────
 
   function init() {
     bindEvents();
