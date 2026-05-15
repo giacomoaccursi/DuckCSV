@@ -1,0 +1,12 @@
+Product;Price;Quantity;Category;Supplier;In Stock
+Laptop;1200.00;15;Electronics;TechCorp;Yes
+Mouse;25.50;120;Electronics;TechCorp;Yes
+Keyboard;75.00;80;Electronics;TechCorp;Yes
+Monitor;350.00;45;Electronics;DisplayPro;Yes
+Desk Chair;299.99;25;Furniture;OfficePlus;Yes
+Desk Lamp;45.50;60;Furniture;LightHouse;Yes
+Notebook;3.99;500;Stationery;PaperWorld;Yes
+Pen Set;12.50;200;Stationery;PaperWorld;Yes
+Coffee Mug;8.99;150;Kitchen;HomeGoods;Yes
+Water Bottle;15.00;100;Kitchen;HomeGoods;Yes
+

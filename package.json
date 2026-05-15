@@ -1,0 +1,210 @@
+{
+    "name": "csv-enhanced",
+    "displayName": "CSV Enhanced",
+    "description": "Interactive CSV/TSV viewer with sticky headers, search, and auto-delimiter detection",
+    "version": "0.1.0",
+    "publisher": "giacomo-accursi",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/gaccursi/CSV-Enhanced"
+    },
+    "engines": {
+        "vscode": "^1.106.0"
+    },
+    "categories": [
+        "Machine Learning",
+        "Data Science",
+        "AI",
+        "Education",
+        "Visualization",
+        "Other"
+    ],
+    "keywords": [
+        "csv",
+        "tsv",
+        "table",
+        "viewer",
+        "data"
+    ],
+    "icon": "media/icon.png",
+    "galleryBanner": {
+        "color": "#4CAF50",
+        "theme": "dark"
+    },
+    "activationEvents": [
+        "onCommand:csv-enhanced.preview",
+        "onCommand:csv-enhanced.previewToSide"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "csv-enhanced.preview",
+                "title": "Open Preview",
+                "category": "CSV",
+                "icon": "$(open-preview)"
+            },
+            {
+                "command": "csv-enhanced.previewToSide",
+                "title": "Open Preview to the Side",
+                "category": "CSV",
+                "icon": "$(open-preview)"
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "csv-enhanced.preview",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
+                    "group": "navigation"
+                }
+            ],
+            "editor/title/context": [
+                {
+                    "command": "csv-enhanced.preview",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
+                    "group": "1_open"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "csv-enhanced.preview",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv",
+                    "group": "navigation"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "csv-enhanced.preview",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
+                    "group": "1_open"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "csv-enhanced.preview",
+                    "when": "true"
+                },
+                {
+                    "command": "csv-enhanced.previewToSide",
+                    "when": "true"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "csv-enhanced.preview",
+                "key": "cmd+k v",
+                "mac": "cmd+k v",
+                "when": "resourceExtname == .csv || resourceExtname == .tsv"
+            },
+            {
+                "command": "csv-enhanced.previewToSide",
+                "key": "cmd+k cmd+v",
+                "mac": "cmd+k cmd+v",
+                "when": "resourceExtname == .csv || resourceExtname == .tsv"
+            }
+        ],
+        "languages": [
+            {
+                "id": "csv",
+                "extensions": [
+                    ".csv",
+                    ".tsv"
+                ],
+                "aliases": [
+                    "CSV",
+                    "csv"
+                ]
+            }
+        ],
+        "configuration": {
+            "title": "CSV Enhanced",
+            "properties": {
+                "csv.previewRowCount": {
+                    "type": "number",
+                    "default": 10000,
+                    "description": "Number of rows to load initially",
+                    "minimum": 100,
+                    "maximum": 100000
+                },
+                "csv.columnWidth.max": {
+                    "type": "number",
+                    "default": 400,
+                    "description": "Maximum column width in pixels",
+                    "minimum": 100,
+                    "maximum": 1000
+                },
+                "csv.columnWidth.min": {
+                    "type": "number",
+                    "default": 50,
+                    "description": "Minimum column width in pixels",
+                    "minimum": 30,
+                    "maximum": 200
+                },
+                "csv.showRowNumbers": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show row numbers column"
+                },
+                "csv.delimiter": {
+                    "type": "string",
+                    "default": "auto",
+                    "enum": [
+                        "auto",
+                        ",",
+                        ";",
+                        "\t",
+                        "|"
+                    ],
+                    "enumDescriptions": [
+                        "Automatically detect delimiter",
+                        "Comma (,)",
+                        "Semicolon (;)",
+                        "Tab",
+                        "Pipe (|)"
+                    ],
+                    "description": "CSV delimiter to use"
+                },
+                "csv.enableSearch": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show search box"
+                },
+                "csv.alternatingRowColors": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Use alternating row colors"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "pnpm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+    },
+    "dependencies": {
+        "papaparse": "^5.4.1"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.106.1",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "22.x",
+        "@types/papaparse": "^5.3.8",
+        "typescript-eslint": "^8.46.3",
+        "eslint": "^9.39.1",
+        "typescript": "^5.9.3",
+        "ts-loader": "^9.5.4",
+        "webpack": "^5.102.1",
+        "webpack-cli": "^6.0.1",
+        "@vscode/test-cli": "^0.0.12",
+        "@vscode/test-electron": "^2.5.2"
+    }
+}

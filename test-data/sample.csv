@@ -1,0 +1,32 @@
+Name,Email,Age,Department,Salary,Start Date,Location,Status
+John Smith,john.smith@company.com,34,Engineering,85000,2020-01-15,New York,Active
+Jane Doe,jane.doe@company.com,28,Marketing,72000,2021-03-22,San Francisco,Active
+Bob Johnson,bob.johnson@company.com,45,Sales,95000,2019-06-10,Chicago,Active
+Alice Brown,alice.brown@company.com,31,Human Resources,68000,2020-11-01,Austin,Active
+Charlie Wilson,charlie.wilson@company.com,52,Executive,150000,2018-02-14,New York,Active
+Diana Martinez,diana.martinez@company.com,29,Engineering,82000,2021-07-19,Seattle,Active
+Edward Lee,edward.lee@company.com,38,Product,88000,2020-05-03,Boston,Active
+Fiona Chen,fiona.chen@company.com,26,Design,65000,2022-01-10,Los Angeles,Active
+George Taylor,george.taylor@company.com,41,Sales,92000,2019-09-25,Miami,Active
+Hannah White,hannah.white@company.com,33,Marketing,75000,2020-08-12,Denver,Active
+Ian Thompson,ian.thompson@company.com,47,Engineering,98000,2018-12-05,Portland,Active
+Julia Garcia,julia.garcia@company.com,30,Operations,71000,2021-02-28,Phoenix,Active
+Kevin Anderson,kevin.anderson@company.com,36,Finance,86000,2019-11-17,Dallas,Active
+Laura Martinez,laura.martinez@company.com,27,Design,63000,2022-04-03,San Diego,Active
+Michael Robinson,michael.robinson@company.com,44,Executive,145000,2017-08-20,Atlanta,Active
+Nancy Clark,nancy.clark@company.com,32,Human Resources,70000,2020-10-07,Houston,Active
+Oliver Lewis,oliver.lewis@company.com,39,Engineering,91000,2019-04-14,Seattle,Active
+Patricia Walker,patricia.walker@company.com,35,Marketing,77000,2020-06-22,Philadelphia,Active
+Quinn Hall,quinn.hall@company.com,42,Sales,94000,2018-10-30,Detroit,Active
+Rachel Allen,rachel.allen@company.com,28,Product,73000,2021-09-05,Minneapolis,Active
+Steven Young,steven.young@company.com,50,Executive,155000,2016-03-11,San Francisco,Active
+Teresa King,teresa.king@company.com,31,Operations,72000,2020-12-18,Nashville,Active
+Ulysses Wright,ulysses.wright@company.com,37,Engineering,89000,2019-07-27,Raleigh,Active
+Victoria Lopez,victoria.lopez@company.com,29,Design,67000,2021-11-14,Indianapolis,Active
+William Hill,william.hill@company.com,43,Finance,93000,2018-05-08,Columbus,Active
+"Test, With Comma",test@test.com,25,Testing,50000,2023-01-01,Remote,Active
+"Line Break
+In Cell",multiline@test.com,30,Special Cases,60000,2023-02-01,Remote,Active
+Empty Fields,,,,,,,
+Special Chars,test+special@test.com,40,IT,80000,2022-06-15,"São Paulo, Brazil",Active
+Quoted "Values",quoted@test.com,35,QA,75000,2022-08-20,"Paris, France",Active
