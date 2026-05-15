@@ -1,0 +1,9 @@
+customer_id,name,email,city,country
+ciao,Alice Martin,alice@example.com,Paris,France
+cia,Bob Johnson,bob@example.com,London,UK
+ciaoo,Carlos Ruiz,carlos@example.com,Madrid,Spain
+4,Diana Chen,diana@example.com,Tokyo,Japan
+C,1,erik@example.com,Stockholm,Sweden
+ciso,George Brown,george@example.com,New York,USA
+11,Hannah Mueller,hannah@example.com,Berlin,Germany
+NEW,new@test.com,999,New City,2024-01-01
