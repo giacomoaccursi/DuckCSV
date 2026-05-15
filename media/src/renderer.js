@@ -16,7 +16,7 @@ export function renderHeader() {
 
   dom.tableHeader.innerHTML = '';
 
-  // Selection row: small clickable boxes above each column
+  // Selection row: column letters (A, B, C, ... Z, AA, AB, ...)
   const selRow = document.createElement('tr');
   selRow.className = 'column-select-row';
 
@@ -29,11 +29,7 @@ export function renderHeader() {
     selTh.className = 'column-select-cell';
     selTh.dataset.columnIndex = i;
     selTh.title = 'Click to select entire column';
-
-    const box = document.createElement('div');
-    box.className = 'column-select-box';
-    selTh.appendChild(box);
-
+    selTh.textContent = columnLetter(i);
     selRow.appendChild(selTh);
   });
 
@@ -213,4 +209,14 @@ function highlightMatch(text, term) {
   const escaped = escapeHtml(text);
   const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');
   return escaped.replace(regex, '<span class="search-match">$1</span>');
+}
+
+function columnLetter(index) {
+  let result = '';
+  let n = index;
+  while (n >= 0) {
+    result = String.fromCharCode(65 + (n % 26)) + result;
+    n = Math.floor(n / 26) - 1;
+  }
+  return result;
 }
