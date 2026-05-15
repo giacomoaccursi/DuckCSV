@@ -1,5 +1,5 @@
 /**
- * CSV Enhanced — Workspace Webview Entry Point
+ * DuckCSV — Workspace Webview Entry Point
  *
  * Multi-table environment. Reuses rendering/query/selection modules.
  * Adds tables bar and table dropdown.

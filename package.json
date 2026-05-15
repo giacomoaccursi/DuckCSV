@@ -1,12 +1,12 @@
 {
-    "name": "csv-enhanced",
-    "displayName": "CSV Enhanced",
+    "name": "duckcsv",
+    "displayName": "DuckCSV",
     "description": "Interactive CSV/TSV viewer with sticky headers, search, and auto-delimiter detection",
     "version": "0.1.0",
     "publisher": "giacomo-accursi",
     "repository": {
         "type": "git",
-        "url": "https://github.com/gaccursi/CSV-Enhanced"
+        "url": "https://github.com/gaccursi/DuckCSV"
     },
     "engines": {
         "vscode": "^1.106.0"
@@ -32,34 +32,34 @@
         "theme": "dark"
     },
     "activationEvents": [
-        "onCommand:csv-enhanced.preview",
-        "onCommand:csv-enhanced.previewToSide",
-        "onCommand:csv-enhanced.edit",
-        "onCommand:csv-enhanced.workspace"
+        "onCommand:duckcsv.preview",
+        "onCommand:duckcsv.previewToSide",
+        "onCommand:duckcsv.edit",
+        "onCommand:duckcsv.workspace"
     ],
     "main": "./dist/extension.js",
     "contributes": {
         "commands": [
             {
-                "command": "csv-enhanced.preview",
+                "command": "duckcsv.preview",
                 "title": "Open Preview (Read-only)",
                 "category": "CSV",
                 "icon": "$(open-preview)"
             },
             {
-                "command": "csv-enhanced.previewToSide",
+                "command": "duckcsv.previewToSide",
                 "title": "Open Preview to the Side (Read-only)",
                 "category": "CSV",
                 "icon": "$(open-preview)"
             },
             {
-                "command": "csv-enhanced.edit",
+                "command": "duckcsv.edit",
                 "title": "Open Preview (Edit)",
                 "category": "CSV",
                 "icon": "$(edit)"
             },
             {
-                "command": "csv-enhanced.workspace",
+                "command": "duckcsv.workspace",
                 "title": "Open Workspace",
                 "category": "CSV",
                 "icon": "$(multiple-windows)"
@@ -68,60 +68,60 @@
         "menus": {
             "editor/title": [
                 {
-                    "command": "csv-enhanced.preview",
+                    "command": "duckcsv.preview",
                     "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
                     "group": "navigation"
                 }
             ],
             "editor/title/context": [
                 {
-                    "command": "csv-enhanced.preview",
+                    "command": "duckcsv.preview",
                     "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
                     "group": "1_open"
                 }
             ],
             "explorer/context": [
                 {
-                    "command": "csv-enhanced.preview",
+                    "command": "duckcsv.preview",
                     "when": "resourceExtname == .csv || resourceExtname == .tsv",
                     "group": "navigation"
                 }
             ],
             "editor/context": [
                 {
-                    "command": "csv-enhanced.preview",
+                    "command": "duckcsv.preview",
                     "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
                     "group": "1_open"
                 }
             ],
             "commandPalette": [
                 {
-                    "command": "csv-enhanced.preview",
+                    "command": "duckcsv.preview",
                     "when": "true"
                 },
                 {
-                    "command": "csv-enhanced.previewToSide",
+                    "command": "duckcsv.previewToSide",
                     "when": "true"
                 },
                 {
-                    "command": "csv-enhanced.edit",
+                    "command": "duckcsv.edit",
                     "when": "true"
                 },
                 {
-                    "command": "csv-enhanced.workspace",
+                    "command": "duckcsv.workspace",
                     "when": "true"
                 }
             ]
         },
         "keybindings": [
             {
-                "command": "csv-enhanced.preview",
+                "command": "duckcsv.preview",
                 "key": "cmd+k v",
                 "mac": "cmd+k v",
                 "when": "resourceExtname == .csv || resourceExtname == .tsv"
             },
             {
-                "command": "csv-enhanced.previewToSide",
+                "command": "duckcsv.previewToSide",
                 "key": "cmd+k cmd+v",
                 "mac": "cmd+k cmd+v",
                 "when": "resourceExtname == .csv || resourceExtname == .tsv"
@@ -141,7 +141,7 @@
             }
         ],
         "configuration": {
-            "title": "CSV Enhanced",
+            "title": "DuckCSV",
             "properties": {
                 "csv.previewRowCount": {
                     "type": "number",

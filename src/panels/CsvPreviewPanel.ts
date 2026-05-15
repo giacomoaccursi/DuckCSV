@@ -179,7 +179,7 @@ export class CsvPreviewPanel {
         await vscode.window.showTextDocument(this.currentUri);
         return;
       case 'openWorkspace':
-        await vscode.commands.executeCommand('csv-enhanced.workspace', this.currentUri);
+        await vscode.commands.executeCommand('duckcsv.workspace', this.currentUri);
         return;
       case 'addTable':
       case 'removeTable':

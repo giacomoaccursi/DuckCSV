@@ -1,5 +1,5 @@
 /**
- * CSV Enhanced — Webview Entry Point
+ * DuckCSV — Webview Entry Point
  *
  * Wires together all modules and binds events.
  */

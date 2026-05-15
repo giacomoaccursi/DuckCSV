@@ -1,5 +1,5 @@
 /**
- * CSV Enhanced Extension — Entry Point
+ * DuckCSV Extension — Entry Point
  *
  * Bootstraps services and registers commands.
  * DuckDB is initialized lazily on first CSV open.

@@ -29,19 +29,19 @@ export function registerPreviewCommands(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'csv-enhanced.preview',
+      'duckcsv.preview',
       (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'readonly')
     ),
     vscode.commands.registerCommand(
-      'csv-enhanced.previewToSide',
+      'duckcsv.previewToSide',
       (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside, 'readonly')
     ),
     vscode.commands.registerCommand(
-      'csv-enhanced.edit',
+      'duckcsv.edit',
       (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'edit')
     ),
     vscode.commands.registerCommand(
-      'csv-enhanced.workspace',
+      'duckcsv.workspace',
       (uri?: vscode.Uri) => openWorkspace(context, engine, queryExecutor, configService, uri)
     )
   );

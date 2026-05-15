@@ -1,5 +1,5 @@
 /**
- * Shared type definitions for CSV Enhanced extension.
+ * Shared type definitions for DuckCSV extension.
  */
 
 // ─── Sort & Filter ───────────────────────────────────────────────────────────

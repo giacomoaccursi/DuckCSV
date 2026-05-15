@@ -1,5 +1,5 @@
 /**
- * CSV Enhanced — Query Result Panel Script
+ * DuckCSV — Query Result Panel Script
  *
  * Lightweight: rendering, local sorting, selection, copy.
  * No backend communication (data is embedded in the page).
