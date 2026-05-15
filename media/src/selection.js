@@ -333,22 +333,27 @@ function applyHighlights() {
   const minCol = Math.min(selection.startCol, selection.endCol);
   const maxCol = Math.max(selection.startCol, selection.endCol);
 
-  const rows = dom.tableBody.querySelectorAll('tr');
-  rows.forEach(tr => {
-    const rowIdx = parseInt(tr.dataset.rowIndex, 10);
-    if (isNaN(rowIdx) || rowIdx < minRow || rowIdx > maxRow) { return; }
+  // Direct indexed access: skip querySelectorAll, use children array
+  const rows = dom.tableBody.children;
+  const rowCount = rows.length;
 
-    const cells = tr.querySelectorAll('td.editable-cell');
-    cells.forEach(td => {
-      const colIdx = parseInt(td.dataset.columnIndex, 10);
-      if (colIdx >= minCol && colIdx <= maxCol) {
-        td.classList.add('selected');
-      }
-    });
-  });
+  for (let i = 0; i < rowCount; i++) {
+    const tr = rows[i];
+    const rowIdx = parseInt(tr.dataset.rowIndex, 10);
+    if (isNaN(rowIdx) || rowIdx < minRow || rowIdx > maxRow) { continue; }
+
+    // children[0] is row-number td, data cells start at index 1
+    const cells = tr.children;
+    for (let c = minCol; c <= maxCol; c++) {
+      const td = cells[c + 1]; // +1 to skip row-number column
+      if (td) { td.classList.add('selected'); }
+    }
+  }
 }
 
 function removeHighlights() {
   const selected = dom.tableBody.querySelectorAll('td.selected');
-  selected.forEach(td => td.classList.remove('selected'));
+  for (let i = 0; i < selected.length; i++) {
+    selected[i].classList.remove('selected');
+  }
 }

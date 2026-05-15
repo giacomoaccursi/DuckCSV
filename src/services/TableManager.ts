@@ -39,22 +39,21 @@ export class TableManager {
     // Load directly from file path (fast for large files)
     await this.engine.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
 
-    // Detect delimiter from first line
-    const fs = require('fs');
-    const firstChunk = Buffer.alloc(4096);
-    const fd = fs.openSync(uri.fsPath, 'r');
-    fs.readSync(fd, firstChunk, 0, 4096, 0);
-    fs.closeSync(fd);
-    const firstLine = firstChunk.toString('utf8').split('\n')[0] || '';
-    const { name: delimiterName, char: delimiterChar } = this.detectDelimiterFromLine(firstLine);
+    // Detect delimiter using DuckDB's built-in CSV sniffer
+    const sniffResult = await this.engine.query(
+      `SELECT Delimiter FROM sniff_csv('${filePath}')`
+    );
+    const detectedDelimiter = sniffResult.rows[0]?.[0] || ',';
+    const { name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter);
 
-    // Get headers
-    const headers = await this.getHeaders(tableName);
+    // Get schema (headers + types) and row count in 2 queries instead of 3
+    const escaped = tableName.replace(/'/g, "''");
+    const schemaResult = await this.engine.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
+    );
+    const headers = schemaResult.rows.map(row => row[0]);
+    const columnTypes = schemaResult.rows.map(row => row[1]);
 
-    // Get column types
-    const columnTypes = await this.getColumnTypes(tableName);
-
-    // Get row count
     const rowCount = await this.getRowCount(tableName);
 
     const meta: TableMeta = {
@@ -122,31 +121,36 @@ export class TableManager {
       limit: number;
     }
   ): Promise<DataPage> {
-    const headers = await this.getHeaders(tableName);
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const whereClauses = this.buildWhereClauses(params.filters, params.searchTerm, headers);
     const orderClause = this.buildOrderClause(params.sort, headers);
 
     const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const quoted = this.quoteIdentifier(tableName);
-
-    // Get filtered count
-    const countResult = await this.engine.query(`SELECT COUNT(*) as cnt FROM ${quoted} ${whereStr}`);
-    const filteredCount = Number(countResult.rows[0][0]);
-
-    // Get page with rowid
     const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-    const pageResult = await this.engine.query(
-      `SELECT rowid, ${columns} FROM ${quoted} ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
+
+    // Single query: fetch data + filtered count via window function
+    const result = await this.engine.query(
+      `SELECT rowid, ${columns}, COUNT(*) OVER() as __total FROM ${quoted} ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
-    const rowids = pageResult.rows.map(row => parseInt(row[0], 10));
-    const rows = pageResult.rows.map(row => row.slice(1));
+    if (result.rows.length === 0) {
+      return { rows: [], rowids: [], filteredCount: 0 };
+    }
+
+    // __total is the last column in each row
+    const lastCol = result.rows[0].length - 1;
+    const filteredCount = Number(result.rows[0][lastCol]);
+    const rowids = result.rows.map(row => parseInt(row[0], 10));
+    const rows = result.rows.map(row => row.slice(1, lastCol));
 
     return { rows, rowids, filteredCount };
   }
 
   async getUniqueValues(tableName: string, columnIndex: number): Promise<string[]> {
-    const headers = await this.getHeaders(tableName);
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return []; }
 
     const colName = this.quoteIdentifier(headers[columnIndex]);
@@ -159,7 +163,8 @@ export class TableManager {
   }
 
   async updateCell(tableName: string, rowid: number, columnIndex: number, value: string): Promise<void> {
-    const headers = await this.getHeaders(tableName);
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return; }
 
     const colName = this.quoteIdentifier(headers[columnIndex]);
@@ -167,7 +172,7 @@ export class TableManager {
     const quoted = this.quoteIdentifier(tableName);
 
     // Get current column type to detect if value is incompatible
-    const types = await this.getColumnTypes(tableName);
+    const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
     const currentType = types[columnIndex];
 
     // Check if value can be cast to current type
@@ -205,7 +210,6 @@ export class TableManager {
     await this.tryTightenColumnType(tableName, columnIndex);
 
     // Update cached metadata
-    const meta = this.tables.get(tableName);
     if (meta) {
       meta.headers = await this.getHeaders(tableName);
       meta.columnTypes = await this.getColumnTypes(tableName);
@@ -217,10 +221,11 @@ export class TableManager {
    * If so, alter the column type.
    */
   private async tryTightenColumnType(tableName: string, columnIndex: number): Promise<void> {
-    const types = await this.getColumnTypes(tableName);
+    const meta = this.tables.get(tableName);
+    const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
     if (types[columnIndex] !== 'VARCHAR') { return; }
 
-    const headers = await this.getHeaders(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const colName = this.quoteIdentifier(headers[columnIndex]);
     const quoted = this.quoteIdentifier(tableName);
 
@@ -244,14 +249,16 @@ export class TableManager {
   }
 
   async addRow(tableName: string): Promise<void> {
-    const headers = await this.getHeaders(tableName);
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const nulls = headers.map(() => "NULL").join(', ');
     await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
   }
 
   async addRowAt(tableName: string, rowid: number, position: 'above' | 'below'): Promise<void> {
     const quoted = this.quoteIdentifier(tableName);
-    const headers = await this.getHeaders(tableName);
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
     const nulls = headers.map(() => "NULL").join(', ');
 
@@ -357,25 +364,13 @@ export class TableManager {
     return `ORDER BY ${colName} ${dir} NULLS LAST`;
   }
 
-  private detectDelimiterFromLine(firstLine: string): { name: string; char: string } {
-    const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0, '|': 0 };
-
-    for (const char of firstLine) {
-      if (char in counts) { counts[char]++; }
-    }
-
-    let best = ',';
-    let bestCount = 0;
-    for (const [char, count] of Object.entries(counts)) {
-      if (count > bestCount) { bestCount = count; best = char; }
-    }
-
-    switch (best) {
+  private delimiterInfo(char: string): { name: string; char: string } {
+    switch (char) {
       case ',': return { name: 'Comma', char: ',' };
       case ';': return { name: 'Semicolon', char: ';' };
       case '\t': return { name: 'Tab', char: '\t' };
       case '|': return { name: 'Pipe', char: '|' };
-      default: return { name: 'Comma', char: ',' };
+      default: return { name: 'Comma', char: char || ',' };
     }
   }
 }

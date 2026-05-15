@@ -125,9 +125,10 @@ export function renderRows() {
     return;
   }
 
+  const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
   const fragment = document.createDocumentFragment();
   for (let i = 0; i < state.rows.length; i++) {
-    fragment.appendChild(createRow(state.rows[i], i, state.rowids[i]));
+    fragment.appendChild(createRow(state.rows[i], i, state.rowids[i], searchLower));
   }
 
   dom.tableBody.innerHTML = '';
@@ -168,7 +169,7 @@ export function renderQueryRows(rows) {
   dom.tableBody.appendChild(fragment);
 }
 
-function createRow(row, displayIndex, rowid) {
+function createRow(row, displayIndex, rowid, searchLower) {
   const tr = document.createElement('tr');
   tr.dataset.rowIndex = displayIndex;
   tr.dataset.rowid = rowid;
@@ -192,7 +193,7 @@ function createRow(row, displayIndex, rowid) {
     const colColor = getColumnColor(colIndex);
     if (colColor) { td.style.backgroundColor = colColor; }
 
-    if (state.searchTerm && text.toLowerCase().includes(state.searchTerm.toLowerCase())) {
+    if (searchLower && text.toLowerCase().includes(searchLower)) {
       td.innerHTML = highlightMatch(text, state.searchTerm);
     } else {
       td.textContent = text;

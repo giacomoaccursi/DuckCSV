@@ -49,6 +49,7 @@ export class CsvPreviewPanel {
   private readonly viewState = new ViewState();
   private isDirty: boolean = false;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private pageRequestId: number = 0;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -211,6 +212,8 @@ export class CsvPreviewPanel {
   }
 
   private async sendCurrentPage(): Promise<void> {
+    const requestId = ++this.pageRequestId;
+
     try {
       const limit = this.config.pageSize;
 
@@ -221,6 +224,9 @@ export class CsvPreviewPanel {
         offset: 0,
         limit,
       });
+
+      // Discard stale response if a newer request was issued
+      if (requestId !== this.pageRequestId) { return; }
 
       const payload: DataPagePayload = {
         headers: this.headers,
@@ -263,8 +269,12 @@ export class CsvPreviewPanel {
       await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
       this.isDirty = true;
 
-      // Refresh column types (may have changed if column was cast to VARCHAR)
-      this.columnTypes = await this.tableManager.getColumnTypes(this.tableName);
+      // updateCell already refreshes cached meta — read from cache
+      const meta = this.tableManager.getTableMeta(this.tableName);
+      if (meta) {
+        this.columnTypes = meta.columnTypes;
+        this.headers = meta.headers;
+      }
 
       this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });

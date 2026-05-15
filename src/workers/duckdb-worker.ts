@@ -98,11 +98,23 @@ function executeQuery(msg: QueryRequest): void {
     const maxRows = Math.min(numRows, 10_000);
     const rows: string[][] = [];
 
+    // Pre-fetch column vectors to avoid repeated getChildAt lookups
+    const columnVectors: any[] = [];
+    for (let j = 0; j < numCols; j++) {
+      columnVectors.push(result.getChildAt(j));
+    }
+
+    // Pre-compute date column flags to avoid toLowerCase() per cell
+    const isDateCol: boolean[] = columnTypes.map(t => {
+      const lower = t.toLowerCase();
+      return lower.includes('date') || lower.includes('timestamp');
+    });
+
     for (let i = 0; i < maxRows; i++) {
       const row: string[] = [];
       for (let j = 0; j < numCols; j++) {
-        const val = result.getChildAt(j)?.get(i);
-        row.push(formatValue(val, columnTypes[j]));
+        const val = columnVectors[j]?.get(i);
+        row.push(formatValue(val, isDateCol[j]));
       }
       rows.push(row);
     }
@@ -118,19 +130,16 @@ function executeQuery(msg: QueryRequest): void {
 
 // ─── Value Formatting ────────────────────────────────────────────────────────
 
-function formatValue(val: any, colType: string): string {
+function formatValue(val: any, isDate: boolean): string {
   if (val === null || val === undefined) { return ''; }
   if (val instanceof Date) { return val.toISOString().split('T')[0]; }
   if (typeof val === 'bigint') { return val.toString(); }
 
-  if (typeof val === 'number') {
-    const typeLower = colType.toLowerCase();
-    if (typeLower.includes('date') || typeLower.includes('timestamp')) {
-      const ms = val > 1e10 ? val : val * 86400000;
-      const d = new Date(ms);
-      if (!isNaN(d.getTime())) {
-        return d.toISOString().split('T')[0];
-      }
+  if (typeof val === 'number' && isDate) {
+    const ms = val > 1e10 ? val : val * 86400000;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
     }
   }
 

@@ -31,6 +31,7 @@ export class CsvWorkspacePanel {
   private readonly viewState = new ViewState();
 
   private activeTable: string = '';
+  private pageRequestId: number = 0;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -263,6 +264,8 @@ export class CsvWorkspacePanel {
   private async sendCurrentPage(): Promise<void> {
     if (!this.activeTable) { return; }
 
+    const requestId = ++this.pageRequestId;
+
     try {
       const meta = this.tableManager.getTableMeta(this.activeTable);
       if (!meta) { return; }
@@ -276,6 +279,9 @@ export class CsvWorkspacePanel {
         offset: 0,
         limit,
       });
+
+      // Discard stale response if a newer request was issued
+      if (requestId !== this.pageRequestId) { return; }
 
       const payload: DataPagePayload = {
         headers: meta.headers,
