@@ -17,6 +17,7 @@ import { ViewState } from '../shared/ViewState';
 import { WebviewMessage, ExtensionMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
 import { openQueryResultPanel } from './QueryResultPanel';
+import { quoteCsvField } from '../shared/csvUtils';
 
 export class CsvWorkspacePanel {
   private static readonly viewType = 'csvWorkspace';
@@ -336,21 +337,14 @@ export class CsvWorkspacePanel {
 
     const delimiter = ',';
     const lines: string[] = [];
-    lines.push(headers.map(h => this.quoteCsvField(h, delimiter)).join(delimiter));
+    lines.push(headers.map(h => quoteCsvField(h, delimiter)).join(delimiter));
     for (const row of rows) {
-      lines.push(row.map(cell => this.quoteCsvField(cell, delimiter)).join(delimiter));
+      lines.push(row.map(cell => quoteCsvField(cell, delimiter)).join(delimiter));
     }
 
     const content = Buffer.from(lines.join('\n') + '\n', 'utf8');
     await vscode.workspace.fs.writeFile(uri, content);
     vscode.window.showInformationMessage(`Exported ${rows.length} rows to ${uri.fsPath.split('/').pop()}`);
-  }
-
-  private quoteCsvField(value: string, delimiter: string): string {
-    if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-      return '"' + value.replace(/"/g, '""') + '"';
-    }
-    return value;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────

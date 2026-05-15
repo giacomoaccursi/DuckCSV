@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { QueryResultPayload } from '../types';
 import { getNonce } from '../utils/nonce';
+import { quoteCsvField, escapeHtml } from '../shared/csvUtils';
 
 export function openQueryResultPanel(
   extensionUri: vscode.Uri,
@@ -109,15 +110,4 @@ export function openQueryResultPanel(
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function quoteCsvField(value: string, delimiter: string): string {
-  if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-    return '"' + value.replace(/"/g, '""') + '"';
-  }
-  return value;
 }
