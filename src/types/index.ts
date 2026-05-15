@@ -72,7 +72,7 @@ export type ExtensionMessage =
   | { type: 'queryResult'; data: QueryResultPayload }
   | { type: 'modeInfo'; mode: 'readonly' | 'edit'; savePath: string }
   | { type: 'error'; message: string }
-  | { type: 'loading'; loading: boolean }
+  | { type: 'loading'; loading: boolean; message?: string }
   | { type: 'tableList'; tables: TableInfo[] };
 
 // ─── Messages: Webview → Extension ──────────────────────────────────────────

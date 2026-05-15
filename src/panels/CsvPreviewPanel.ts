@@ -195,6 +195,8 @@ export class CsvPreviewPanel {
       this.fileSize = stat.size;
       this.fileName = basename(this.currentUri.fsPath);
 
+      this.postMessage({ type: 'loading', loading: true, message: `Loading ${this.fileName} (${this.formatSize(this.fileSize)})...` });
+
       const meta = await this.tableManager.loadTable(this.currentUri, 'csv');
       this.tableName = meta.name;
       this.headers = meta.headers;
@@ -393,6 +395,12 @@ export class CsvPreviewPanel {
   private postError(error: unknown): void {
     const msg = error instanceof Error ? error.message : 'An unexpected error occurred';
     this.postMessage({ type: 'error', message: msg });
+  }
+
+  private formatSize(bytes: number): string {
+    if (bytes < 1024) { return `${bytes} B`; }
+    if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   private dispose(): void {
