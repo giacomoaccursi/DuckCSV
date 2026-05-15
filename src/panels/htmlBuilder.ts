@@ -25,6 +25,9 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', scriptPath)
   );
+  const duckUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'media', 'duck.png')
+  );
   const nonce = getNonce();
 
   return /* html */ `<!DOCTYPE html>
@@ -33,7 +36,7 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <link href="${styleUri}" rel="stylesheet">
   <title>${title}</title>
 </head>
@@ -71,9 +74,11 @@ ${extraSectionsHtml || ''}
     </div>
 
     <div id="loadingContainer" class="loading-container hidden">
-      <div class="duck-pond">
-        <div class="pond-water"></div>
-        <div class="duck-orbit">🦆</div>
+      <div class="duck-sea">
+        <img class="duck-float" src="${duckUri}" alt="Loading duck" />
+        <svg class="waves" viewBox="0 0 400 40" preserveAspectRatio="none">
+          <path class="wave wave-1" d="M0,20 Q50,5 100,20 Q150,35 200,20 Q250,5 300,20 Q350,35 400,20 V40 H0 Z"/>
+        </svg>
       </div>
       <div class="loading-text">Loading...</div>
     </div>
