@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { quoteCsvField, escapeHtml } from './csvUtils';
+import { quoteCsvField, escapeHtml } from '../../src/shared/csvUtils';
 
 describe('quoteCsvField', () => {
   it('returns plain value unchanged', () => {

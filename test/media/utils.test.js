@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { escapeRegex, formatFileSize } from './utils.js';
+import { escapeRegex, formatFileSize } from '../../media/src/utils.js';
 
 describe('escapeRegex', () => {
   it('escapes dots', () => {

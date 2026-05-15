@@ -208,22 +208,15 @@
         "watch": "webpack --watch",
         "build:webview": "esbuild media/src/main.js --bundle --outfile=media/script.js --format=iife --target=es2020 && esbuild media/src/workspace-main.js --bundle --outfile=media/workspace.js --format=iife --target=es2020 && esbuild media/src/query-result-main.js --bundle --outfile=media/query-result.js --format=iife --target=es2020",
         "package": "npm run build:webview && webpack --mode production --devtool hidden-source-map",
-        "compile-tests": "tsc -p . --outDir out",
-        "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
         "lint": "eslint src",
-        "test": "vscode-test",
-        "test:unit": "vitest run"
+        "test": "vitest run"
     },
     "dependencies": {
         "@duckdb/duckdb-wasm": "^1.33.1-dev45.0"
     },
     "devDependencies": {
-        "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
         "@types/vscode": "^1.106.1",
-        "@vscode/test-cli": "^0.0.12",
-        "@vscode/test-electron": "^2.5.2",
         "copy-webpack-plugin": "^14.0.0",
         "esbuild": "^0.28.0",
         "eslint": "^9.39.1",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectNumeric, sortRows } from './sort-utils.js';
+import { detectNumeric, sortRows } from '../../media/src/sort-utils.js';
 
 describe('detectNumeric', () => {
   it('returns true for all-numeric column', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ViewState } from './ViewState';
+import { ViewState } from '../../src/shared/ViewState';
 
 describe('ViewState', () => {
   it('initializes with default values', () => {

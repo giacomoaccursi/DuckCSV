@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getNonce } from './nonce';
+import { getNonce } from '../../src/utils/nonce';
 
 describe('getNonce', () => {
   it('returns a 32-character hex string', () => {
