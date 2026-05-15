@@ -8,6 +8,7 @@ import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
 import { renderHeader, renderQueryRows } from './renderer.js';
 import { showTable } from './ui.js';
+import { sortRows } from './sort-utils.js';
 
 // ─── Query State ─────────────────────────────────────────────────────────────
 
@@ -112,46 +113,13 @@ export function sortQueryResultsLocally(colIdx, direction) {
   state.sort = { columnIndex: colIdx, direction };
 
   if (direction === 'none') {
-    // No sort — keep current order (can't restore original query order easily, just leave as-is)
     renderHeader();
     return;
   }
 
-  const rows = state.rows;
-  const isNumeric = detectNumericCol(rows, colIdx);
-  const dir = direction === 'asc' ? 1 : -1;
-
-  rows.sort((a, b) => {
-    const valA = a[colIdx] || '';
-    const valB = b[colIdx] || '';
-    if (valA === valB) { return 0; }
-    if (valA === '') { return 1; }
-    if (valB === '') { return -1; }
-
-    let cmp;
-    if (isNumeric) {
-      cmp = parseFloat(valA.replace(/[,\s]/g, '')) - parseFloat(valB.replace(/[,\s]/g, ''));
-    } else {
-      cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
-    }
-    return cmp * dir;
-  });
-
+  sortRows(state.rows, colIdx, direction);
   renderHeader();
-  renderQueryRows(rows);
-}
-
-function detectNumericCol(rows, colIdx) {
-  const sample = Math.min(rows.length, 100);
-  let numCount = 0;
-  let nonEmpty = 0;
-  for (let i = 0; i < sample; i++) {
-    const val = (rows[i][colIdx] || '').replace(/[,\s]/g, '');
-    if (!val) { continue; }
-    nonEmpty++;
-    if (!isNaN(Number(val)) && isFinite(Number(val))) { numCount++; }
-  }
-  return nonEmpty > 0 && (numCount / nonEmpty) > 0.9;
+  renderQueryRows(state.rows);
 }
 
 export function resetQueryState() {

@@ -15,7 +15,9 @@ import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
-import { WebviewMessage, ExtensionMessage, DataPagePayload, SortState, ColumnFilters } from '../types';
+import { ViewState } from '../shared/ViewState';
+import { exportQueryResultToFile } from '../shared/exportQueryResult';
+import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
 import { openQueryResultPanel } from './QueryResultPanel';
 import { EditMode } from '../commands/previewCommand';
@@ -44,9 +46,7 @@ export class CsvPreviewPanel {
   private totalRows: number = 0;
 
   // View state
-  private sort: SortState = { columnIndex: -1, direction: 'none' };
-  private filters: ColumnFilters = {};
-  private searchTerm: string = '';
+  private readonly viewState = new ViewState();
   private isDirty: boolean = false;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -140,15 +140,15 @@ export class CsvPreviewPanel {
         this.resetState();
         return this.loadDocument();
       case 'sort':
-        this.sort = { columnIndex: message.columnIndex, direction: message.direction };
+        this.viewState.applySort(message.columnIndex, message.direction);
         return this.sendCurrentPage();
       case 'search':
-        this.searchTerm = message.term;
+        this.viewState.applySearch(message.term);
         return this.sendCurrentPage();
       case 'getColumnValues':
         return this.handleGetColumnValues(message.columnIndex);
       case 'setFilters':
-        this.filters = message.filters;
+        this.viewState.applyFilters(message.filters);
         return this.sendCurrentPage();
       case 'editCell':
         return this.handleEditCell(message.rowid, message.columnIndex, message.value);
@@ -180,11 +180,6 @@ export class CsvPreviewPanel {
         return;
       case 'openWorkspace':
         await vscode.commands.executeCommand('duckcsv.workspace', this.currentUri);
-        return;
-      case 'addTable':
-      case 'removeTable':
-      case 'switchTable':
-        // Workspace messages — handled by workspace panel (future)
         return;
     }
   }
@@ -220,9 +215,9 @@ export class CsvPreviewPanel {
       const limit = this.config.pageSize;
 
       const result = await this.tableManager.getDataPage(this.tableName, {
-        filters: this.filters,
-        sort: this.sort,
-        searchTerm: this.searchTerm,
+        filters: this.viewState.filters,
+        sort: this.viewState.sort,
+        searchTerm: this.viewState.searchTerm,
         offset: 0,
         limit,
       });
@@ -237,9 +232,9 @@ export class CsvPreviewPanel {
         delimiter: this.delimiter,
         fileName: this.fileName,
         fileSize: this.fileSize,
-        sort: this.sort,
-        filters: this.filters,
-        searchTerm: this.searchTerm,
+        sort: this.viewState.sort,
+        filters: this.viewState.filters,
+        searchTerm: this.viewState.searchTerm,
         isDirty: this.isDirty,
       };
 
@@ -286,8 +281,8 @@ export class CsvPreviewPanel {
       await this.tableManager.addRow(this.tableName);
       this.totalRows++;
       this.isDirty = true;
-      this.filters = {};
-      this.searchTerm = '';
+      this.viewState.applyFilters({});
+      this.viewState.applySearch('');
       this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
@@ -366,38 +361,13 @@ export class CsvPreviewPanel {
   }
 
   private async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
-    const uri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file('query_result.csv'),
-      filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
-      title: 'Export Query Result',
-    });
-    if (!uri) { return; }
-
-    const delimiter = ',';
-    const lines: string[] = [];
-    lines.push(headers.map(h => this.quoteCsvField(h, delimiter)).join(delimiter));
-    for (const row of rows) {
-      lines.push(row.map(cell => this.quoteCsvField(cell, delimiter)).join(delimiter));
-    }
-
-    const content = Buffer.from(lines.join('\n') + '\n', 'utf8');
-    await vscode.workspace.fs.writeFile(uri, content);
-    vscode.window.showInformationMessage(`Exported ${rows.length} rows to ${basename(uri.fsPath)}`);
-  }
-
-  private quoteCsvField(value: string, delimiter: string): string {
-    if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-      return '"' + value.replace(/"/g, '""') + '"';
-    }
-    return value;
+    await exportQueryResultToFile(headers, rows);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private resetState(): void {
-    this.sort = { columnIndex: -1, direction: 'none' };
-    this.filters = {};
-    this.searchTerm = '';
+    this.viewState.reset();
     this.isDirty = false;
   }
 
