@@ -269,8 +269,12 @@ export class CsvPreviewPanel {
       await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
       this.isDirty = true;
 
-      // Refresh column types (may have changed if column was cast to VARCHAR)
-      this.columnTypes = await this.tableManager.getColumnTypes(this.tableName);
+      // updateCell already refreshes cached meta — read from cache
+      const meta = this.tableManager.getTableMeta(this.tableName);
+      if (meta) {
+        this.columnTypes = meta.columnTypes;
+        this.headers = meta.headers;
+      }
 
       this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
