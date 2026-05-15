@@ -49,6 +49,7 @@ export class CsvPreviewPanel {
   private readonly viewState = new ViewState();
   private isDirty: boolean = false;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private pageRequestId: number = 0;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -211,6 +212,8 @@ export class CsvPreviewPanel {
   }
 
   private async sendCurrentPage(): Promise<void> {
+    const requestId = ++this.pageRequestId;
+
     try {
       const limit = this.config.pageSize;
 
@@ -221,6 +224,9 @@ export class CsvPreviewPanel {
         offset: 0,
         limit,
       });
+
+      // Discard stale response if a newer request was issued
+      if (requestId !== this.pageRequestId) { return; }
 
       const payload: DataPagePayload = {
         headers: this.headers,
