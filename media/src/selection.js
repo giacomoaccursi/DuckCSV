@@ -53,6 +53,7 @@ function stopAutoScroll() {
 }
 
 export function getSelection() { return selection; }
+export function getSelectionMode() { return selectionMode; }
 
 export function clearSelection() {
   selection = null;
@@ -89,6 +90,15 @@ export function handleRowNumberClick(e) {
   if (isNaN(row)) { return; }
 
   const maxCol = state.headers.length - 1;
+
+  // Right-click: don't reset selection if the row is already within the current selection
+  if (e.button === 2 && selection && selectionMode === 'row') {
+    const minRow = Math.min(selection.startRow, selection.endRow);
+    const maxRow = Math.max(selection.startRow, selection.endRow);
+    if (row >= minRow && row <= maxRow) {
+      return; // Keep existing selection, let contextmenu handle it
+    }
+  }
 
   // Toggle: if same row already selected, deselect
   if (selection && selectionMode === 'row' && selection.startRow === row && selection.endRow === row) {
@@ -226,7 +236,35 @@ export function handleArrowNavigation(e) {
 
 function scrollCellIntoView(row, col) {
   const td = dom.tableBody.querySelector(`tr[data-row-index="${row}"] td[data-column-index="${col}"]`);
-  if (td) { td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  if (!td) { return; }
+
+  const wrapper = document.querySelector('.table-wrapper');
+  if (!wrapper) { td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
+
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const tdRect = td.getBoundingClientRect();
+
+  // Account for sticky row-number column width
+  const rowNumCol = wrapper.querySelector('td.row-number');
+  const stickyOffset = rowNumCol ? rowNumCol.offsetWidth : 70;
+
+  // Horizontal scroll: ensure cell is visible past the sticky column
+  if (tdRect.left < wrapperRect.left + stickyOffset) {
+    wrapper.scrollLeft -= (wrapperRect.left + stickyOffset - tdRect.left);
+  } else if (tdRect.right > wrapperRect.right) {
+    wrapper.scrollLeft += (tdRect.right - wrapperRect.right);
+  }
+
+  // Vertical scroll
+  // Account for sticky header height
+  const thead = wrapper.querySelector('thead');
+  const headerOffset = thead ? thead.offsetHeight : 0;
+
+  if (tdRect.top < wrapperRect.top + headerOffset) {
+    wrapper.scrollTop -= (wrapperRect.top + headerOffset - tdRect.top);
+  } else if (tdRect.bottom > wrapperRect.bottom) {
+    wrapper.scrollTop += (tdRect.bottom - wrapperRect.bottom);
+  }
 }
 
 function getSelectionText() {

@@ -86,7 +86,9 @@ export type WebviewMessage =
   | { type: 'setFilters'; filters: ColumnFilters }
   | { type: 'editCell'; rowid: number; columnIndex: number; value: string }
   | { type: 'addRow' }
+  | { type: 'addRowAt'; rowid: number; position: 'above' | 'below' }
   | { type: 'deleteRow'; rowid: number }
+  | { type: 'deleteRows'; rowids: number[] }
   | { type: 'executeQuery'; sql: string; mode: 'inline' | 'side' }
   | { type: 'cancelQuery' }
   | { type: 'clearQuery' }

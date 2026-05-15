@@ -249,8 +249,53 @@ export class TableManager {
     await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
   }
 
+  async addRowAt(tableName: string, rowid: number, position: 'above' | 'below'): Promise<void> {
+    const quoted = this.quoteIdentifier(tableName);
+    const headers = await this.getHeaders(tableName);
+    const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
+    const nulls = headers.map(() => "NULL").join(', ');
+
+    // Create a temp table with all rows, inserting the new row at the right position
+    const tempName = `__temp_insert_${Date.now()}`;
+    const tempQuoted = this.quoteIdentifier(tempName);
+
+    if (position === 'above') {
+      // Insert new row before the target rowid
+      await this.engine.query(`CREATE TABLE ${tempQuoted} AS 
+        SELECT ${cols} FROM (
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${rowid}
+          UNION ALL
+          SELECT ${nulls}, -1 as __rid
+          UNION ALL
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${rowid}
+        ) ORDER BY CASE WHEN __rid = -1 THEN ${rowid} - 0.5 ELSE __rid END`);
+    } else {
+      // Insert new row after the target rowid
+      await this.engine.query(`CREATE TABLE ${tempQuoted} AS 
+        SELECT ${cols} FROM (
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid <= ${rowid}
+          UNION ALL
+          SELECT ${nulls}, -1 as __rid
+          UNION ALL
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid > ${rowid}
+        ) ORDER BY CASE WHEN __rid = -1 THEN ${rowid} + 0.5 ELSE __rid END`);
+    }
+
+    await this.engine.query(`DROP TABLE ${quoted}`);
+    await this.engine.query(`ALTER TABLE ${tempQuoted} RENAME TO ${quoted}`);
+  }
+
   async deleteRow(tableName: string, rowid: number): Promise<void> {
     await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid = ${rowid}`);
+  }
+
+  async deleteRows(tableName: string, rowids: number[]): Promise<void> {
+    if (rowids.length === 0) { return; }
+    if (rowids.length === 1) {
+      return this.deleteRow(tableName, rowids[0]);
+    }
+    const idList = rowids.join(', ');
+    await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid IN (${idList})`);
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────

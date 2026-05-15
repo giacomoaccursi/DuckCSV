@@ -14,7 +14,7 @@ import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode } from './selection.js';
 
 const DEBOUNCE_MS = 300;
 let searchTimeout = null;
@@ -116,7 +116,6 @@ function bindEvents() {
   if (dom.refreshBtn) { dom.refreshBtn.addEventListener('click', () => sendMessage({ type: 'refresh' })); }
   if (dom.openAsTextBtn) { dom.openAsTextBtn.addEventListener('click', () => sendMessage({ type: 'openAsText' })); }
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
-  if (dom.addRowBtn) { dom.addRowBtn.addEventListener('click', () => sendMessage({ type: 'addRow' })); }
 
   const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');
   if (openWorkspaceBtn) { openWorkspaceBtn.addEventListener('click', () => sendMessage({ type: 'openWorkspace' })); }
@@ -274,16 +273,56 @@ function bindEvents() {
     if (e.target.closest('td, th')) { hideTooltip(); }
   });
 
-  // Context menu
+  // Context menu on row numbers (Excel-like: insert above/below, delete)
   document.addEventListener('contextmenu', (e) => {
+    const rowNum = e.target.closest('td.row-number');
+    if (rowNum) {
+      e.preventDefault();
+      const tr = rowNum.closest('tr');
+      const rowid = parseInt(tr.dataset.rowid, 10);
+      if (isNaN(rowid)) { return; }
+
+      const items = [
+        { label: 'Insert row above', action: () => sendMessage({ type: 'addRowAt', rowid, position: 'above' }) },
+        { label: 'Insert row below', action: () => sendMessage({ type: 'addRowAt', rowid, position: 'below' }) },
+      ];
+
+      // Check if multiple rows are selected
+      const sel = getSelection();
+      if (sel && getSelectionMode() === 'row') {
+        const minRow = Math.min(sel.startRow, sel.endRow);
+        const maxRow = Math.max(sel.startRow, sel.endRow);
+        const count = maxRow - minRow + 1;
+
+        // Collect rowids from selected rows
+        const rowids = [];
+        for (let r = minRow; r <= maxRow; r++) {
+          if (state.rowids[r] !== undefined) {
+            rowids.push(state.rowids[r]);
+          }
+        }
+
+        if (rowids.length > 1) {
+          items.push({ label: `Delete ${rowids.length} rows`, action: () => sendMessage({ type: 'deleteRows', rowids }) });
+        } else {
+          items.push({ label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', rowid }) });
+        }
+      } else {
+        items.push({ label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', rowid }) });
+      }
+
+      showContextMenu(e.pageX, e.pageY, items);
+      return;
+    }
+
     const cell = e.target.closest('td.editable-cell');
     if (!cell) { return; }
     e.preventDefault();
     const text = cell.dataset.fullText || cell.textContent;
-    const rowid = parseInt(cell.dataset.rowid, 10);
+    const rowid2 = parseInt(cell.dataset.rowid, 10);
     showContextMenu(e.pageX, e.pageY, [
       { label: 'Copy cell', action: () => sendMessage({ type: 'copyToClipboard', text }) },
-      { label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', rowid }) },
+      { label: 'Delete row', action: () => sendMessage({ type: 'deleteRow', rowid: rowid2 }) },
     ]);
   });
 }

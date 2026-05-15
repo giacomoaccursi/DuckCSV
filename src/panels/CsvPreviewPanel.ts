@@ -48,6 +48,7 @@ export class CsvPreviewPanel {
   private filters: ColumnFilters = {};
   private searchTerm: string = '';
   private isDirty: boolean = false;
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -153,8 +154,12 @@ export class CsvPreviewPanel {
         return this.handleEditCell(message.rowid, message.columnIndex, message.value);
       case 'addRow':
         return this.handleAddRow();
+      case 'addRowAt':
+        return this.handleAddRowAt(message.rowid, message.position);
       case 'deleteRow':
         return this.handleDeleteRow(message.rowid);
+      case 'deleteRows':
+        return this.handleDeleteRows(message.rowids);
       case 'executeQuery':
         return this.handleQuery(message.sql, message.mode);
       case 'cancelQuery':
@@ -264,7 +269,7 @@ export class CsvPreviewPanel {
       // Refresh column types (may have changed if column was cast to VARCHAR)
       this.columnTypes = await this.tableManager.getColumnTypes(this.tableName);
 
-      await this.persistToDisk();
+      this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
 
       // Re-send page to update type labels in header
@@ -281,7 +286,19 @@ export class CsvPreviewPanel {
       this.isDirty = true;
       this.filters = {};
       this.searchTerm = '';
-      await this.persistToDisk();
+      this.persistToDisk();
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      this.postError(error);
+    }
+  }
+
+  private async handleAddRowAt(rowid: number, position: 'above' | 'below'): Promise<void> {
+    try {
+      await this.tableManager.addRowAt(this.tableName, rowid, position);
+      this.totalRows++;
+      this.isDirty = true;
+      this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -293,7 +310,19 @@ export class CsvPreviewPanel {
       await this.tableManager.deleteRow(this.tableName, rowid);
       this.totalRows--;
       this.isDirty = true;
-      await this.persistToDisk();
+      this.persistToDisk();
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      this.postError(error);
+    }
+  }
+
+  private async handleDeleteRows(rowids: number[]): Promise<void> {
+    try {
+      await this.tableManager.deleteRows(this.tableName, rowids);
+      this.totalRows -= rowids.length;
+      this.isDirty = true;
+      this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -302,7 +331,19 @@ export class CsvPreviewPanel {
 
   // ─── Persistence ─────────────────────────────────────────────────────────
 
-  private async persistToDisk(): Promise<void> {
+  private persistToDisk(): void {
+    // Debounce: wait 500ms after last mutation before writing to disk.
+    // This avoids re-exporting 2M rows for every single row deletion in rapid succession.
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+    }
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      this.doExport();
+    }, 500);
+  }
+
+  private async doExport(): Promise<void> {
     try {
       await this.tableExporter.exportTable(this.tableName, this.savePath);
     } catch (error: unknown) {
@@ -347,6 +388,13 @@ export class CsvPreviewPanel {
 
   private dispose(): void {
     CsvPreviewPanel.panels.delete(`${this.currentUri.toString()}:${this.mode}`);
+
+    // Flush any pending persist before closing
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+      this.doExport().catch(() => {});
+    }
 
     // Clean up the table from DuckDB
     if (this.tableName) {
