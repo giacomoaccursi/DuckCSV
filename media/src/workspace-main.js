@@ -1,15 +1,15 @@
 /**
  * DuckCSV — Workspace Webview Entry Point
  *
- * Multi-table environment. Reuses rendering/query/selection modules.
- * Adds tables bar and table dropdown.
+ * Multi-table environment. Uses shared-bindings for common interactions;
+ * adds workspace-specific bindings (add-table, table dropdown, tables bar, empty state).
  */
 
 import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
-import { renderHeader, renderRows, renderQueryRows } from './renderer.js';
+import { renderHeader, renderRows } from './renderer.js';
 import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
@@ -18,9 +18,8 @@ import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunni
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 
-const DEBOUNCE_MS = 300;
-let searchTimeout = null;
 let activeTableName = '';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
@@ -43,7 +42,6 @@ function onDataPageReceived(data) {
   resetQueryState();
 
   state.headers = data.headers;
-  // Don't overwrite originalHeaders — it's set by onTableListReceived with all table names + columns
   state.columnTypes = data.columnTypes || [];
   state.rows = data.rows;
   state.rowids = data.rowids || [];
@@ -83,11 +81,10 @@ function onTableListReceived(tables) {
       allHeaders.push(h);
       allHeaders.push(`${t.name}.${h}`);
     });
-    allHeaders.push(t.name); // table name itself
+    allHeaders.push(t.name);
   });
   state.originalHeaders = allHeaders;
 
-  // Show/hide empty state
   if (tables.length === 0) {
     showEmptyState();
   } else {
@@ -107,17 +104,21 @@ function hideEmptyState() {
 // ─── Event Binding ───────────────────────────────────────────────────────────
 
 function bindEvents() {
-  // Search
-  if (dom.searchInput) {
-    dom.searchInput.addEventListener('input', (e) => {
-      if (searchTimeout) { clearTimeout(searchTimeout); }
-      searchTimeout = setTimeout(() => {
-        sendMessage({ type: 'search', term: e.target.value.trim() });
-      }, DEBOUNCE_MS);
-    });
-  }
+  // Shared: search, query bar, header, selection/tooltip
+  bindSearchInput(dom.searchInput, sendMessage);
 
-  // Add table buttons
+  bindQueryBar(
+    { queryInput: document.getElementById('queryInput'), queryRunBtn: document.getElementById('queryRunBtn'), querySideBtn: document.getElementById('querySideBtn'), queryClearBtn: document.getElementById('queryClearBtn'), queryExportBtn: document.getElementById('queryExportBtn') },
+    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state }
+  );
+
+  bindHeaderInteractions(dom.tableHeader, {
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
+  });
+
+  bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip });
+
+  // Workspace-specific: add table buttons
   const addTableBtn = document.getElementById('addTableBtn');
   const emptyAddBtn = document.getElementById('emptyAddBtn');
 
@@ -128,113 +129,10 @@ function bindEvents() {
     emptyAddBtn.addEventListener('click', () => sendMessage({ type: 'addTable', filePath: '' }));
   }
 
-  // Table dropdown
+  // Workspace-specific: table dropdown
   bindTableDropdown();
 
-  // Query bar
-  const queryRunBtn = document.getElementById('queryRunBtn');
-  const querySideBtn = document.getElementById('querySideBtn');
-  const queryClearBtn = document.getElementById('queryClearBtn');
-  const queryInput = document.getElementById('queryInput');
-
-  if (queryRunBtn) {
-    queryRunBtn.addEventListener('click', () => {
-      if (isQueryRunning()) {
-        sendMessage({ type: 'cancelQuery' });
-        setQueryRunning(false);
-        return;
-      }
-      const sql = queryInput ? queryInput.value.trim() : '';
-      if (sql) {
-        setQueryRunning(true);
-        sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
-      }
-    });
-  }
-  if (querySideBtn) {
-    querySideBtn.addEventListener('click', () => {
-      const sql = queryInput ? queryInput.value.trim() : '';
-      if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'side' }); }
-    });
-  }
-  if (queryClearBtn) { queryClearBtn.addEventListener('click', clearQuery); }
-
-  const queryExportBtn = document.getElementById('queryExportBtn');
-  if (queryExportBtn) {
-    queryExportBtn.addEventListener('click', () => {
-      if (isQueryActive()) {
-        sendMessage({ type: 'exportQueryResult', headers: state.headers, rows: state.rows });
-      }
-    });
-  }
-
-  if (queryInput) {
-    queryInput.addEventListener('keydown', (e) => {
-      if (handleAutocompleteKeydown(e)) { return; }
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        closeAutocomplete();
-        const sql = queryInput.value.trim();
-        if (sql) {
-          setQueryRunning(true);
-          sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
-        }
-      } else if (e.key === 'Escape') {
-        clearQuery();
-      }
-    });
-    queryInput.addEventListener('input', () => showAutocomplete(queryInput));
-    queryInput.addEventListener('blur', () => setTimeout(closeAutocomplete, 150));
-    queryInput.addEventListener('focus', () => {
-      if (queryInput.value.trim()) { showAutocomplete(queryInput); }
-    });
-  }
-
-  // Header: sort + resize
-  let headerClickTimer = null;
-
-  if (dom.tableHeader) {
-    dom.tableHeader.addEventListener('click', (e) => {
-      if (e.target.closest('.filter-btn') || e.target.closest('.resize-handle')) { return; }
-      const th = e.target.closest('th.sortable-header');
-      if (!th) { return; }
-
-      const colIdx = parseInt(th.dataset.columnIndex, 10);
-      if (isNaN(colIdx)) { return; }
-
-      if (headerClickTimer) { clearTimeout(headerClickTimer); }
-      headerClickTimer = setTimeout(() => {
-        headerClickTimer = null;
-
-        let newDirection = 'asc';
-        if (state.sort.columnIndex === colIdx) {
-          if (state.sort.direction === 'asc') { newDirection = 'desc'; }
-          else if (state.sort.direction === 'desc') { newDirection = 'none'; }
-        }
-
-        if (isQueryActive()) {
-          sortQueryResultsLocally(colIdx, newDirection);
-        } else {
-          sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
-        }
-      }, 150);
-    });
-
-    dom.tableHeader.addEventListener('mousedown', (e) => {
-      if (e.target.classList.contains('resize-handle')) { initResize(e); }
-
-      const corner = e.target.closest('.row-number-header');
-      if (corner) { handleSelectAll(); }
-
-      const selCell = e.target.closest('.column-select-cell');
-      if (selCell) {
-        const colIdx = parseInt(selCell.dataset.columnIndex, 10);
-        if (!isNaN(colIdx)) { handleHeaderClickForSelection(colIdx, e); }
-      }
-    });
-  }
-
-  // Filter button
+  // Workspace-specific: filter button (delegated)
   document.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('.filter-btn');
     if (!filterBtn) { return; }
@@ -243,29 +141,7 @@ function bindEvents() {
     if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
   });
 
-  // Selection
-  document.addEventListener('mousedown', (e) => {
-    const rowNum = e.target.closest('td.row-number');
-    if (rowNum) { handleRowNumberClick(e); return; }
-    const td = e.target.closest('td.editable-cell');
-    if (td && !isEditing()) { handleCellClick(e); }
-  });
-
-  document.addEventListener('keydown', (e) => { handleCopyShortcut(e); handleArrowNavigation(e); });
-
-  // Tooltip
-  document.addEventListener('mouseover', (e) => {
-    if (isEditing()) { return; }
-    const cell = e.target.closest('td, th');
-    if (cell && cell.scrollWidth > cell.clientWidth && !cell.classList.contains('editing')) {
-      showTooltip(cell.dataset.fullText || cell.textContent, e.pageX, e.pageY);
-    }
-  });
-  document.addEventListener('mouseout', (e) => {
-    if (e.target.closest('td, th')) { hideTooltip(); }
-  });
-
-  // Context menu (copy only in workspace — no editing)
+  // Workspace-specific: context menu (copy only — no editing)
   document.addEventListener('contextmenu', (e) => {
     const cell = e.target.closest('td.editable-cell');
     if (!cell) { return; }

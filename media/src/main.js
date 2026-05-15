@@ -2,12 +2,14 @@
  * DuckCSV — Webview Entry Point
  *
  * Wires together all modules and binds events.
+ * Uses shared-bindings for common interactions; adds preview-specific bindings
+ * (cell editing, context menu, refresh, openAsText, color toggle, header dblclick).
  */
 
 import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
-import { toggle, insertAtCursor } from './utils.js';
+import { insertAtCursor } from './utils.js';
 import { renderHeader, renderRows } from './renderer.js';
 import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
@@ -15,9 +17,7 @@ import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode } from './selection.js';
-
-const DEBOUNCE_MS = 300;
-let searchTimeout = null;
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ function onDataPageReceived(data) {
   resetQueryState();
 
   state.headers = data.headers;
-  state.originalHeaders = data.headers; // preserve for autocomplete
+  state.originalHeaders = data.headers;
   state.columnTypes = data.columnTypes || [];
   state.rows = data.rows;
   state.rowids = data.rowids || [];
@@ -67,7 +67,6 @@ function onDataPageReceived(data) {
 // ─── Mode Banner ─────────────────────────────────────────────────────────────
 
 function showModeBanner(mode, savePath) {
-  // Remove existing banner if any
   const existing = document.getElementById('modeBanner');
   if (existing) { existing.remove(); }
 
@@ -83,7 +82,6 @@ function showModeBanner(mode, savePath) {
     banner.textContent = `\uD83D\uDD12 Read-only mode \u2014 Changes will be saved to ${fileName}`;
   }
 
-  // Insert at the top of #app, before toolbar
   const app = document.getElementById('app');
   if (app && app.firstChild) {
     app.insertBefore(banner, app.firstChild);
@@ -102,17 +100,21 @@ function toggleColumnColors() {
 // ─── Event Binding ───────────────────────────────────────────────────────────
 
 function bindEvents() {
-  // Search
-  if (dom.searchInput) {
-    dom.searchInput.addEventListener('input', (e) => {
-      if (searchTimeout) { clearTimeout(searchTimeout); }
-      searchTimeout = setTimeout(() => {
-        sendMessage({ type: 'search', term: e.target.value.trim() });
-      }, DEBOUNCE_MS);
-    });
-  }
+  // Shared: search, query bar, header, selection/tooltip
+  bindSearchInput(dom.searchInput, sendMessage);
 
-  // Toolbar
+  bindQueryBar(
+    { queryInput: dom.queryInput, queryRunBtn: dom.queryRunBtn, querySideBtn: dom.querySideBtn, queryClearBtn: dom.queryClearBtn, queryExportBtn: document.getElementById('queryExportBtn') },
+    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state }
+  );
+
+  const headerCtrl = bindHeaderInteractions(dom.tableHeader, {
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
+  });
+
+  bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip });
+
+  // Preview-specific: toolbar buttons
   if (dom.refreshBtn) { dom.refreshBtn.addEventListener('click', () => sendMessage({ type: 'refresh' })); }
   if (dom.openAsTextBtn) { dom.openAsTextBtn.addEventListener('click', () => sendMessage({ type: 'openAsText' })); }
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
@@ -120,94 +122,19 @@ function bindEvents() {
   const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');
   if (openWorkspaceBtn) { openWorkspaceBtn.addEventListener('click', () => sendMessage({ type: 'openWorkspace' })); }
 
-  // Query bar
-  if (dom.queryRunBtn) {
-    dom.queryRunBtn.addEventListener('click', () => {
-      if (isQueryRunning()) {
-        sendMessage({ type: 'cancelQuery' });
-        setQueryRunning(false);
-        return;
-      }
-      const sql = dom.queryInput ? dom.queryInput.value.trim() : '';
-      if (sql) {
-        setQueryRunning(true);
-        sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
-      }
-    });
-  }
-  if (dom.querySideBtn) {
-    dom.querySideBtn.addEventListener('click', () => {
-      const sql = dom.queryInput ? dom.queryInput.value.trim() : '';
-      if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'side' }); }
-    });
-  }
-  if (dom.queryClearBtn) { dom.queryClearBtn.addEventListener('click', clearQuery); }
+  // Preview-specific: filter button (delegated)
+  document.addEventListener('click', (e) => {
+    const filterBtn = e.target.closest('.filter-btn');
+    if (!filterBtn) { return; }
+    e.stopPropagation();
+    const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
+    if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
+  });
 
-  const queryExportBtn = document.getElementById('queryExportBtn');
-  if (queryExportBtn) {
-    queryExportBtn.addEventListener('click', () => {
-      if (isQueryActive()) {
-        sendMessage({ type: 'exportQueryResult', headers: state.headers, rows: state.rows });
-      }
-    });
-  }
-
-  if (dom.queryInput) {
-    dom.queryInput.addEventListener('keydown', (e) => {
-      if (handleAutocompleteKeydown(e)) { return; }
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        closeAutocomplete();
-        const sql = dom.queryInput.value.trim();
-        if (sql) {
-          setQueryRunning(true);
-          sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
-        }
-      } else if (e.key === 'Escape') {
-        clearQuery();
-      }
-    });
-    dom.queryInput.addEventListener('input', () => showAutocomplete(dom.queryInput));
-    dom.queryInput.addEventListener('blur', () => setTimeout(closeAutocomplete, 150));
-    dom.queryInput.addEventListener('focus', () => {
-      if (dom.queryInput.value.trim()) { showAutocomplete(dom.queryInput); }
-    });
-  }
-
-  // Header: sort (delayed) + dblclick insert + resize
-  let headerClickTimer = null;
-
+  // Preview-specific: header dblclick to insert column name into query
   if (dom.tableHeader) {
-    dom.tableHeader.addEventListener('click', (e) => {
-      if (e.target.closest('.filter-btn') || e.target.closest('.resize-handle')) { return; }
-      const th = e.target.closest('th.sortable-header');
-      if (!th) { return; }
-
-      const colIdx = parseInt(th.dataset.columnIndex, 10);
-      if (isNaN(colIdx)) { return; }
-
-      // Normal click → sort (delayed for dblclick disambiguation)
-      if (headerClickTimer) { clearTimeout(headerClickTimer); }
-      headerClickTimer = setTimeout(() => {
-        headerClickTimer = null;
-
-        let newDirection = 'asc';
-        if (state.sort.columnIndex === colIdx) {
-          if (state.sort.direction === 'asc') { newDirection = 'desc'; }
-          else if (state.sort.direction === 'desc') { newDirection = 'none'; }
-        }
-
-        if (isQueryActive()) {
-          // Sort locally on query results
-          sortQueryResultsLocally(colIdx, newDirection);
-        } else {
-          sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
-        }
-      }, 150);
-    });
-
     dom.tableHeader.addEventListener('dblclick', (e) => {
-      if (headerClickTimer) { clearTimeout(headerClickTimer); headerClickTimer = null; }
+      headerCtrl.clearTimer();
       if (e.target.closest('.filter-btn') || e.target.closest('.resize-handle')) { return; }
       const th = e.target.closest('th.sortable-header');
       if (!th || !dom.queryInput) { return; }
@@ -219,70 +146,15 @@ function bindEvents() {
       const quoted = /[^a-zA-Z0-9_]/.test(colName) ? `"${colName}"` : colName;
       insertAtCursor(dom.queryInput, quoted);
     });
-
-    // Column select row mousedown (supports drag)
-    dom.tableHeader.addEventListener('mousedown', (e) => {
-      // Resize handle
-      if (e.target.classList.contains('resize-handle')) { initResize(e); return; }
-
-      // Select all on # click
-      const corner = e.target.closest('.row-number-header');
-      if (corner) { handleSelectAll(); return; }
-
-      // Column select box
-      const selCell = e.target.closest('.column-select-cell');
-      if (selCell) {
-        const colIdx = parseInt(selCell.dataset.columnIndex, 10);
-        if (!isNaN(colIdx)) { handleHeaderClickForSelection(colIdx, e); }
-      }
-    });
   }
 
-  // Filter button
-  document.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.filter-btn');
-    if (!filterBtn) { return; }
-    e.stopPropagation();
-    const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
-    if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
-  });
-
-  // Cell editing
+  // Preview-specific: cell editing
   document.addEventListener('dblclick', (e) => {
     const td = e.target.closest('td.editable-cell');
     if (td) { clearSelection(); startCellEdit(td); }
   });
 
-  // Cell/row selection (single click)
-  document.addEventListener('mousedown', (e) => {
-    // Row number mousedown → select row (supports drag)
-    const rowNum = e.target.closest('td.row-number');
-    if (rowNum) { handleRowNumberClick(e); return; }
-
-    // Cell click → select cell (only if not editing and not on interactive elements)
-    const td = e.target.closest('td.editable-cell');
-    if (td && !isEditing()) { handleCellClick(e); }
-  });
-
-  // Keyboard: Cmd+C to copy selection
-  document.addEventListener('keydown', (e) => {
-    handleCopyShortcut(e);
-    handleArrowNavigation(e);
-  });
-
-  // Tooltip
-  document.addEventListener('mouseover', (e) => {
-    if (isEditing()) { return; }
-    const cell = e.target.closest('td, th');
-    if (cell && cell.scrollWidth > cell.clientWidth && !cell.classList.contains('editing')) {
-      showTooltip(cell.dataset.fullText || cell.textContent, e.pageX, e.pageY);
-    }
-  });
-  document.addEventListener('mouseout', (e) => {
-    if (e.target.closest('td, th')) { hideTooltip(); }
-  });
-
-  // Context menu on row numbers (Excel-like: insert above/below, delete)
+  // Preview-specific: context menu (insert/delete rows, copy)
   document.addEventListener('contextmenu', (e) => {
     const rowNum = e.target.closest('td.row-number');
     if (rowNum) {
@@ -296,14 +168,11 @@ function bindEvents() {
         { label: 'Insert row below', action: () => sendMessage({ type: 'addRowAt', rowid, position: 'below' }) },
       ];
 
-      // Check if multiple rows are selected
       const sel = getSelection();
       if (sel && getSelectionMode() === 'row') {
         const minRow = Math.min(sel.startRow, sel.endRow);
         const maxRow = Math.max(sel.startRow, sel.endRow);
-        const count = maxRow - minRow + 1;
 
-        // Collect rowids from selected rows
         const rowids = [];
         for (let r = minRow; r <= maxRow; r++) {
           if (state.rowids[r] !== undefined) {
