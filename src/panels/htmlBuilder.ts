@@ -28,6 +28,9 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
   const duckUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'duck.png')
   );
+  const duckAngryUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'media', 'duck-angry.png')
+  );
   const nonce = getNonce();
 
   return /* html */ `<!DOCTYPE html>
@@ -67,7 +70,10 @@ ${extraSectionsHtml || ''}
         </svg>
       </button>
     </div>
-    <div id="queryError" class="query-error hidden"></div>
+    <div id="queryError" class="query-error hidden">
+      <img class="duck-error-icon" src="${duckAngryUri}" alt="Error" />
+      <span id="queryErrorText"></span>
+    </div>
 
     <div id="errorContainer" class="error-container hidden">
       <div class="error-message"><span id="errorText"></span></div>

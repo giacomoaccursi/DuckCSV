@@ -312,10 +312,19 @@ body {
 }
 
 .query-error {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--error-color);
+}
+
+.duck-error-icon {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 /* Autocomplete Dropdown */

@@ -130,7 +130,8 @@ export function resetQueryState() {
 
 function showQueryError(msg) {
   if (dom.queryError) {
-    dom.queryError.textContent = msg;
+    const textEl = dom.queryError.querySelector('#queryErrorText') || dom.queryError;
+    textEl.textContent = msg;
     dom.queryError.classList.remove('hidden');
   }
 }
