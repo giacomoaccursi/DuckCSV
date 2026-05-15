@@ -471,15 +471,20 @@ body {
 }
 
 /* Column Select Row */
-.column-select-row th {
-    padding: 0 12px;
+#csvTable thead .column-select-row th {
+    padding: 2px 0;
     border-bottom: 1px solid var(--border-color);
     border-right: 1px solid var(--border-color);
     background-color: var(--header-bg);
-    font-size: 10px;
+    font-size: 14px;
     line-height: 18px;
     color: var(--fg-secondary);
     font-weight: normal;
+    opacity: 0.5;
+    text-align: center;
+    min-width: unset;
+    max-width: unset;
+    box-shadow: none;
 }
 
 .column-select-row th:last-child {

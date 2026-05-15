@@ -37,10 +37,13 @@ export function openQueryResultPanel(
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'query-result.js')
   );
+  const duckAngryUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'media', 'duck-angry.png')
+  );
   const nonce = getNonce();
 
   const errorHtml = payload.error
-    ? `<div class="error-container"><div class="error-message"><span>${escapeHtml(payload.error)}</span></div></div>`
+    ? `<div class="query-error"><img class="duck-error-icon" src="${duckAngryUri}" alt="Error" /><span>${escapeHtml(payload.error)}</span></div>`
     : '';
 
   // Inject data as a global variable for the script to pick up
@@ -59,7 +62,7 @@ export function openQueryResultPanel(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <link href="${styleUri}" rel="stylesheet">
   <title>Query Result</title>
 </head>

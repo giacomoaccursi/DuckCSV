@@ -126,6 +126,7 @@ export function resetQueryState() {
   queryActive = false;
   toggle(dom.queryClearBtn, false);
   toggle(document.getElementById('queryExportBtn'), false);
+  hideQueryError();
 }
 
 function showQueryError(msg) {
