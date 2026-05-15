@@ -98,10 +98,16 @@ function executeQuery(msg: QueryRequest): void {
     const maxRows = Math.min(numRows, 10_000);
     const rows: string[][] = [];
 
+    // Pre-fetch column vectors to avoid repeated getChildAt lookups
+    const columnVectors: any[] = [];
+    for (let j = 0; j < numCols; j++) {
+      columnVectors.push(result.getChildAt(j));
+    }
+
     for (let i = 0; i < maxRows; i++) {
       const row: string[] = [];
       for (let j = 0; j < numCols; j++) {
-        const val = result.getChildAt(j)?.get(i);
+        const val = columnVectors[j]?.get(i);
         row.push(formatValue(val, columnTypes[j]));
       }
       rows.push(row);
