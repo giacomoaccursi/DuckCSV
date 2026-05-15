@@ -38,7 +38,14 @@ interface InitResponse {
   type: 'ready';
 }
 
-type WorkerMessage = QueryRequest | InitRequest;
+interface RegisterFileRequest {
+  id: number;
+  type: 'registerFile';
+  virtualName: string;
+  content: string;
+}
+
+type WorkerMessage = QueryRequest | InitRequest | RegisterFileRequest;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +63,10 @@ parentPort?.on('message', async (msg: WorkerMessage) => {
 
     case 'query':
       executeQuery(msg);
+      break;
+
+    case 'registerFile':
+      registerFile(msg);
       break;
   }
 });
@@ -144,4 +155,17 @@ function formatValue(val: any, isDate: boolean): string {
   }
 
   return String(val);
+}
+
+// ─── File Registration ───────────────────────────────────────────────────────
+
+function registerFile(msg: RegisterFileRequest): void {
+  const { id, virtualName, content } = msg;
+  try {
+    db.registerFileText(virtualName, content);
+    parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0 });
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Failed to register file';
+    parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0, error });
+  }
 }

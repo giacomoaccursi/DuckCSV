@@ -30,21 +30,23 @@ export class TableManager {
   constructor(private readonly engine: DuckDbEngine) {}
 
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
-    const filePath = uri.fsPath.replace(/'/g, "''");
     const tableName = customName ?? this.deriveTableName(uri);
 
     // Drop if already exists
     await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
-    // Load directly from file path (fast for large files)
-    await this.engine.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
+    // Read file content and register as virtual file to bypass DuckDB's file cache
+    const fs = require('fs');
+    const content = fs.readFileSync(uri.fsPath, 'utf8');
+    const virtualName = `__${tableName}_${Date.now()}.csv`;
+    await this.engine.registerFile(virtualName, content);
 
-    // Detect delimiter using DuckDB's built-in CSV sniffer
-    const sniffResult = await this.engine.query(
-      `SELECT Delimiter FROM sniff_csv('${filePath}')`
-    );
-    const detectedDelimiter = sniffResult.rows[0]?.[0] || ',';
-    const { name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter);
+    // Load from virtual file (always fresh content from disk)
+    await this.engine.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${virtualName}', ignore_errors=true)`);
+
+    // Detect delimiter from file content (first line)
+    const firstLine = content.split('\n')[0] || '';
+    const { name: delimiterName, char: delimiterChar } = this.detectDelimiterFromLine(firstLine);
 
     // Get schema (headers + types) and row count in 2 queries instead of 3
     const escaped = tableName.replace(/'/g, "''");
@@ -364,13 +366,25 @@ export class TableManager {
     return `ORDER BY ${colName} ${dir} NULLS LAST`;
   }
 
-  private delimiterInfo(char: string): { name: string; char: string } {
-    switch (char) {
+  private detectDelimiterFromLine(firstLine: string): { name: string; char: string } {
+    const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0, '|': 0 };
+
+    for (const char of firstLine) {
+      if (char in counts) { counts[char]++; }
+    }
+
+    let best = ',';
+    let bestCount = 0;
+    for (const [char, count] of Object.entries(counts)) {
+      if (count > bestCount) { bestCount = count; best = char; }
+    }
+
+    switch (best) {
       case ',': return { name: 'Comma', char: ',' };
       case ';': return { name: 'Semicolon', char: ';' };
       case '\t': return { name: 'Tab', char: '\t' };
       case '|': return { name: 'Pipe', char: '|' };
-      default: return { name: 'Comma', char: char || ',' };
+      default: return { name: 'Comma', char: best || ',' };
     }
   }
 }

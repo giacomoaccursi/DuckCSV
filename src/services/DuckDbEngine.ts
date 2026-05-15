@@ -42,6 +42,23 @@ export class DuckDbEngine implements vscode.Disposable {
   }
 
   /**
+   * Register a file in DuckDB's virtual filesystem.
+   * This bypasses DuckDB's file cache so re-reads pick up changes from disk.
+   */
+  async registerFile(virtualName: string, content: string): Promise<void> {
+    await this.ensureReady();
+
+    return new Promise<void>((resolve, reject) => {
+      const id = this.nextId++;
+      this.pending.set(id, {
+        resolve: (_r: QueryResponse) => resolve(),
+        reject,
+      });
+      this.worker!.postMessage({ type: 'registerFile', id, virtualName, content });
+    });
+  }
+
+  /**
    * Cancel all pending queries by terminating the worker.
    * A new worker will be created on the next query.
    */
