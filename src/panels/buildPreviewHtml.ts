@@ -68,6 +68,11 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
           <path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.5 9.8L10.8 11.5 8 8.7l-2.8 2.8-.7-.7L7.3 8 4.5 5.2l.7-.7L8 7.3l2.8-2.8.7.7L8.7 8l2.8 2.8z"/>
         </svg>
       </button>
+      <button id="queryExportBtn" class="btn hidden" data-tooltip="Export query result to CSV file">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <path fill="currentColor" d="M3 13h10v1H3v-1zm5-1L4 8h2.5V3h3v5H12L8 12z"/>
+        </svg>
+      </button>
     </div>
     <div id="queryError" class="query-error hidden"></div>
 

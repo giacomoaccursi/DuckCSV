@@ -162,6 +162,8 @@ export class CsvPreviewPanel {
         return this.handleDeleteRows(message.rowids);
       case 'executeQuery':
         return this.handleQuery(message.sql, message.mode);
+      case 'exportQueryResult':
+        return this.handleExportQueryResult(message.headers, message.rows);
       case 'cancelQuery':
         this.queryExecutor.cancel();
         // Worker was terminated — need to reload the table
@@ -361,6 +363,33 @@ export class CsvPreviewPanel {
     } else {
       openQueryResultPanel(this.extensionUri, payload);
     }
+  }
+
+  private async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file('query_result.csv'),
+      filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
+      title: 'Export Query Result',
+    });
+    if (!uri) { return; }
+
+    const delimiter = ',';
+    const lines: string[] = [];
+    lines.push(headers.map(h => this.quoteCsvField(h, delimiter)).join(delimiter));
+    for (const row of rows) {
+      lines.push(row.map(cell => this.quoteCsvField(cell, delimiter)).join(delimiter));
+    }
+
+    const content = Buffer.from(lines.join('\n') + '\n', 'utf8');
+    await vscode.workspace.fs.writeFile(uri, content);
+    vscode.window.showInformationMessage(`Exported ${rows.length} rows to ${basename(uri.fsPath)}`);
+  }
+
+  private quoteCsvField(value: string, delimiter: string): string {
+    if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────

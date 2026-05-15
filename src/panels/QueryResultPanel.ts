@@ -21,6 +21,29 @@ export function openQueryResultPanel(
     }
   );
 
+  // Handle messages from the webview
+  panel.webview.onDidReceiveMessage(async (message: any) => {
+    if (message.type === 'exportQueryResult') {
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file('query_result.csv'),
+        filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
+        title: 'Export Query Result',
+      });
+      if (!uri) { return; }
+
+      const delimiter = ',';
+      const lines: string[] = [];
+      lines.push(message.headers.map((h: string) => quoteCsvField(h, delimiter)).join(delimiter));
+      for (const row of message.rows) {
+        lines.push(row.map((cell: string) => quoteCsvField(cell, delimiter)).join(delimiter));
+      }
+
+      const content = Buffer.from(lines.join('\n') + '\n', 'utf8');
+      await vscode.workspace.fs.writeFile(uri, content);
+      vscode.window.showInformationMessage(`Exported ${message.rows.length} rows to ${uri.fsPath.split('/').pop()}`);
+    }
+  });
+
   const webview = panel.webview;
   const styleUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'styles.css')
@@ -61,6 +84,11 @@ export function openQueryResultPanel(
         <span class="stats">SQL: ${escapeHtml(payload.sql)}</span>
       </div>
       <div class="toolbar-right">
+        <button id="exportBtn" class="btn" data-tooltip="Export result to CSV file">
+          <svg width="16" height="16" viewBox="0 0 16 16">
+            <path fill="currentColor" d="M3 13h10v1H3v-1zm5-1L4 8h2.5V3h3v5H12L8 12z"/>
+          </svg>
+        </button>
         <span id="stats" class="stats"></span>
       </div>
     </div>
@@ -85,4 +113,11 @@ export function openQueryResultPanel(
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function quoteCsvField(value: string, delimiter: string): string {
+  if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+    return '"' + value.replace(/"/g, '""') + '"';
+  }
+  return value;
 }

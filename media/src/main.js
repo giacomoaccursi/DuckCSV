@@ -143,6 +143,15 @@ function bindEvents() {
   }
   if (dom.queryClearBtn) { dom.queryClearBtn.addEventListener('click', clearQuery); }
 
+  const queryExportBtn = document.getElementById('queryExportBtn');
+  if (queryExportBtn) {
+    queryExportBtn.addEventListener('click', () => {
+      if (isQueryActive()) {
+        sendMessage({ type: 'exportQueryResult', headers: state.headers, rows: state.rows });
+      }
+    });
+  }
+
   if (dom.queryInput) {
     dom.queryInput.addEventListener('keydown', (e) => {
       if (handleAutocompleteKeydown(e)) { return; }

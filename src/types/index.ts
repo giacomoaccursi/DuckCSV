@@ -90,6 +90,7 @@ export type WebviewMessage =
   | { type: 'deleteRow'; rowid: number }
   | { type: 'deleteRows'; rowids: number[] }
   | { type: 'executeQuery'; sql: string; mode: 'inline' | 'side' }
+  | { type: 'exportQueryResult'; headers: string[]; rows: string[][] }
   | { type: 'cancelQuery' }
   | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }

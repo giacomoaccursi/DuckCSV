@@ -78,6 +78,7 @@ export function onQueryResult(data) {
   hideQueryError();
   queryActive = true;
   toggle(dom.queryClearBtn, true);
+  toggle(document.getElementById('queryExportBtn'), true);
 
   state.headers = data.headers;
   state.rows = data.rows;
@@ -101,6 +102,7 @@ export function onQueryResult(data) {
 export function clearQuery() {
   queryActive = false;
   toggle(dom.queryClearBtn, false);
+  toggle(document.getElementById('queryExportBtn'), false);
   hideQueryError();
   if (dom.queryInput) { dom.queryInput.value = ''; }
   sendMessage({ type: 'clearQuery' });
@@ -155,6 +157,7 @@ function detectNumericCol(rows, colIdx) {
 export function resetQueryState() {
   queryActive = false;
   toggle(dom.queryClearBtn, false);
+  toggle(document.getElementById('queryExportBtn'), false);
 }
 
 function showQueryError(msg) {

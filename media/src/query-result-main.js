@@ -257,6 +257,19 @@
     navigator.clipboard.writeText(text).catch(() => {});
   });
 
+  // Export button
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn) {
+    const vscode = acquireVsCodeApi();
+    exportBtn.addEventListener('click', () => {
+      vscode.postMessage({
+        type: 'exportQueryResult',
+        headers: state.headers,
+        rows: state.rows,
+      });
+    });
+  }
+
   // ─── Init ──────────────────────────────────────────────────────────────────
 
   renderHeader();
