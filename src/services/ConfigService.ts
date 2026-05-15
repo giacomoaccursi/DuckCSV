@@ -27,10 +27,6 @@ export class ConfigService implements vscode.Disposable {
     return this.cachedConfig.get<string>('delimiter', 'auto');
   }
 
-  get maxRows(): number {
-    return this.cachedConfig.get<number>('previewRowCount', 10000);
-  }
-
   get maxColumnWidth(): number {
     return this.cachedConfig.get<number>('columnWidth.max', 400);
   }
@@ -49,16 +45,6 @@ export class ConfigService implements vscode.Disposable {
 
   get alternatingRowColors(): boolean {
     return this.cachedConfig.get<boolean>('alternatingRowColors', true);
-  }
-
-  /** Maximum file size in bytes (2 GB — DuckDB handles large files) */
-  get maxFileSize(): number {
-    return 2 * 1024 * 1024 * 1024;
-  }
-
-  /** Number of rows to load per batch when user clicks "Load More" */
-  get batchSize(): number {
-    return 5000;
   }
 
   /** Number of rows to send to the webview per page */
