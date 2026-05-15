@@ -48,13 +48,14 @@ export class TableManager {
     const firstLine = firstChunk.toString('utf8').split('\n')[0] || '';
     const { name: delimiterName, char: delimiterChar } = this.detectDelimiterFromLine(firstLine);
 
-    // Get headers
-    const headers = await this.getHeaders(tableName);
+    // Get schema (headers + types) and row count in 2 queries instead of 3
+    const escaped = tableName.replace(/'/g, "''");
+    const schemaResult = await this.engine.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
+    );
+    const headers = schemaResult.rows.map(row => row[0]);
+    const columnTypes = schemaResult.rows.map(row => row[1]);
 
-    // Get column types
-    const columnTypes = await this.getColumnTypes(tableName);
-
-    // Get row count
     const rowCount = await this.getRowCount(tableName);
 
     const meta: TableMeta = {
