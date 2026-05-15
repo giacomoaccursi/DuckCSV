@@ -212,7 +212,8 @@
         "watch-tests": "tsc -p . -w --outDir out",
         "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
         "lint": "eslint src",
-        "test": "vscode-test"
+        "test": "vscode-test",
+        "test:unit": "vitest run"
     },
     "dependencies": {
         "@duckdb/duckdb-wasm": "^1.33.1-dev45.0"
@@ -229,6 +230,7 @@
         "ts-loader": "^9.5.4",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.46.3",
+        "vitest": "^4.1.6",
         "webpack": "^5.102.1",
         "webpack-cli": "^6.0.1"
     }
