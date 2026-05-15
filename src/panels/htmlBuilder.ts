@@ -71,7 +71,7 @@ ${extraSectionsHtml || ''}
     </div>
 
     <div id="loadingContainer" class="loading-container hidden">
-      <div class="spinner"></div>
+      <div class="duck-spinner">🦆</div>
       <div>Loading...</div>
     </div>
 
