@@ -122,25 +122,29 @@ export class TableManager {
       limit: number;
     }
   ): Promise<DataPage> {
-    const headers = await this.getHeaders(tableName);
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const whereClauses = this.buildWhereClauses(params.filters, params.searchTerm, headers);
     const orderClause = this.buildOrderClause(params.sort, headers);
 
     const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const quoted = this.quoteIdentifier(tableName);
-
-    // Get filtered count
-    const countResult = await this.engine.query(`SELECT COUNT(*) as cnt FROM ${quoted} ${whereStr}`);
-    const filteredCount = Number(countResult.rows[0][0]);
-
-    // Get page with rowid
     const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-    const pageResult = await this.engine.query(
-      `SELECT rowid, ${columns} FROM ${quoted} ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
+
+    // Single query: fetch data + filtered count via window function
+    const result = await this.engine.query(
+      `SELECT rowid, ${columns}, COUNT(*) OVER() as __total FROM ${quoted} ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
-    const rowids = pageResult.rows.map(row => parseInt(row[0], 10));
-    const rows = pageResult.rows.map(row => row.slice(1));
+    if (result.rows.length === 0) {
+      return { rows: [], rowids: [], filteredCount: 0 };
+    }
+
+    // __total is the last column in each row
+    const lastCol = result.rows[0].length - 1;
+    const filteredCount = Number(result.rows[0][lastCol]);
+    const rowids = result.rows.map(row => parseInt(row[0], 10));
+    const rows = result.rows.map(row => row.slice(1, lastCol));
 
     return { rows, rowids, filteredCount };
   }
