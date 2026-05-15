@@ -367,15 +367,51 @@ body {
     color: var(--fg-secondary);
 }
 
-.duck-spinner {
-    font-size: 48px;
-    animation: duck-spin 1s linear infinite;
+.duck-pond {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin-bottom: 12px;
 }
 
-@keyframes duck-spin {
-    to {
-        transform: rotate(360deg);
-    }
+.pond-water {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(100, 180, 255, 0.15) 0%, rgba(60, 140, 220, 0.08) 70%, transparent 100%);
+    border: 2px solid rgba(100, 180, 255, 0.25);
+    animation: pond-ripple 2s ease-in-out infinite;
+}
+
+@keyframes pond-ripple {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+.duck-orbit {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    animation: duck-swim 2.5s linear infinite;
+    font-size: 28px;
+    line-height: 1;
+}
+
+.duck-orbit::after {
+    content: '🦆';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+@keyframes duck-swim {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: var(--fg-secondary);
+    font-size: 13px;
 }
 
 /* Error */
