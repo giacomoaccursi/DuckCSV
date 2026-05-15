@@ -5,6 +5,8 @@
  * No backend communication (data is embedded in the page).
  */
 
+import { detectNumeric, sortRows } from './sort-utils.js';
+
 (function () {
   'use strict';
 
@@ -109,42 +111,13 @@
     state.sort = { columnIndex: colIdx, direction: newDir };
 
     if (newDir === 'none') {
-      state.rows = [...data.rows]; // reset to original order
+      state.rows = [...data.rows];
     } else {
-      const dir = newDir === 'asc' ? 1 : -1;
-      const isNum = detectNumeric(state.rows, colIdx);
-
-      state.rows.sort((a, b) => {
-        const va = a[colIdx] || '';
-        const vb = b[colIdx] || '';
-        if (va === vb) { return 0; }
-        if (va === '') { return 1; }
-        if (vb === '') { return -1; }
-
-        let cmp;
-        if (isNum) {
-          cmp = parseFloat(va.replace(/[,\s]/g, '')) - parseFloat(vb.replace(/[,\s]/g, ''));
-        } else {
-          cmp = va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' });
-        }
-        return cmp * dir;
-      });
+      sortRows(state.rows, colIdx, newDir);
     }
 
     renderHeader();
     renderRows();
-  }
-
-  function detectNumeric(rows, colIdx) {
-    const sample = Math.min(rows.length, 100);
-    let num = 0, nonEmpty = 0;
-    for (let i = 0; i < sample; i++) {
-      const v = (rows[i][colIdx] || '').replace(/[,\s]/g, '');
-      if (!v) { continue; }
-      nonEmpty++;
-      if (!isNaN(Number(v)) && isFinite(Number(v))) { num++; }
-    }
-    return nonEmpty > 0 && (num / nonEmpty) > 0.9;
   }
 
   // ─── Selection & Copy ──────────────────────────────────────────────────────
