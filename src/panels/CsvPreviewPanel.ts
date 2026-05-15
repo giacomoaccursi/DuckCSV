@@ -15,7 +15,8 @@ import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
-import { WebviewMessage, ExtensionMessage, DataPagePayload, SortState, ColumnFilters } from '../types';
+import { ViewState } from '../shared/ViewState';
+import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
 import { openQueryResultPanel } from './QueryResultPanel';
 import { EditMode } from '../commands/previewCommand';
@@ -45,9 +46,7 @@ export class CsvPreviewPanel {
   private totalRows: number = 0;
 
   // View state
-  private sort: SortState = { columnIndex: -1, direction: 'none' };
-  private filters: ColumnFilters = {};
-  private searchTerm: string = '';
+  private readonly viewState = new ViewState();
   private isDirty: boolean = false;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -141,15 +140,15 @@ export class CsvPreviewPanel {
         this.resetState();
         return this.loadDocument();
       case 'sort':
-        this.sort = { columnIndex: message.columnIndex, direction: message.direction };
+        this.viewState.applySort(message.columnIndex, message.direction);
         return this.sendCurrentPage();
       case 'search':
-        this.searchTerm = message.term;
+        this.viewState.applySearch(message.term);
         return this.sendCurrentPage();
       case 'getColumnValues':
         return this.handleGetColumnValues(message.columnIndex);
       case 'setFilters':
-        this.filters = message.filters;
+        this.viewState.applyFilters(message.filters);
         return this.sendCurrentPage();
       case 'editCell':
         return this.handleEditCell(message.rowid, message.columnIndex, message.value);
@@ -216,9 +215,9 @@ export class CsvPreviewPanel {
       const limit = this.config.pageSize;
 
       const result = await this.tableManager.getDataPage(this.tableName, {
-        filters: this.filters,
-        sort: this.sort,
-        searchTerm: this.searchTerm,
+        filters: this.viewState.filters,
+        sort: this.viewState.sort,
+        searchTerm: this.viewState.searchTerm,
         offset: 0,
         limit,
       });
@@ -233,9 +232,9 @@ export class CsvPreviewPanel {
         delimiter: this.delimiter,
         fileName: this.fileName,
         fileSize: this.fileSize,
-        sort: this.sort,
-        filters: this.filters,
-        searchTerm: this.searchTerm,
+        sort: this.viewState.sort,
+        filters: this.viewState.filters,
+        searchTerm: this.viewState.searchTerm,
         isDirty: this.isDirty,
       };
 
@@ -282,8 +281,8 @@ export class CsvPreviewPanel {
       await this.tableManager.addRow(this.tableName);
       this.totalRows++;
       this.isDirty = true;
-      this.filters = {};
-      this.searchTerm = '';
+      this.viewState.applyFilters({});
+      this.viewState.applySearch('');
       this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
@@ -384,9 +383,7 @@ export class CsvPreviewPanel {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private resetState(): void {
-    this.sort = { columnIndex: -1, direction: 'none' };
-    this.filters = {};
-    this.searchTerm = '';
+    this.viewState.reset();
     this.isDirty = false;
   }
 
