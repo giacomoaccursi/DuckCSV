@@ -29,7 +29,7 @@ function handleExtensionMessage(message) {
     case 'queryResult': onQueryResult(message.data); break;
     case 'modeInfo': showModeBanner(message.mode, message.savePath); break;
     case 'loading':
-      if (message.loading) { showLoading(); setSystemLoading(true); }
+      if (message.loading) { showLoading(message.message); setSystemLoading(true); }
       else { hideLoading(); setSystemLoading(false); }
       break;
     case 'error': showError(message.message); break;

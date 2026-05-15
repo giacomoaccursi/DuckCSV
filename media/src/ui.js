@@ -8,10 +8,12 @@ import { toggle, formatFileSize } from './utils.js';
 
 // ─── Loading / Error / Table visibility ──────────────────────────────────────
 
-export function showLoading() {
+export function showLoading(message) {
   toggle(dom.loadingContainer, true);
   toggle(dom.tableContainer, false);
   toggle(dom.errorContainer, false);
+  const textEl = dom.loadingContainer?.querySelector('div:last-child');
+  if (textEl) { textEl.textContent = message || 'Loading...'; }
 }
 
 export function hideLoading() {

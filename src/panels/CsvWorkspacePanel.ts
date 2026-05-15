@@ -173,7 +173,8 @@ export class CsvWorkspacePanel {
   // ─── Table Management ────────────────────────────────────────────────────
 
   private async addTableFromUri(uri: vscode.Uri): Promise<void> {
-    this.postMessage({ type: 'loading', loading: true });
+    const fileName = uri.fsPath.split('/').pop() || 'file';
+    this.postMessage({ type: 'loading', loading: true, message: `Loading ${fileName}...` });
 
     try {
       const meta = await this.tableManager.loadTable(uri);
