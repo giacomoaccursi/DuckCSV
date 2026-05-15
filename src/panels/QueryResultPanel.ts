@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import { QueryResultPayload } from '../types';
 import { getNonce } from '../utils/nonce';
-import { quoteCsvField, escapeHtml } from '../shared/csvUtils';
+import { escapeHtml } from '../shared/csvUtils';
+import { exportQueryResultToFile } from '../shared/exportQueryResult';
 
 export function openQueryResultPanel(
   extensionUri: vscode.Uri,
@@ -25,23 +26,7 @@ export function openQueryResultPanel(
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message: any) => {
     if (message.type === 'exportQueryResult') {
-      const uri = await vscode.window.showSaveDialog({
-        defaultUri: vscode.Uri.file('query_result.csv'),
-        filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
-        title: 'Export Query Result',
-      });
-      if (!uri) { return; }
-
-      const delimiter = ',';
-      const lines: string[] = [];
-      lines.push(message.headers.map((h: string) => quoteCsvField(h, delimiter)).join(delimiter));
-      for (const row of message.rows) {
-        lines.push(row.map((cell: string) => quoteCsvField(cell, delimiter)).join(delimiter));
-      }
-
-      const content = Buffer.from(lines.join('\n') + '\n', 'utf8');
-      await vscode.workspace.fs.writeFile(uri, content);
-      vscode.window.showInformationMessage(`Exported ${message.rows.length} rows to ${uri.fsPath.split('/').pop()}`);
+      await exportQueryResultToFile(message.headers, message.rows);
     }
   });
 

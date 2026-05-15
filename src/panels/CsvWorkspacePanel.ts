@@ -14,10 +14,10 @@ import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { ConfigService } from '../services/ConfigService';
 import { ViewState } from '../shared/ViewState';
+import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
 import { openQueryResultPanel } from './QueryResultPanel';
-import { quoteCsvField } from '../shared/csvUtils';
 
 export class CsvWorkspacePanel {
   private static readonly viewType = 'csvWorkspace';
@@ -328,23 +328,7 @@ export class CsvWorkspacePanel {
   }
 
   private async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
-    const uri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file('query_result.csv'),
-      filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
-      title: 'Export Query Result',
-    });
-    if (!uri) { return; }
-
-    const delimiter = ',';
-    const lines: string[] = [];
-    lines.push(headers.map(h => quoteCsvField(h, delimiter)).join(delimiter));
-    for (const row of rows) {
-      lines.push(row.map(cell => quoteCsvField(cell, delimiter)).join(delimiter));
-    }
-
-    const content = Buffer.from(lines.join('\n') + '\n', 'utf8');
-    await vscode.workspace.fs.writeFile(uri, content);
-    vscode.window.showInformationMessage(`Exported ${rows.length} rows to ${uri.fsPath.split('/').pop()}`);
+    await exportQueryResultToFile(headers, rows);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
