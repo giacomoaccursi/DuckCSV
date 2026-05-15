@@ -12,7 +12,7 @@ export function showLoading(message) {
   toggle(dom.loadingContainer, true);
   toggle(dom.tableContainer, false);
   toggle(dom.errorContainer, false);
-  const textEl = dom.loadingContainer?.querySelector('div:last-child');
+  const textEl = dom.loadingContainer?.querySelector('.loading-text');
   if (textEl) { textEl.textContent = message || 'Loading...'; }
 }
 

@@ -71,8 +71,11 @@ ${extraSectionsHtml || ''}
     </div>
 
     <div id="loadingContainer" class="loading-container hidden">
-      <div class="duck-spinner">🦆</div>
-      <div>Loading...</div>
+      <div class="duck-pond">
+        <div class="pond-water"></div>
+        <div class="duck-orbit">🦆</div>
+      </div>
+      <div class="loading-text">Loading...</div>
     </div>
 
     <div id="tableContainer" class="table-container hidden">
