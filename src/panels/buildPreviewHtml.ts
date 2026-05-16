@@ -10,7 +10,7 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
   const toolbarHtml = /* html */ `
     <div class="toolbar">
       <div class="toolbar-left">
-        <button id="saveBtn" class="btn" data-tooltip="Save to original file (Cmd+S)">
+        <button id="saveBtn" class="btn" data-tooltip="Save to original file">
           <svg width="16" height="16" viewBox="0 0 16 16">
             <path fill="currentColor" d="M13.3 1.3L14.7 2.7 14.7 14 2 14 2 2 12.3 2zM13 3H12V6H5V3H3V13H13zM8 3v2h3V3z"/>
           </svg>
