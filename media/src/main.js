@@ -12,11 +12,11 @@ import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
 import { renderHeader, renderRows } from './renderer.js';
 import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
-import { startCellEdit, isEditing, onCellEditConfirm } from './editing.js';
+import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode } from './selection.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode, selectCell } from './selection.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
@@ -217,5 +217,6 @@ function bindEvents() {
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
+setAfterCommit((row, col) => selectCell(row, col));
 showLoading();
 sendMessage({ type: 'ready' });

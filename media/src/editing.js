@@ -8,6 +8,9 @@ import { updateStats } from './ui.js';
 import { getScroller } from './renderer.js';
 
 let editingCell = null;
+let afterCommitFn = null;
+
+export function setAfterCommit(fn) { afterCommitFn = fn; }
 
 export function startCellEdit(td) {
   if (editingCell) { commitEdit(); }
@@ -86,6 +89,12 @@ function commitEdit() {
     td.classList.add('cell-modified');
     setTimeout(() => td.classList.remove('cell-modified'), 1500);
     sendMessage({ type: 'editCell', rowid, columnIndex, value: newValue });
+  }
+
+  // Notify caller to re-select this cell
+  const rowIndex = parseInt(td.closest('tr')?.dataset.rowIndex, 10);
+  if (afterCommitFn && !isNaN(rowIndex)) {
+    afterCommitFn(rowIndex, columnIndex);
   }
 }
 

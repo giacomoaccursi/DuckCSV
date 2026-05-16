@@ -72,6 +72,12 @@ export function clearSelection() {
   removeHighlights();
 }
 
+export function selectCell(row, col) {
+  selection = { startRow: row, startCol: col, endRow: row, endCol: col };
+  selectionMode = 'cell';
+  applyHighlights();
+}
+
 export function handleCellClick(e) {
   const td = e.target.closest('td.editable-cell');
   if (!td) { return; }
