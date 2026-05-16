@@ -181,6 +181,10 @@ export function renderRows() {
       columnCount: state.headers.length,
       renderItem: (index) => createRow(index),
       recycleItem: (tr, index) => recycleRow(tr, index),
+      onRangeChange: (start, end) => {
+        const dw = getDataWindow();
+        if (dw) { dw.prefetch(start, end); }
+      },
     });
 
     // After browser layout: lock column widths so body rows can't change them
@@ -192,12 +196,6 @@ export function renderRows() {
         scroller.refresh();
       });
     }
-  }
-
-  // Trigger prefetch for the visible range
-  if (dw && scroller) {
-    const range = scroller.getVisibleRange();
-    if (range.start >= 0) { dw.prefetch(range.start, range.end); }
   }
 }
 

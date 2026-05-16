@@ -22,6 +22,7 @@ export function createVirtualScroller(options) {
     columnCount,
     renderItem,
     recycleItem,
+    onRangeChange,
   } = options;
 
   let totalItems = initialTotal;
@@ -109,6 +110,7 @@ export function createVirtualScroller(options) {
     const { start, end } = computeRange();
     if (start !== currentStart || end !== currentEnd) {
       renderRange(start, end);
+      if (onRangeChange) { onRangeChange(start, end); }
     }
   }
 
