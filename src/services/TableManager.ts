@@ -36,8 +36,8 @@ export class TableManager {
     await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
     // Read file content and register as virtual file to bypass DuckDB's file cache
-    const fs = require('fs');
-    const content = fs.readFileSync(uri.fsPath, 'utf8');
+    const fileContent = await vscode.workspace.fs.readFile(uri);
+    const content = Buffer.from(fileContent).toString('utf8');
     const virtualName = `__${tableName}_${Date.now()}.csv`;
     await this.engine.registerFile(virtualName, content);
 
