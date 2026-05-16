@@ -49,7 +49,7 @@ export function onCellEditConfirm() {
 }
 
 function handleKeydown(e) {
-  if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+  if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitEdit(); }
   else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
   else if (e.key === 'Tab') { e.preventDefault(); commitEdit(); }
 }
