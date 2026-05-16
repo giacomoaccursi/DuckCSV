@@ -191,8 +191,9 @@ export class CsvPreviewPanel extends BasePanel {
     try {
       await this.tableExporter.exportTable(this.tableName, outputPath);
       this.isDirty = false;
+      this.panel.title = this.fileName;
       this.postMessage({ type: 'saved' });
-      await this.sendCurrentPage(); // refresh isDirty in UI
+      await this.sendCurrentPage();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to save file';
       vscode.window.showErrorMessage(`CSV save error: ${msg}`);
