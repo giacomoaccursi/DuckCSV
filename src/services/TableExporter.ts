@@ -7,6 +7,7 @@
 import { DuckDbEngine } from './DuckDbEngine';
 import { TableManager } from './TableManager';
 import { createWriteStream } from 'fs';
+import { quoteCsvField } from '../shared/csvUtils';
 
 export class TableExporter {
   constructor(
@@ -22,7 +23,7 @@ export class TableExporter {
     const quotedTable = `"${tableName.replace(/"/g, '""')}"`;
     const columns = headers.map(h => `"${h.replace(/"/g, '""')}"`).join(', ');
 
-    const headerLine = headers.map(h => this.quoteField(h, delimiterChar)).join(delimiterChar);
+    const headerLine = headers.map(h => quoteCsvField(h, delimiterChar)).join(delimiterChar);
 
     const stream = createWriteStream(outputPath, { encoding: 'utf8' });
     stream.write(headerLine + '\n');
@@ -39,7 +40,7 @@ export class TableExporter {
 
       const lines: string[] = [];
       for (const row of result.rows) {
-        lines.push(row.map(cell => this.quoteField(cell, delimiterChar)).join(delimiterChar));
+        lines.push(row.map(cell => quoteCsvField(cell, delimiterChar)).join(delimiterChar));
       }
       stream.write(lines.join('\n') + '\n');
 
@@ -51,12 +52,5 @@ export class TableExporter {
       stream.end(() => resolve());
       stream.on('error', reject);
     });
-  }
-
-  private quoteField(value: string, delimiter: string): string {
-    if (value.includes(delimiter) || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-      return '"' + value.replace(/"/g, '""') + '"';
-    }
-    return value;
   }
 }
