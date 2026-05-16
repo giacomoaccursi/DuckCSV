@@ -22,8 +22,20 @@ export function renderHeader() {
   if (!dom.tableHeader) { return; }
 
   dom.tableHeader.innerHTML = '';
+  dom.tableHeader.appendChild(createLetterRow());
 
-  // Selection row: column letters (A, B, C, ... Z, AA, AB, ...)
+  const headerRow = createHeaderRow();
+  dom.tableHeader.appendChild(headerRow);
+
+  // After browser layout: lock column widths so body rows can't change them
+  if (!state.columnWidths || Object.keys(state.columnWidths).length === 0) {
+    requestAnimationFrame(() => {
+      lockColumnWidths(headerRow);
+    });
+  }
+}
+
+function createLetterRow() {
   const selRow = document.createElement('tr');
   selRow.className = 'column-select-row';
 
@@ -38,14 +50,12 @@ export function renderHeader() {
     selTh.title = 'Click to select entire column';
     selTh.textContent = columnLetter(i);
 
-    // Match column width from header
     if (state.columnWidths[i]) {
       selTh.style.width = state.columnWidths[i];
       selTh.style.minWidth = state.columnWidths[i];
       selTh.style.maxWidth = state.columnWidths[i];
     }
 
-    // Resize handle on letter row too
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
     selTh.appendChild(resizeHandle);
@@ -53,9 +63,10 @@ export function renderHeader() {
     selRow.appendChild(selTh);
   });
 
-  dom.tableHeader.appendChild(selRow);
+  return selRow;
+}
 
-  // Header row: column names, sort, filter, resize
+function createHeaderRow() {
   const tr = document.createElement('tr');
 
   const rowNumTh = document.createElement('th');
@@ -69,7 +80,6 @@ export function renderHeader() {
     th.className = 'sortable-header';
     th.dataset.columnIndex = i;
 
-    // Apply user-resized width if available
     if (state.columnWidths[i]) {
       th.style.width = state.columnWidths[i];
       th.style.minWidth = state.columnWidths[i];
@@ -126,14 +136,21 @@ export function renderHeader() {
     tr.appendChild(th);
   });
 
-  dom.tableHeader.appendChild(tr);
+  return tr;
+}
 
-  // After browser layout: lock column widths so body rows can't change them
-  if (!state.columnWidths || Object.keys(state.columnWidths).length === 0) {
-    requestAnimationFrame(() => {
-      lockColumnWidths(tr);
-    });
-  }
+function lockColumnWidths(headerRow) {
+  const ths = headerRow.querySelectorAll('th.sortable-header');
+  ths.forEach(th => {
+    const w = th.offsetWidth + 'px';
+    th.style.width = w;
+    th.style.minWidth = w;
+    th.style.maxWidth = w;
+    const colIdx = th.dataset.columnIndex;
+    if (colIdx !== undefined) {
+      state.columnWidths[colIdx] = w;
+    }
+  });
 }
 
 export function renderRows() {
@@ -167,18 +184,7 @@ export function renderRows() {
       requestAnimationFrame(() => {
         const headerRow = dom.tableHeader.querySelector('tr:last-child');
         if (!headerRow) { return; }
-        const ths = headerRow.querySelectorAll('th.sortable-header');
-        ths.forEach(th => {
-          const w = th.offsetWidth + 'px';
-          th.style.width = w;
-          th.style.minWidth = w;
-          th.style.maxWidth = w;
-          const colIdx = th.dataset.columnIndex;
-          if (colIdx !== undefined) {
-            state.columnWidths[colIdx] = w;
-          }
-        });
-        // Re-render visible rows with locked widths
+        lockColumnWidths(headerRow);
         scroller.refresh();
       });
     }
