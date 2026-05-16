@@ -40,9 +40,6 @@ export class CsvPreviewPanel {
   private tableName: string = '';
   private fileName: string = '';
   private fileSize: number = 0;
-  private delimiter: string = '';
-  private headers: string[] = [];
-  private columnTypes: string[] = [];
   private totalRows: number = 0;
 
   // View state
@@ -199,10 +196,7 @@ export class CsvPreviewPanel {
 
       const meta = await this.tableManager.loadTable(this.currentUri, 'csv');
       this.tableName = meta.name;
-      this.headers = meta.headers;
-      this.columnTypes = meta.columnTypes;
       this.totalRows = meta.rowCount;
-      this.delimiter = meta.delimiter;
 
       this.panel.title = `Preview: ${this.fileName}`;
       await this.sendCurrentPage();
@@ -230,14 +224,16 @@ export class CsvPreviewPanel {
       // Discard stale response if a newer request was issued
       if (requestId !== this.pageRequestId) { return; }
 
+      const meta = this.tableManager.getTableMeta(this.tableName);
+
       const payload: DataPagePayload = {
-        headers: this.headers,
-        columnTypes: this.columnTypes,
+        headers: meta?.headers || [],
+        columnTypes: meta?.columnTypes || [],
         rows: result.rows,
         rowids: result.rowids,
         totalRows: this.totalRows,
         filteredRows: result.filteredCount,
-        delimiter: this.delimiter,
+        delimiter: meta?.delimiter || '',
         fileName: this.fileName,
         fileSize: this.fileSize,
         sort: this.viewState.sort,
@@ -270,13 +266,6 @@ export class CsvPreviewPanel {
     try {
       await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
       this.isDirty = true;
-
-      // updateCell already refreshes cached meta — read from cache
-      const meta = this.tableManager.getTableMeta(this.tableName);
-      if (meta) {
-        this.columnTypes = meta.columnTypes;
-        this.headers = meta.headers;
-      }
 
       this.persistToDisk();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
