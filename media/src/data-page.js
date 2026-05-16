@@ -5,7 +5,7 @@
 
 import { dom } from './dom.js';
 import { state } from './state.js';
-import { renderHeader, renderRows } from './renderer.js';
+import { renderHeader, renderRows, getScroller } from './renderer.js';
 import { updateStats, showTable } from './ui.js';
 import { resetQueryState } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
@@ -61,8 +61,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
       sendMessage({ type: 'fetchPage', requestId: Date.now(), offset, limit });
     },
     onDataReady: () => {
-      // Refresh visible rows when new data arrives
-      renderRows();
+      // Refresh visible rows when new data arrives (without full rebuild)
+      const s = getScroller();
+      if (s) { s.refresh(); }
     },
   });
 
