@@ -63,7 +63,7 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
     onDataReady: () => {
       // Refresh visible rows when new data arrives (without full rebuild)
       const s = getScroller();
-      if (s) { s.refresh(); }
+      if (s) { s.softRefresh(); }
     },
   });
 
