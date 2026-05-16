@@ -952,3 +952,10 @@ body.selecting {
 .vs-spacer-bottom:hover {
     background: none !important;
 }
+
+/* Loading placeholder for lazy-loaded rows */
+.loading-placeholder {
+    color: var(--fg-secondary);
+    opacity: 0.5;
+    font-style: italic;
+}

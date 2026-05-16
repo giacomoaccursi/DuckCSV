@@ -11,7 +11,7 @@ import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
 import { renderHeader, renderRows } from './renderer.js';
-import { applyDataPage } from './data-page.js';
+import { applyDataPage, onPageDataReceived } from './data-page.js';
 import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
@@ -25,6 +25,7 @@ import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAnd
 function handleExtensionMessage(message) {
   switch (message.type) {
     case 'dataPage': onDataPageReceived(message.data); break;
+    case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(); break;
     case 'queryResult': onQueryResult(message.data); break;

@@ -8,6 +8,7 @@ import { state, COLUMN_COLORS } from './state.js';
 import { escapeHtml, escapeRegex } from './utils.js';
 import { createVirtualScroller } from './virtual-scroll.js';
 import { isInSelection } from './selection.js';
+import { getDataWindow } from './data-page.js';
 
 let scroller = null;
 
@@ -156,7 +157,10 @@ function lockColumnWidths(headerRow) {
 export function renderRows() {
   if (!dom.tableBody) { return; }
 
-  if (state.rows.length === 0) {
+  const dw = getDataWindow();
+  const totalItems = dw ? dw.getTotalRows() : state.filteredRows;
+
+  if (totalItems === 0) {
     if (scroller) { scroller.destroy(); scroller = null; }
     dom.tableBody.innerHTML = '<tr><td colspan="100" class="empty-message">No data to display</td></tr>';
     return;
@@ -166,12 +170,12 @@ export function renderRows() {
   if (!scrollContainer) { return; }
 
   if (scroller) {
-    scroller.update(state.rows.length);
+    scroller.update(totalItems);
   } else {
     scroller = createVirtualScroller({
       scrollContainer,
       tbody: dom.tableBody,
-      totalItems: state.rows.length,
+      totalItems,
       itemHeight: 33,
       bufferSize: 20,
       columnCount: state.headers.length,
@@ -188,6 +192,12 @@ export function renderRows() {
         scroller.refresh();
       });
     }
+  }
+
+  // Trigger prefetch for the visible range
+  if (dw && scroller) {
+    const range = scroller.getVisibleRange();
+    if (range.start >= 0) { dw.prefetch(range.start, range.end); }
   }
 }
 
@@ -230,8 +240,9 @@ export function renderQueryRows(rows) {
 // ─── Row creation and recycling ──────────────────────────────────────────────
 
 function createRow(index) {
-  const row = state.rows[index];
-  const rowid = state.rowids[index];
+  const dw = getDataWindow();
+  const row = dw ? dw.getRow(index) : (state.rows[index] || null);
+  const rowid = dw ? dw.getRowid(index) : (state.rowids[index] ?? -1);
   const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
 
   const tr = document.createElement('tr');
@@ -242,6 +253,16 @@ function createRow(index) {
   numTd.className = 'row-number';
   numTd.textContent = index + 1;
   tr.appendChild(numTd);
+
+  // If row not loaded yet, show placeholder
+  if (!row) {
+    const placeholderTd = document.createElement('td');
+    placeholderTd.className = 'editable-cell loading-placeholder';
+    placeholderTd.colSpan = state.headers.length;
+    placeholderTd.textContent = 'Loading...';
+    tr.appendChild(placeholderTd);
+    return tr;
+  }
 
   row.forEach((cell, colIndex) => {
     const td = document.createElement('td');
@@ -279,8 +300,9 @@ function createRow(index) {
 }
 
 function recycleRow(tr, index) {
-  const row = state.rows[index];
-  const rowid = state.rowids[index];
+  const dw = getDataWindow();
+  const row = dw ? dw.getRow(index) : (state.rows[index] || null);
+  const rowid = dw ? dw.getRowid(index) : (state.rowids[index] ?? -1);
   const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
 
   tr.dataset.rowIndex = index;
@@ -288,6 +310,29 @@ function recycleRow(tr, index) {
 
   const numTd = tr.children[0];
   numTd.textContent = index + 1;
+
+  // If row not loaded, show placeholder
+  if (!row) {
+    // Clear existing cells and show placeholder
+    while (tr.children.length > 1) { tr.removeChild(tr.lastChild); }
+    const placeholderTd = document.createElement('td');
+    placeholderTd.className = 'editable-cell loading-placeholder';
+    placeholderTd.colSpan = state.headers.length;
+    placeholderTd.textContent = 'Loading...';
+    tr.appendChild(placeholderTd);
+    return;
+  }
+
+  // Ensure we have the right number of cells (not a placeholder row)
+  if (tr.children.length !== row.length + 1) {
+    // Rebuild cells
+    while (tr.children.length > 1) { tr.removeChild(tr.lastChild); }
+    row.forEach((cell, colIndex) => {
+      const td = document.createElement('td');
+      td.className = 'editable-cell';
+      tr.appendChild(td);
+    });
+  }
 
   const cells = tr.children;
   for (let colIndex = 0; colIndex < row.length; colIndex++) {

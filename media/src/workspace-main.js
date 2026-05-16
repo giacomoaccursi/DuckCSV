@@ -18,7 +18,7 @@ import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, h
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
-import { applyDataPage } from './data-page.js';
+import { applyDataPage, onPageDataReceived } from './data-page.js';
 
 let activeTableName = '';
 
@@ -27,6 +27,7 @@ let activeTableName = '';
 function handleExtensionMessage(message) {
   switch (message.type) {
     case 'dataPage': onDataPageReceived(message.data); break;
+    case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'queryResult': onQueryResult(message.data); break;
     case 'tableList': onTableListReceived(message.tables); break;

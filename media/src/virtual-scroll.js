@@ -159,6 +159,16 @@ export function createVirtualScroller(options) {
     onScroll();
   }
 
+  /** Update content of visible rows without rebuilding DOM (safe during editing) */
+  function softRefresh() {
+    if (currentStart < 0 || pool.length === 0) { return; }
+    for (let i = 0; i < pool.length; i++) {
+      const rowIndex = currentStart + i;
+      if (rowIndex === lockedRow) { continue; }
+      recycleItem(pool[i], rowIndex);
+    }
+  }
+
   function lockRow(index) { lockedRow = index; }
   function unlockRow() { lockedRow = -1; }
 
@@ -171,5 +181,5 @@ export function createVirtualScroller(options) {
   scrollContainer.addEventListener('scroll', onScroll, { passive: true });
   initialRender();
 
-  return { update, scrollToRow, getVisibleRange, refresh, lockRow, unlockRow, destroy };
+  return { update, scrollToRow, getVisibleRange, refresh, softRefresh, lockRow, unlockRow, destroy };
 }
