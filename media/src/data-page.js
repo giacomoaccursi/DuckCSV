@@ -49,6 +49,10 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   state.searchTerm = data.searchTerm;
   state.isDirty = trackDirty ? data.isDirty : false;
 
+  // Enable/disable save button based on dirty state
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) { saveBtn.disabled = !state.isDirty; }
+
   // Initialize or reset the DataWindow
   if (dataWindow) { dataWindow.destroy(); }
 
