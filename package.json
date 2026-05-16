@@ -35,7 +35,6 @@
     "activationEvents": [
         "onCommand:duckcsv.preview",
         "onCommand:duckcsv.previewToSide",
-        "onCommand:duckcsv.edit",
         "onCommand:duckcsv.workspace"
     ],
     "main": "./dist/extension.js",
@@ -43,21 +42,15 @@
         "commands": [
             {
                 "command": "duckcsv.preview",
-                "title": "Open Preview (Read-only)",
+                "title": "Open CSV Preview",
                 "category": "CSV",
                 "icon": "$(open-preview)"
             },
             {
                 "command": "duckcsv.previewToSide",
-                "title": "Open Preview to the Side (Read-only)",
+                "title": "Open CSV Preview to the Side",
                 "category": "CSV",
                 "icon": "$(open-preview)"
-            },
-            {
-                "command": "duckcsv.edit",
-                "title": "Open Preview (Edit)",
-                "category": "CSV",
-                "icon": "$(edit)"
             },
             {
                 "command": "duckcsv.workspace",
@@ -102,10 +95,6 @@
                 },
                 {
                     "command": "duckcsv.previewToSide",
-                    "when": "true"
-                },
-                {
-                    "command": "duckcsv.edit",
                     "when": "true"
                 },
                 {

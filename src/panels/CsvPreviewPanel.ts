@@ -1,6 +1,6 @@
 /**
- * CSV Preview Panel — single-file preview with editing support.
- * Extends BasePanel with: cell editing, row insert/delete, persistence, mode banner.
+ * CSV Preview Panel — single-file viewer with editing and manual save.
+ * Always editable. Save writes to original file, Save As to a new file.
  */
 
 import * as vscode from 'vscode';
@@ -11,7 +11,6 @@ import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
-import { EditMode } from '../commands/previewCommand';
 import { BasePanel } from './BasePanel';
 
 export class CsvPreviewPanel extends BasePanel {
@@ -19,8 +18,6 @@ export class CsvPreviewPanel extends BasePanel {
   private static panels = new Map<string, CsvPreviewPanel>();
 
   private readonly tableExporter: TableExporter;
-  private readonly mode: EditMode;
-  private readonly savePath: string;
 
   private currentUri: vscode.Uri;
   private tableName: string = '';
@@ -28,7 +25,6 @@ export class CsvPreviewPanel extends BasePanel {
   private fileSize: number = 0;
   private totalRows: number = 0;
   private isDirty: boolean = false;
-  private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -39,12 +35,10 @@ export class CsvPreviewPanel extends BasePanel {
     tableExporter: TableExporter,
     config: ConfigService,
     uri: vscode.Uri,
-    viewColumn: vscode.ViewColumn | undefined,
-    mode: EditMode,
-    savePath: string
+    viewColumn: vscode.ViewColumn | undefined
   ): void {
     const column = viewColumn || vscode.ViewColumn.Beside;
-    const key = `${uri.toString()}:${mode}`;
+    const key = uri.toString();
 
     const existing = CsvPreviewPanel.panels.get(key);
     if (existing) {
@@ -53,13 +47,9 @@ export class CsvPreviewPanel extends BasePanel {
       return;
     }
 
-    const title = mode === 'edit'
-      ? `Edit: ${basename(uri.fsPath)}`
-      : `Preview: ${basename(uri.fsPath)}`;
-
     const panel = vscode.window.createWebviewPanel(
       CsvPreviewPanel.viewType,
-      title,
+      `Preview: ${basename(uri.fsPath)}`,
       column,
       {
         enableScripts: true,
@@ -68,7 +58,7 @@ export class CsvPreviewPanel extends BasePanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, tableManager, queryExecutor, tableExporter, config, uri, mode, savePath);
+    const instance = new CsvPreviewPanel(panel, extensionUri, tableManager, queryExecutor, tableExporter, config, uri);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -81,15 +71,11 @@ export class CsvPreviewPanel extends BasePanel {
     queryExecutor: QueryExecutor,
     tableExporter: TableExporter,
     config: ConfigService,
-    uri: vscode.Uri,
-    mode: EditMode,
-    savePath: string
+    uri: vscode.Uri
   ) {
     super(panel, extensionUri, tableManager, queryExecutor, config, buildPreviewHtml(panel.webview, extensionUri));
     this.tableExporter = tableExporter;
     this.currentUri = uri;
-    this.mode = mode;
-    this.savePath = savePath;
   }
 
   // ─── BasePanel Implementation ────────────────────────────────────────────
@@ -122,10 +108,16 @@ export class CsvPreviewPanel extends BasePanel {
   protected async handleSubclassMessage(message: WebviewMessage): Promise<boolean> {
     switch (message.type) {
       case 'ready':
-        this.postMessage({ type: 'modeInfo', mode: this.mode, savePath: this.savePath });
         await this.loadDocument();
         return true;
       case 'refresh':
+        if (this.isDirty) {
+          const answer = await vscode.window.showWarningMessage(
+            'You have unsaved changes. Reload will discard them.',
+            'Reload', 'Cancel'
+          );
+          if (answer !== 'Reload') { return true; }
+        }
         this.resetState();
         await this.loadDocument();
         return true;
@@ -144,6 +136,12 @@ export class CsvPreviewPanel extends BasePanel {
       case 'deleteRows':
         await this.handleDeleteRows(message.rowids);
         return true;
+      case 'save':
+        await this.handleSave();
+        return true;
+      case 'saveAs':
+        await this.handleSaveAs();
+        return true;
       case 'cancelQuery':
         this.queryExecutor.cancel();
         await this.loadDocument();
@@ -160,12 +158,11 @@ export class CsvPreviewPanel extends BasePanel {
   }
 
   protected onDispose(): void {
-    CsvPreviewPanel.panels.delete(`${this.currentUri.toString()}:${this.mode}`);
+    CsvPreviewPanel.panels.delete(this.currentUri.toString());
 
-    if (this.persistTimer) {
-      clearTimeout(this.persistTimer);
-      this.persistTimer = null;
-      this.doExport().catch(() => {});
+    if (this.isDirty) {
+      // Can't show async dialog in dispose — just warn
+      vscode.window.showWarningMessage('DuckCSV: Unsaved changes were lost.');
     }
 
     if (this.tableName) {
@@ -173,7 +170,38 @@ export class CsvPreviewPanel extends BasePanel {
     }
   }
 
-  // ─── Preview-specific Logic ──────────────────────────────────────────────
+  // ─── Save ────────────────────────────────────────────────────────────────
+
+  private async handleSave(): Promise<void> {
+    await this.doExport(this.currentUri.fsPath);
+  }
+
+  private async handleSaveAs(): Promise<void> {
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: this.currentUri,
+      filters: { 'CSV Files': ['csv', 'tsv'], 'All Files': ['*'] },
+      title: 'Save As',
+    });
+    if (!uri) { return; }
+    await this.doExport(uri.fsPath);
+  }
+
+  private async doExport(outputPath: string): Promise<void> {
+    this.postMessage({ type: 'saving', saving: true });
+    try {
+      await this.tableExporter.exportTable(this.tableName, outputPath);
+      this.isDirty = false;
+      this.postMessage({ type: 'saved' });
+      await this.sendCurrentPage(); // refresh isDirty in UI
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to save file';
+      vscode.window.showErrorMessage(`CSV save error: ${msg}`);
+    } finally {
+      this.postMessage({ type: 'saving', saving: false });
+    }
+  }
+
+  // ─── Data Loading ────────────────────────────────────────────────────────
 
   private async loadDocument(): Promise<void> {
     this.postMessage({ type: 'loading', loading: true });
@@ -189,7 +217,7 @@ export class CsvPreviewPanel extends BasePanel {
       this.tableName = meta.name;
       this.totalRows = meta.rowCount;
 
-      this.panel.title = `Preview: ${this.fileName}`;
+      this.panel.title = `${this.fileName}`;
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -198,11 +226,12 @@ export class CsvPreviewPanel extends BasePanel {
     }
   }
 
+  // ─── Edit Handlers ───────────────────────────────────────────────────────
+
   private async handleEditCell(rowid: number, columnIndex: number, value: string): Promise<void> {
     try {
       await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
-      this.isDirty = true;
-      this.persistToDisk();
+      this.markDirty();
       this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
       await this.sendCurrentPage();
     } catch (error: unknown) {
@@ -214,10 +243,9 @@ export class CsvPreviewPanel extends BasePanel {
     try {
       await this.tableManager.addRow(this.tableName);
       this.totalRows++;
-      this.isDirty = true;
+      this.markDirty();
       this.viewState.applyFilters({});
       this.viewState.applySearch('');
-      this.persistToDisk();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -228,8 +256,7 @@ export class CsvPreviewPanel extends BasePanel {
     try {
       await this.tableManager.addRowAt(this.tableName, rowid, position);
       this.totalRows++;
-      this.isDirty = true;
-      this.persistToDisk();
+      this.markDirty();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -240,8 +267,7 @@ export class CsvPreviewPanel extends BasePanel {
     try {
       await this.tableManager.deleteRow(this.tableName, rowid);
       this.totalRows--;
-      this.isDirty = true;
-      this.persistToDisk();
+      this.markDirty();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
@@ -252,29 +278,18 @@ export class CsvPreviewPanel extends BasePanel {
     try {
       await this.tableManager.deleteRows(this.tableName, rowids);
       this.totalRows -= rowids.length;
-      this.isDirty = true;
-      this.persistToDisk();
+      this.markDirty();
       await this.sendCurrentPage();
     } catch (error: unknown) {
       this.postError(error);
     }
   }
 
-  private persistToDisk(): void {
-    if (this.persistTimer) { clearTimeout(this.persistTimer); }
-    this.persistTimer = setTimeout(() => {
-      this.persistTimer = null;
-      this.doExport();
-    }, 500);
-  }
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
-  private async doExport(): Promise<void> {
-    try {
-      await this.tableExporter.exportTable(this.tableName, this.savePath);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Failed to save file';
-      vscode.window.showErrorMessage(`CSV save error: ${msg}`);
-    }
+  private markDirty(): void {
+    this.isDirty = true;
+    this.panel.title = `● ${this.fileName}`;
   }
 
   private resetState(): void {

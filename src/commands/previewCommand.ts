@@ -1,9 +1,9 @@
 /**
- * Command handlers for CSV preview and edit.
+ * Command handlers for CSV preview and workspace.
  */
 
 import * as vscode from 'vscode';
-import { extname, basename, dirname, join } from 'path';
+import { extname, basename } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
 import { CsvWorkspacePanel } from '../panels/CsvWorkspacePanel';
 import { DuckDbEngine } from '../services/DuckDbEngine';
@@ -13,8 +13,6 @@ import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
 
 const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
-
-export type EditMode = 'readonly' | 'edit';
 
 /**
  * Register all commands.
@@ -30,15 +28,11 @@ export function registerPreviewCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'duckcsv.preview',
-      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'readonly')
+      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active)
     ),
     vscode.commands.registerCommand(
       'duckcsv.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside, 'readonly')
-    ),
-    vscode.commands.registerCommand(
-      'duckcsv.edit',
-      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, 'edit')
+      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside)
     ),
     vscode.commands.registerCommand(
       'duckcsv.workspace',
@@ -54,13 +48,11 @@ async function openPreview(
   tableExporter: TableExporter,
   configService: ConfigService,
   uri: vscode.Uri | undefined,
-  viewColumn: vscode.ViewColumn,
-  mode: EditMode
+  viewColumn: vscode.ViewColumn
 ): Promise<void> {
   let resolvedUri = uri ?? vscode.window.activeTextEditor?.document.uri;
 
   if (!resolvedUri) {
-    // No active editor — open file picker
     const picked = await vscode.window.showOpenDialog({
       canSelectMany: false,
       filters: { 'CSV Files': ['csv', 'tsv'] },
@@ -78,16 +70,7 @@ async function openPreview(
     return;
   }
 
-  let savePath: string;
-  if (mode === 'edit') {
-    savePath = resolvedUri.fsPath;
-  } else {
-    const dir = dirname(resolvedUri.fsPath);
-    const name = basename(resolvedUri.fsPath, ext);
-    savePath = join(dir, `${name}_edit${ext}`);
-  }
-
-  CsvPreviewPanel.createOrShow(context.extensionUri, tableManager, queryExecutor, tableExporter, configService, resolvedUri, viewColumn, mode, savePath);
+  CsvPreviewPanel.createOrShow(context.extensionUri, tableManager, queryExecutor, tableExporter, configService, resolvedUri, viewColumn);
 }
 
 async function openWorkspace(
@@ -97,7 +80,6 @@ async function openWorkspace(
   configService: ConfigService,
   uri?: vscode.Uri
 ): Promise<void> {
-  // If called with a URI, validate it
   let initialUri: vscode.Uri | undefined;
   if (uri) {
     const ext = extname(uri.fsPath).toLowerCase();
@@ -105,7 +87,6 @@ async function openWorkspace(
       initialUri = uri;
     }
   } else {
-    // Try active editor
     const activeUri = vscode.window.activeTextEditor?.document.uri;
     if (activeUri) {
       const ext = extname(activeUri.fsPath).toLowerCase();
