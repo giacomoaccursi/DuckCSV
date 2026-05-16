@@ -85,6 +85,19 @@ function bindEvents() {
   const saveAsBtn = document.getElementById('saveAsBtn');
   if (saveBtn) { saveBtn.addEventListener('click', () => sendMessage({ type: 'save' })); }
   if (saveAsBtn) { saveAsBtn.addEventListener('click', () => sendMessage({ type: 'saveAs' })); }
+
+  // Cmd+S / Ctrl+S to save
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        sendMessage({ type: 'saveAs' });
+      } else {
+        sendMessage({ type: 'save' });
+      }
+    }
+  });
+
   if (dom.refreshBtn) { dom.refreshBtn.addEventListener('click', () => sendMessage({ type: 'refresh' })); }
   if (dom.openAsTextBtn) { dom.openAsTextBtn.addEventListener('click', () => sendMessage({ type: 'openAsText' })); }
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
