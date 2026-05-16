@@ -5,6 +5,7 @@ node_modules
 .vscode-test/
 *.vsix
 .kiro/
+test-data/
 
 # Generated bundles (source is in media/src/)
 media/script.js

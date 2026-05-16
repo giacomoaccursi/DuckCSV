@@ -11,13 +11,14 @@ import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
 import { renderHeader, renderRows } from './renderer.js';
-import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
+import { applyDataPage } from './data-page.js';
+import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
-import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
+import { onQueryResult, clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode, selectCell } from './selection.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -37,32 +38,7 @@ function handleExtensionMessage(message) {
 }
 
 function onDataPageReceived(data) {
-  resetQueryState();
-  clearSortingLock();
-
-  state.headers = data.headers;
-  state.originalHeaders = data.headers;
-  state.columnTypes = data.columnTypes || [];
-  state.rows = data.rows;
-  state.rowids = data.rowids || [];
-  state.totalRows = data.totalRows;
-  state.filteredRows = data.filteredRows;
-  state.delimiter = data.delimiter;
-  state.fileName = data.fileName;
-  state.fileSize = data.fileSize;
-  state.sort = data.sort;
-  state.filters = data.filters;
-  state.searchTerm = data.searchTerm;
-  state.isDirty = data.isDirty;
-
-  if (dom.searchInput && document.activeElement !== dom.searchInput) {
-    dom.searchInput.value = data.searchTerm;
-  }
-
-  renderHeader();
-  updateStats();
-  showTable();
-  renderRows();
+  applyDataPage(data, { setOriginalHeaders: true, trackDirty: true });
 }
 
 // ─── Mode Banner ─────────────────────────────────────────────────────────────
@@ -110,7 +86,7 @@ function bindEvents() {
   );
 
   const headerCtrl = bindHeaderInteractions(dom.tableHeader, {
-    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown,
   });
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip, onEnterCell: () => {
@@ -129,15 +105,6 @@ function bindEvents() {
 
   const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');
   if (openWorkspaceBtn) { openWorkspaceBtn.addEventListener('click', () => sendMessage({ type: 'openWorkspace' })); }
-
-  // Preview-specific: filter button (delegated)
-  document.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.filter-btn');
-    if (!filterBtn) { return; }
-    e.stopPropagation();
-    const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
-    if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
-  });
 
   // Preview-specific: header dblclick to insert column name into query
   if (dom.tableHeader) {

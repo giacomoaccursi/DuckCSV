@@ -93,30 +93,13 @@ export function createVirtualScroller(options) {
     spacerTopTd.style.height = (start * itemHeight) + 'px';
     spacerBottomTd.style.height = (Math.max(0, totalItems - end - 1) * itemHeight) + 'px';
 
-    // Rebuild DOM only if no row is locked (editing)
-    // When a row is locked, we only update content in-place (already done above)
-    if (lockedRow < 0) {
-      tbody.innerHTML = '';
-      tbody.appendChild(spacerTop);
-      for (let i = 0; i < neededCount; i++) {
-        tbody.appendChild(pool[i]);
-      }
-      tbody.appendChild(spacerBottom);
-    } else {
-      // Locked row exists — update spacers and ensure all pool rows are in DOM
-      // without removing/re-adding (preserves focus on editing input)
-      if (spacerTop.parentNode !== tbody) {
-        tbody.insertBefore(spacerTop, tbody.firstChild);
-      }
-      for (let i = 0; i < neededCount; i++) {
-        if (pool[i].parentNode !== tbody) {
-          tbody.insertBefore(pool[i], spacerBottom);
-        }
-      }
-      if (spacerBottom.parentNode !== tbody) {
-        tbody.appendChild(spacerBottom);
-      }
+    // Always rebuild DOM (editing commit happens via blur before DOM is destroyed)
+    tbody.innerHTML = '';
+    tbody.appendChild(spacerTop);
+    for (let i = 0; i < neededCount; i++) {
+      tbody.appendChild(pool[i]);
     }
+    tbody.appendChild(spacerBottom);
 
     currentStart = start;
     currentEnd = end;

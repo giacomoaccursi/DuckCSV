@@ -36,8 +36,8 @@ export class TableManager {
     await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
 
     // Read file content and register as virtual file to bypass DuckDB's file cache
-    const fs = require('fs');
-    const content = fs.readFileSync(uri.fsPath, 'utf8');
+    const fileContent = await vscode.workspace.fs.readFile(uri);
+    const content = Buffer.from(fileContent).toString('utf8');
     const virtualName = `__${tableName}_${Date.now()}.csv`;
     await this.engine.registerFile(virtualName, content);
 
@@ -172,49 +172,40 @@ export class TableManager {
     const colName = this.quoteIdentifier(headers[columnIndex]);
     const escapedValue = value.replace(/'/g, "''");
     const quoted = this.quoteIdentifier(tableName);
-
-    // Get current column type to detect if value is incompatible
     const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
     const currentType = types[columnIndex];
 
-    // Check if value can be cast to current type
-    let needsTypeChange = false;
-    if (currentType && currentType !== 'VARCHAR') {
-      try {
-        const check = await this.engine.query(
-          `SELECT TRY_CAST('${escapedValue}' AS ${currentType}) IS NOT NULL as ok`
-        );
-        const castable = check.rows[0][0];
-        if (castable !== 'true' && value !== '') {
-          needsTypeChange = true;
-        }
-      } catch {
-        needsTypeChange = true;
-      }
-    }
+    const needsTypeChange = await this.isTypeIncompatible(escapedValue, currentType, value);
 
     if (needsTypeChange) {
-      // Convert column to VARCHAR first, then update
       await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
       await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
     } else {
-      // Direct update (value is compatible with current type)
       try {
         await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
       } catch {
-        // Fallback: cast to VARCHAR and retry
         await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
         await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
       }
     }
 
-    // After update, try to tighten the column type if it's currently VARCHAR
     await this.tryTightenColumnType(tableName, columnIndex);
 
-    // Update cached metadata
     if (meta) {
       meta.headers = await this.getHeaders(tableName);
       meta.columnTypes = await this.getColumnTypes(tableName);
+    }
+  }
+
+  private async isTypeIncompatible(escapedValue: string, currentType: string, rawValue: string): Promise<boolean> {
+    if (!currentType || currentType === 'VARCHAR') { return false; }
+    try {
+      const check = await this.engine.query(
+        `SELECT TRY_CAST('${escapedValue}' AS ${currentType}) IS NOT NULL as ok`
+      );
+      return check.rows[0][0] !== 'true' && rawValue !== '';
+    } catch {
+      return true;
     }
   }
 

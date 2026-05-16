@@ -1,11 +1,6 @@
 /**
  * CSV Workspace Panel — multi-table environment with JOIN support.
- *
- * Responsibilities:
- *  - Manage multiple loaded tables
- *  - Switch active table for grid display
- *  - Route messages for query, sort, filter, search
- *  - No cell editing (read-only workspace)
+ * Extends BasePanel with: table management, table switching, tables bar.
  */
 
 import * as vscode from 'vscode';
@@ -13,25 +8,15 @@ import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { ConfigService } from '../services/ConfigService';
-import { ViewState } from '../shared/ViewState';
-import { exportQueryResultToFile } from '../shared/exportQueryResult';
-import { WebviewMessage, ExtensionMessage, DataPagePayload, TableInfo } from '../types';
+import { WebviewMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
-import { openQueryResultPanel } from './QueryResultPanel';
+import { BasePanel } from './BasePanel';
 
-export class CsvWorkspacePanel {
+export class CsvWorkspacePanel extends BasePanel {
   private static readonly viewType = 'csvWorkspace';
 
-  private readonly panel: vscode.WebviewPanel;
-  private readonly extensionUri: vscode.Uri;
-  private readonly tableManager: TableManager;
-  private readonly queryExecutor: QueryExecutor;
-  private readonly config: ConfigService;
-  private readonly disposables: vscode.Disposable[] = [];
-  private readonly viewState = new ViewState();
-
   private activeTable: string = '';
-  private pageRequestId: number = 0;
+  private pendingInitialUri?: vscode.Uri;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -42,7 +27,6 @@ export class CsvWorkspacePanel {
     config: ConfigService,
     initialUri?: vscode.Uri
   ): void {
-    // Always create a new workspace — each one is independent
     const panel = vscode.window.createWebviewPanel(
       CsvWorkspacePanel.viewType,
       'CSV Workspace',
@@ -55,9 +39,7 @@ export class CsvWorkspacePanel {
       }
     );
 
-    // Each workspace gets its own TableManager (isolated table set)
     const tableManager = new TableManager(engine);
-
     new CsvWorkspacePanel(panel, extensionUri, tableManager, queryExecutor, config, initialUri);
   }
 
@@ -71,31 +53,38 @@ export class CsvWorkspacePanel {
     config: ConfigService,
     initialUri?: vscode.Uri
   ) {
-    this.panel = panel;
-    this.extensionUri = extensionUri;
-    this.tableManager = tableManager;
-    this.queryExecutor = queryExecutor;
-    this.config = config;
-
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-    this.panel.webview.onDidReceiveMessage(
-      (msg: WebviewMessage) => this.handleMessage(msg),
-      null,
-      this.disposables
-    );
-
-    this.panel.webview.html = buildWorkspaceHtml(this.panel.webview, this.extensionUri);
-
-    if (initialUri) {
-      this.pendingInitialUri = initialUri;
-    }
+    super(panel, extensionUri, tableManager, queryExecutor, config, buildWorkspaceHtml(panel.webview, extensionUri));
+    if (initialUri) { this.pendingInitialUri = initialUri; }
   }
 
-  private pendingInitialUri?: vscode.Uri;
+  // ─── BasePanel Implementation ────────────────────────────────────────────
 
-  // ─── Message Router ──────────────────────────────────────────────────────
+  protected getActiveTableName(): string {
+    return this.activeTable;
+  }
 
-  private async handleMessage(message: WebviewMessage): Promise<void> {
+  protected buildPayload(
+    result: { rows: string[][]; rowids: number[]; filteredCount: number },
+    meta: { headers: string[]; columnTypes: string[]; delimiter: string; rowCount: number; name: string }
+  ): DataPagePayload {
+    return {
+      headers: meta.headers,
+      columnTypes: meta.columnTypes,
+      rows: result.rows,
+      rowids: result.rowids,
+      totalRows: meta.rowCount,
+      filteredRows: result.filteredCount,
+      delimiter: meta.delimiter,
+      fileName: meta.name,
+      fileSize: 0,
+      sort: this.viewState.sort,
+      filters: this.viewState.filters,
+      searchTerm: this.viewState.searchTerm,
+      isDirty: false,
+    };
+  }
+
+  protected async handleSubclassMessage(message: WebviewMessage): Promise<boolean> {
     switch (message.type) {
       case 'ready':
         if (this.pendingInitialUri) {
@@ -103,41 +92,22 @@ export class CsvWorkspacePanel {
           this.pendingInitialUri = undefined;
         }
         this.sendTableList();
-        return;
+        return true;
 
       case 'addTable':
         await this.handleAddTable(message.filePath);
-        return;
+        return true;
 
       case 'removeTable':
         await this.handleRemoveTable(message.tableName);
-        return;
+        return true;
 
       case 'switchTable':
         await this.handleSwitchTable(message.tableName);
-        return;
-
-      case 'sort':
-        this.viewState.applySort(message.columnIndex, message.direction);
-        return this.sendCurrentPage();
-
-      case 'search':
-        this.viewState.applySearch(message.term);
-        return this.sendCurrentPage();
-
-      case 'getColumnValues':
-        return this.handleGetColumnValues(message.columnIndex);
-
-      case 'setFilters':
-        this.viewState.applyFilters(message.filters);
-        return this.sendCurrentPage();
-
-      case 'executeQuery':
-        return this.handleQuery(message.sql, message.mode);
+        return true;
 
       case 'cancelQuery':
         this.queryExecutor.cancel();
-        // Worker was terminated — need to reload tables
         if (this.activeTable) {
           this.postMessage({ type: 'loading', loading: true });
           try {
@@ -153,24 +123,18 @@ export class CsvWorkspacePanel {
             this.postMessage({ type: 'loading', loading: false });
           }
         }
-        return;
-
-      case 'clearQuery':
-        return this.sendCurrentPage();
-
-      case 'copyToClipboard':
-        await vscode.env.clipboard.writeText(message.text);
-        return;
-
-      case 'exportQueryResult':
-        return this.handleExportQueryResult(message.headers, message.rows);
+        return true;
 
       default:
-        return;
+        return false;
     }
   }
 
-  // ─── Table Management ────────────────────────────────────────────────────
+  protected onDispose(): void {
+    this.tableManager.dropAllTables().catch(() => {});
+  }
+
+  // ─── Workspace-specific Logic ────────────────────────────────────────────
 
   private async addTableFromUri(uri: vscode.Uri): Promise<void> {
     const fileName = uri.fsPath.split('/').pop() || 'file';
@@ -178,13 +142,10 @@ export class CsvWorkspacePanel {
 
     try {
       const meta = await this.tableManager.loadTable(uri);
-
-      // Set as active if first table
       if (!this.activeTable) {
         this.activeTable = meta.name;
         this.viewState.reset();
       }
-
       this.sendTableList();
       await this.sendCurrentPage();
     } catch (error: unknown) {
@@ -194,33 +155,25 @@ export class CsvWorkspacePanel {
     }
   }
 
-  private async handleAddTable(_filePath: string): Promise<void> {
-    // If filePath provided (from drag and drop), use it directly
-    if (_filePath) {
-      const uri = vscode.Uri.file(_filePath);
-      await this.addTableFromUri(uri);
+  private async handleAddTable(filePath: string): Promise<void> {
+    if (filePath) {
+      await this.addTableFromUri(vscode.Uri.file(filePath));
       return;
     }
 
-    // Otherwise open file picker
     const uris = await vscode.window.showOpenDialog({
       canSelectMany: true,
       filters: { 'CSV Files': ['csv', 'tsv'] },
       title: 'Add CSV tables to workspace',
     });
-
     if (!uris || uris.length === 0) { return; }
 
     this.postMessage({ type: 'loading', loading: true });
-
     try {
       for (const uri of uris) {
         const meta = await this.tableManager.loadTable(uri);
-        if (!this.activeTable) {
-          this.activeTable = meta.name;
-        }
+        if (!this.activeTable) { this.activeTable = meta.name; }
       }
-
       this.viewState.reset();
       this.sendTableList();
       await this.sendCurrentPage();
@@ -234,7 +187,6 @@ export class CsvWorkspacePanel {
   private async handleRemoveTable(tableName: string): Promise<void> {
     await this.tableManager.dropTable(tableName);
 
-    // If removed the active table, switch to another
     if (this.activeTable === tableName) {
       const tables = this.tableManager.getLoadedTables();
       this.activeTable = tables.length > 0 ? tables[0].name : '';
@@ -246,7 +198,6 @@ export class CsvWorkspacePanel {
     if (this.activeTable) {
       await this.sendCurrentPage();
     } else {
-      // No tables left — show empty state
       this.postMessage({ type: 'dataPage', data: this.emptyPayload() });
     }
   }
@@ -254,91 +205,10 @@ export class CsvWorkspacePanel {
   private async handleSwitchTable(tableName: string): Promise<void> {
     const meta = this.tableManager.getTableMeta(tableName);
     if (!meta) { return; }
-
     this.activeTable = tableName;
     this.viewState.reset();
     await this.sendCurrentPage();
   }
-
-  // ─── Data Page ───────────────────────────────────────────────────────────
-
-  private async sendCurrentPage(): Promise<void> {
-    if (!this.activeTable) { return; }
-
-    const requestId = ++this.pageRequestId;
-
-    try {
-      const meta = this.tableManager.getTableMeta(this.activeTable);
-      if (!meta) { return; }
-
-      const limit = this.config.pageSize;
-
-      const result = await this.tableManager.getDataPage(this.activeTable, {
-        filters: this.viewState.filters,
-        sort: this.viewState.sort,
-        searchTerm: this.viewState.searchTerm,
-        offset: 0,
-        limit,
-      });
-
-      // Discard stale response if a newer request was issued
-      if (requestId !== this.pageRequestId) { return; }
-
-      const payload: DataPagePayload = {
-        headers: meta.headers,
-        columnTypes: meta.columnTypes,
-        rows: result.rows,
-        rowids: result.rowids,
-        totalRows: meta.rowCount,
-        filteredRows: result.filteredCount,
-        delimiter: meta.delimiter,
-        fileName: meta.name,
-        fileSize: 0,
-        sort: this.viewState.sort,
-        filters: this.viewState.filters,
-        searchTerm: this.viewState.searchTerm,
-        isDirty: false,
-      };
-
-      this.postMessage({ type: 'dataPage', data: payload });
-    } catch (error: unknown) {
-      this.postError(error);
-    }
-  }
-
-  // ─── Handlers ────────────────────────────────────────────────────────────
-
-  private async handleGetColumnValues(columnIndex: number): Promise<void> {
-    if (!this.activeTable) { return; }
-
-    try {
-      const values = await this.tableManager.getUniqueValues(this.activeTable, columnIndex);
-      this.postMessage({
-        type: 'columnValues',
-        data: { columnIndex, values, totalCount: values.length },
-      });
-    } catch (error: unknown) {
-      this.postError(error);
-    }
-  }
-
-  private async handleQuery(sql: string, mode: 'inline' | 'side'): Promise<void> {
-    // Workspace: no default table — user must specify table names in query
-    const result = await this.queryExecutor.execute(sql);
-    const payload = { ...result, sql };
-
-    if (mode === 'inline') {
-      this.postMessage({ type: 'queryResult', data: payload });
-    } else {
-      openQueryResultPanel(this.extensionUri, payload);
-    }
-  }
-
-  private async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
-    await exportQueryResultToFile(headers, rows);
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private sendTableList(): void {
     const tables: TableInfo[] = this.tableManager.getLoadedTables().map(meta => ({
@@ -347,44 +217,15 @@ export class CsvWorkspacePanel {
       rowCount: meta.rowCount,
       filePath: meta.filePath,
     }));
-
     this.postMessage({ type: 'tableList', tables });
   }
 
   private emptyPayload(): DataPagePayload {
     return {
-      headers: [],
-      columnTypes: [],
-      rows: [],
-      rowids: [],
-      totalRows: 0,
-      filteredRows: 0,
-      delimiter: '',
-      fileName: '',
-      fileSize: 0,
-      sort: { columnIndex: -1, direction: 'none' },
-      filters: {},
-      searchTerm: '',
-      isDirty: false,
+      headers: [], columnTypes: [], rows: [], rowids: [],
+      totalRows: 0, filteredRows: 0, delimiter: '', fileName: '',
+      fileSize: 0, sort: { columnIndex: -1, direction: 'none' },
+      filters: {}, searchTerm: '', isDirty: false,
     };
-  }
-
-  private postMessage(message: ExtensionMessage): void {
-    this.panel.webview.postMessage(message);
-  }
-
-  private postError(error: unknown): void {
-    const msg = error instanceof Error ? error.message : 'An unexpected error occurred';
-    this.postMessage({ type: 'error', message: msg });
-  }
-
-  private dispose(): void {
-    // Drop all tables owned by this workspace
-    this.tableManager.dropAllTables().catch(() => {});
-
-    while (this.disposables.length) {
-      const d = this.disposables.pop();
-      d?.dispose();
-    }
   }
 }

@@ -31,10 +31,10 @@ export function startCellEdit(td) {
   input.focus();
   input.select();
 
-  editingCell = { td, input, rowid, columnIndex, originalValue: currentValue };
+  const rowIndex = parseInt(td.closest('tr').dataset.rowIndex, 10);
+  editingCell = { td, input, rowid, columnIndex, originalValue: currentValue, rowIndex };
 
   // Lock this row so virtual scroller won't recycle it
-  const rowIndex = parseInt(td.closest('tr').dataset.rowIndex, 10);
   const scroller = getScroller();
   if (scroller && !isNaN(rowIndex)) { scroller.lockRow(rowIndex); }
 
@@ -64,7 +64,7 @@ function handleBlur() {
 function commitEdit() {
   if (!editingCell) { return; }
 
-  const { td, input, rowid, columnIndex, originalValue } = editingCell;
+  const { td, input, rowid, columnIndex, originalValue, rowIndex } = editingCell;
   const newValue = input.value;
 
   input.removeEventListener('keydown', handleKeydown);
@@ -81,7 +81,6 @@ function commitEdit() {
 
   if (newValue !== originalValue) {
     // Update local state immediately so virtual scroller shows the new value
-    const rowIndex = parseInt(td.closest('tr')?.dataset.rowIndex, 10);
     if (!isNaN(rowIndex) && state.rows[rowIndex]) {
       state.rows[rowIndex][columnIndex] = newValue;
     }
@@ -92,7 +91,6 @@ function commitEdit() {
   }
 
   // Notify caller to re-select this cell
-  const rowIndex = parseInt(td.closest('tr')?.dataset.rowIndex, 10);
   if (afterCommitFn && !isNaN(rowIndex)) {
     afterCommitFn(rowIndex, columnIndex);
   }

@@ -9,16 +9,16 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
-import { renderHeader, renderRows } from './renderer.js';
-import { showLoading, hideLoading, showTable, showError, updateStats, showTooltip, hideTooltip, showContextMenu } from './ui.js';
+import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { onQueryResult, clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
+import { applyDataPage } from './data-page.js';
 
 let activeTableName = '';
 
@@ -39,32 +39,8 @@ function handleExtensionMessage(message) {
 }
 
 function onDataPageReceived(data) {
-  resetQueryState();
-  clearSortingLock();
-
-  state.headers = data.headers;
-  state.columnTypes = data.columnTypes || [];
-  state.rows = data.rows;
-  state.rowids = data.rowids || [];
-  state.totalRows = data.totalRows;
-  state.filteredRows = data.filteredRows;
-  state.delimiter = data.delimiter;
-  state.fileName = data.fileName;
-  state.fileSize = data.fileSize;
-  state.sort = data.sort;
-  state.filters = data.filters;
-  state.searchTerm = data.searchTerm;
-  state.isDirty = false;
-
-  if (dom.searchInput && document.activeElement !== dom.searchInput) {
-    dom.searchInput.value = data.searchTerm;
-  }
-
+  applyDataPage(data, { setOriginalHeaders: false, trackDirty: false });
   hideEmptyState();
-  renderHeader();
-  updateStats();
-  showTable();
-  renderRows();
 }
 
 function onTableListReceived(tables) {
@@ -114,7 +90,7 @@ function bindEvents() {
   );
 
   bindHeaderInteractions(dom.tableHeader, {
-    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown,
   });
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip });
@@ -132,15 +108,6 @@ function bindEvents() {
 
   // Workspace-specific: table dropdown
   bindTableDropdown();
-
-  // Workspace-specific: filter button (delegated)
-  document.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.filter-btn');
-    if (!filterBtn) { return; }
-    e.stopPropagation();
-    const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
-    if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
-  });
 
   // Workspace-specific: context menu (copy only — no editing)
   document.addEventListener('contextmenu', (e) => {
