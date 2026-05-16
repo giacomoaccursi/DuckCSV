@@ -1,10 +1,16 @@
 /**
  * Table rendering: header and body rows.
+ * Uses virtual scrolling — only visible rows + buffer are in the DOM.
  */
 
 import { dom } from './dom.js';
 import { state, COLUMN_COLORS } from './state.js';
 import { escapeHtml, escapeRegex } from './utils.js';
+import { createVirtualScroller } from './virtual-scroll.js';
+
+let scroller = null;
+
+export function getScroller() { return scroller; }
 
 export function getColumnColor(colIndex) {
   if (!state.colorColumnsEnabled) { return ''; }
@@ -49,6 +55,7 @@ export function renderHeader() {
     th.className = 'sortable-header';
     th.dataset.columnIndex = i;
 
+    // Apply user-resized width if available
     if (state.columnWidths[i]) {
       th.style.width = state.columnWidths[i];
       th.style.minWidth = state.columnWidths[i];
@@ -58,7 +65,6 @@ export function renderHeader() {
     const colColor = getColumnColor(i);
     if (colColor) { th.style.backgroundColor = colColor; }
 
-    // Content: text + sort indicator
     const content = document.createElement('div');
     content.className = 'header-content';
 
@@ -67,7 +73,6 @@ export function renderHeader() {
     textSpan.textContent = header || `Column ${i + 1}`;
     content.appendChild(textSpan);
 
-    // Column type badge
     if (state.columnTypes[i]) {
       const typeSpan = document.createElement('span');
       typeSpan.className = 'header-type';
@@ -77,7 +82,7 @@ export function renderHeader() {
 
     const sortIndicator = document.createElement('span');
     sortIndicator.className = 'sort-indicator';
-    if (state.sort.columnIndex === i) {
+    if (state.sort.columnIndex === i && state.sort.direction !== 'none') {
       th.classList.add('sort-active');
       if (state.sort.direction === 'asc') {
         sortIndicator.innerHTML = '<span class="sort-arrow active">\u25B2</span><span class="sort-arrow dim">\u25BC</span>';
@@ -90,10 +95,8 @@ export function renderHeader() {
     content.appendChild(sortIndicator);
     th.appendChild(content);
 
-    // Filter button
     const filterBtn = document.createElement('button');
     filterBtn.className = 'filter-btn';
-    filterBtn.title = 'Filter column';
     filterBtn.dataset.columnIndex = i;
     filterBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16"><path fill="currentColor" d="M1 2h14l-5.5 6.5V14l-3-2V8.5L1 2z"/></svg>';
     if (state.filters[i] && state.filters[i].length > 0) {
@@ -101,7 +104,6 @@ export function renderHeader() {
     }
     th.appendChild(filterBtn);
 
-    // Resize handle
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
     th.appendChild(resizeHandle);
@@ -111,28 +113,68 @@ export function renderHeader() {
   });
 
   dom.tableHeader.appendChild(tr);
+
+  // After browser layout: lock column widths so body rows can't change them
+  if (!state.columnWidths || Object.keys(state.columnWidths).length === 0) {
+    requestAnimationFrame(() => {
+      lockColumnWidths(tr);
+    });
+  }
 }
 
 export function renderRows() {
   if (!dom.tableBody) { return; }
 
   if (state.rows.length === 0) {
+    if (scroller) { scroller.destroy(); scroller = null; }
     dom.tableBody.innerHTML = '<tr><td colspan="100" class="empty-message">No data to display</td></tr>';
     return;
   }
 
-  const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < state.rows.length; i++) {
-    fragment.appendChild(createRow(state.rows[i], i, state.rowids[i], searchLower));
-  }
+  const scrollContainer = document.querySelector('.table-wrapper');
+  if (!scrollContainer) { return; }
 
-  dom.tableBody.innerHTML = '';
-  dom.tableBody.appendChild(fragment);
+  if (scroller) {
+    scroller.update(state.rows.length);
+  } else {
+    scroller = createVirtualScroller({
+      scrollContainer,
+      tbody: dom.tableBody,
+      totalItems: state.rows.length,
+      itemHeight: 33,
+      bufferSize: 20,
+      columnCount: state.headers.length,
+      renderItem: (index) => createRow(index),
+      recycleItem: (tr, index) => recycleRow(tr, index),
+    });
+
+    // After browser layout: lock column widths so body rows can't change them
+    if (!state.columnWidths || Object.keys(state.columnWidths).length === 0) {
+      requestAnimationFrame(() => {
+        const headerRow = dom.tableHeader.querySelector('tr:last-child');
+        if (!headerRow) { return; }
+        const ths = headerRow.querySelectorAll('th.sortable-header');
+        ths.forEach(th => {
+          const w = th.offsetWidth + 'px';
+          th.style.width = w;
+          th.style.minWidth = w;
+          th.style.maxWidth = w;
+          const colIdx = th.dataset.columnIndex;
+          if (colIdx !== undefined) {
+            state.columnWidths[colIdx] = w;
+          }
+        });
+        // Re-render visible rows with locked widths
+        scroller.refresh();
+      });
+    }
+  }
 }
 
 export function renderQueryRows(rows) {
   if (!dom.tableBody) { return; }
+
+  if (scroller) { scroller.destroy(); scroller = null; }
 
   if (rows.length === 0) {
     dom.tableBody.innerHTML = '<tr><td colspan="100" class="empty-message">No results</td></tr>';
@@ -165,14 +207,20 @@ export function renderQueryRows(rows) {
   dom.tableBody.appendChild(fragment);
 }
 
-function createRow(row, displayIndex, rowid, searchLower) {
+// ─── Row creation and recycling ──────────────────────────────────────────────
+
+function createRow(index) {
+  const row = state.rows[index];
+  const rowid = state.rowids[index];
+  const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
+
   const tr = document.createElement('tr');
-  tr.dataset.rowIndex = displayIndex;
+  tr.dataset.rowIndex = index;
   tr.dataset.rowid = rowid;
 
   const numTd = document.createElement('td');
   numTd.className = 'row-number';
-  numTd.textContent = displayIndex + 1;
+  numTd.textContent = index + 1;
   tr.appendChild(numTd);
 
   row.forEach((cell, colIndex) => {
@@ -180,6 +228,7 @@ function createRow(row, displayIndex, rowid, searchLower) {
     td.className = 'editable-cell';
     const text = cell || '';
 
+    // Apply locked column width
     if (state.columnWidths[colIndex]) {
       td.style.width = state.columnWidths[colIndex];
       td.style.minWidth = state.columnWidths[colIndex];
@@ -204,6 +253,49 @@ function createRow(row, displayIndex, rowid, searchLower) {
 
   return tr;
 }
+
+function recycleRow(tr, index) {
+  const row = state.rows[index];
+  const rowid = state.rowids[index];
+  const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
+
+  tr.dataset.rowIndex = index;
+  tr.dataset.rowid = rowid;
+
+  const numTd = tr.children[0];
+  numTd.textContent = index + 1;
+
+  const cells = tr.children;
+  for (let colIndex = 0; colIndex < row.length; colIndex++) {
+    const td = cells[colIndex + 1];
+    if (!td) { continue; }
+
+    const text = row[colIndex] || '';
+
+    td.classList.remove('selected');
+
+    if (state.columnWidths[colIndex]) {
+      td.style.width = state.columnWidths[colIndex];
+      td.style.minWidth = state.columnWidths[colIndex];
+      td.style.maxWidth = state.columnWidths[colIndex];
+    }
+
+    const colColor = getColumnColor(colIndex);
+    td.style.backgroundColor = colColor || '';
+
+    if (searchLower && text.toLowerCase().includes(searchLower)) {
+      td.innerHTML = highlightMatch(text, state.searchTerm);
+    } else {
+      td.textContent = text;
+    }
+
+    td.dataset.columnIndex = colIndex;
+    td.dataset.rowid = rowid;
+    td.dataset.fullText = text;
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function highlightMatch(text, term) {
   const escaped = escapeHtml(text);
