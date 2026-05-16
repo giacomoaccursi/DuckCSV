@@ -11,6 +11,7 @@
 import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
+import { getScroller } from './renderer.js';
 
 // Selection state: { startRow, startCol, endRow, endCol } or null
 let selection = null;
@@ -54,6 +55,16 @@ function stopAutoScroll() {
 
 export function getSelection() { return selection; }
 export function getSelectionMode() { return selectionMode; }
+
+/** Check if a row/col is within the current selection range */
+export function isInSelection(rowIdx, colIdx) {
+  if (!selection) { return false; }
+  const minRow = Math.min(selection.startRow, selection.endRow);
+  const maxRow = Math.max(selection.startRow, selection.endRow);
+  const minCol = Math.min(selection.startCol, selection.endCol);
+  const maxCol = Math.max(selection.startCol, selection.endCol);
+  return rowIdx >= minRow && rowIdx <= maxRow && colIdx >= minCol && colIdx <= maxCol;
+}
 
 export function clearSelection() {
   selection = null;
@@ -235,28 +246,32 @@ export function handleArrowNavigation(e) {
 }
 
 function scrollCellIntoView(row, col) {
-  const td = dom.tableBody.querySelector(`tr[data-row-index="${row}"] td[data-column-index="${col}"]`);
+  const scroller = getScroller();
+
+  // If the row isn't in the DOM, scroll the virtual scroller to bring it in
+  let td = dom.tableBody.querySelector(`tr[data-row-index="${row}"] td[data-column-index="${col}"]`);
+  if (!td && scroller) {
+    scroller.scrollToRow(row);
+    // After scrollToRow, the row should now be in the DOM
+    td = dom.tableBody.querySelector(`tr[data-row-index="${row}"] td[data-column-index="${col}"]`);
+  }
   if (!td) { return; }
 
   const wrapper = document.querySelector('.table-wrapper');
-  if (!wrapper) { td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
+  if (!wrapper) { return; }
 
   const wrapperRect = wrapper.getBoundingClientRect();
   const tdRect = td.getBoundingClientRect();
 
-  // Account for sticky row-number column width
   const rowNumCol = wrapper.querySelector('td.row-number');
   const stickyOffset = rowNumCol ? rowNumCol.offsetWidth : 70;
 
-  // Horizontal scroll: ensure cell is visible past the sticky column
   if (tdRect.left < wrapperRect.left + stickyOffset) {
     wrapper.scrollLeft -= (wrapperRect.left + stickyOffset - tdRect.left);
   } else if (tdRect.right > wrapperRect.right) {
     wrapper.scrollLeft += (tdRect.right - wrapperRect.right);
   }
 
-  // Vertical scroll
-  // Account for sticky header height
   const thead = wrapper.querySelector('thead');
   const headerOffset = thead ? thead.offsetHeight : 0;
 

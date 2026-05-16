@@ -7,6 +7,7 @@ import { dom } from './dom.js';
 import { state, COLUMN_COLORS } from './state.js';
 import { escapeHtml, escapeRegex } from './utils.js';
 import { createVirtualScroller } from './virtual-scroll.js';
+import { isInSelection } from './selection.js';
 
 let scroller = null;
 
@@ -273,6 +274,9 @@ function recycleRow(tr, index) {
     const text = row[colIndex] || '';
 
     td.classList.remove('selected');
+    if (isInSelection(index, colIndex)) {
+      td.classList.add('selected');
+    }
 
     if (state.columnWidths[colIndex]) {
       td.style.width = state.columnWidths[colIndex];
