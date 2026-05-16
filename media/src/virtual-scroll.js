@@ -150,11 +150,16 @@ export function createVirtualScroller(options) {
   // --- Public API ---
 
   function update(newTotal) {
+    const savedScrollTop = scrollContainer.scrollTop;
     totalItems = newTotal;
     pool = [];
     currentStart = -1;
     currentEnd = -1;
     initialRender();
+    // Restore scroll position after data update (insert/delete/sort/filter)
+    scrollContainer.scrollTop = savedScrollTop;
+    // Trigger a re-render at the restored position
+    onScroll();
   }
 
   function scrollToRow(index) {
