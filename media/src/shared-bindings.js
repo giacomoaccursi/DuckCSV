@@ -4,6 +4,9 @@
  */
 
 const DEBOUNCE_MS = 300;
+let isSorting = false;
+
+export function clearSortingLock() { isSorting = false; }
 
 /**
  * Bind the search input with debounced messaging.
@@ -95,28 +98,31 @@ export function bindHeaderInteractions(
 
   tableHeader.addEventListener('click', (e) => {
     if (e.target.closest('.filter-btn') || e.target.closest('.resize-handle')) { return; }
+
+    // Sort only when clicking on the sort indicator arrows
+    const sortIndicator = e.target.closest('.sort-indicator');
+    if (!sortIndicator) { return; }
+
+    if (isSorting) { return; }
+
     const th = e.target.closest('th.sortable-header');
     if (!th) { return; }
 
     const colIdx = parseInt(th.dataset.columnIndex, 10);
     if (isNaN(colIdx)) { return; }
 
-    if (headerClickTimer) { clearTimeout(headerClickTimer); }
-    headerClickTimer = setTimeout(() => {
-      headerClickTimer = null;
+    let newDirection = 'asc';
+    if (state.sort.columnIndex === colIdx) {
+      if (state.sort.direction === 'asc') { newDirection = 'desc'; }
+      else if (state.sort.direction === 'desc') { newDirection = 'none'; }
+    }
 
-      let newDirection = 'asc';
-      if (state.sort.columnIndex === colIdx) {
-        if (state.sort.direction === 'asc') { newDirection = 'desc'; }
-        else if (state.sort.direction === 'desc') { newDirection = 'none'; }
-      }
-
-      if (isQueryActive()) {
-        sortQueryResultsLocally(colIdx, newDirection);
-      } else {
-        sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
-      }
-    }, 150);
+    if (isQueryActive()) {
+      sortQueryResultsLocally(colIdx, newDirection);
+    } else {
+      isSorting = true;
+      sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
+    }
   });
 
   tableHeader.addEventListener('mousedown', (e) => {

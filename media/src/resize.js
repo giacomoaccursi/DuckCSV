@@ -12,9 +12,16 @@ export function initResize(e) {
   e.stopPropagation();
 
   const th = e.target.parentElement;
-  resizeState = { th, startX: e.pageX, startWidth: th.offsetWidth };
-  document.body.classList.add('resizing');
+  const wrapper = document.querySelector('.table-wrapper');
 
+  resizeState = {
+    th,
+    wrapper,
+    startX: e.pageX,
+    startWidth: th.offsetWidth,
+  };
+
+  document.body.classList.add('resizing');
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onEnd);
 }
@@ -22,14 +29,18 @@ export function initResize(e) {
 function onMove(e) {
   if (!resizeState) { return; }
 
-  const newWidth = Math.max(40, resizeState.startWidth + (e.pageX - resizeState.startX));
+  const { th, wrapper, startX, startWidth } = resizeState;
+  const newWidth = Math.max(40, startWidth + (e.pageX - startX));
   const widthStr = newWidth + 'px';
 
-  resizeState.th.style.width = widthStr;
-  resizeState.th.style.minWidth = widthStr;
-  resizeState.th.style.maxWidth = widthStr;
+  // Save scroll position before layout change
+  const scrollLeft = wrapper ? wrapper.scrollLeft : 0;
 
-  const colIdx = resizeState.th.dataset.columnIndex;
+  th.style.width = widthStr;
+  th.style.minWidth = widthStr;
+  th.style.maxWidth = widthStr;
+
+  const colIdx = th.dataset.columnIndex;
   if (colIdx !== undefined) {
     state.columnWidths[colIdx] = widthStr;
     const cells = dom.tableBody.querySelectorAll(`td[data-column-index="${colIdx}"]`);
@@ -38,6 +49,11 @@ function onMove(e) {
       td.style.minWidth = widthStr;
       td.style.maxWidth = widthStr;
     });
+  }
+
+  // Restore scroll position to prevent visual shift
+  if (wrapper) {
+    wrapper.scrollLeft = scrollLeft;
   }
 }
 

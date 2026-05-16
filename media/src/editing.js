@@ -5,6 +5,7 @@
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { updateStats } from './ui.js';
+import { getScroller } from './renderer.js';
 
 let editingCell = null;
 
@@ -28,6 +29,11 @@ export function startCellEdit(td) {
   input.select();
 
   editingCell = { td, input, rowid, columnIndex, originalValue: currentValue };
+
+  // Lock this row so virtual scroller won't recycle it
+  const rowIndex = parseInt(td.closest('tr').dataset.rowIndex, 10);
+  const scroller = getScroller();
+  if (scroller && !isNaN(rowIndex)) { scroller.lockRow(rowIndex); }
 
   input.addEventListener('keydown', handleKeydown);
   input.addEventListener('blur', handleBlur);
@@ -63,10 +69,20 @@ function commitEdit() {
   td.classList.remove('editing');
   editingCell = null;
 
+  // Unlock the row for virtual scroller
+  const scroller = getScroller();
+  if (scroller) { scroller.unlockRow(); }
+
   td.textContent = newValue;
   td.dataset.fullText = newValue;
 
   if (newValue !== originalValue) {
+    // Update local state immediately so virtual scroller shows the new value
+    const rowIndex = parseInt(td.closest('tr')?.dataset.rowIndex, 10);
+    if (!isNaN(rowIndex) && state.rows[rowIndex]) {
+      state.rows[rowIndex][columnIndex] = newValue;
+    }
+
     td.classList.add('cell-modified');
     setTimeout(() => td.classList.remove('cell-modified'), 1500);
     sendMessage({ type: 'editCell', rowid, columnIndex, value: newValue });
@@ -82,4 +98,7 @@ function cancelEdit() {
   td.classList.remove('editing');
   td.textContent = originalValue;
   editingCell = null;
+
+  const scroller = getScroller();
+  if (scroller) { scroller.unlockRow(); }
 }

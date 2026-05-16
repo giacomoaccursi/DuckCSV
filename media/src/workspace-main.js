@@ -18,7 +18,7 @@ import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunni
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 
 let activeTableName = '';
 
@@ -40,6 +40,7 @@ function handleExtensionMessage(message) {
 
 function onDataPageReceived(data) {
   resetQueryState();
+  clearSortingLock();
 
   state.headers = data.headers;
   state.columnTypes = data.columnTypes || [];
@@ -61,9 +62,9 @@ function onDataPageReceived(data) {
 
   hideEmptyState();
   renderHeader();
-  renderRows();
   updateStats();
   showTable();
+  renderRows();
 }
 
 function onTableListReceived(tables) {

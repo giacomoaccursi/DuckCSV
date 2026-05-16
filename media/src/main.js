@@ -17,7 +17,7 @@ import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived, closeFilterDropdown } from './filter-dropdown.js';
 import { onQueryResult, clearQuery, resetQueryState, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode } from './selection.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -38,6 +38,7 @@ function handleExtensionMessage(message) {
 
 function onDataPageReceived(data) {
   resetQueryState();
+  clearSortingLock();
 
   state.headers = data.headers;
   state.originalHeaders = data.headers;
@@ -59,9 +60,9 @@ function onDataPageReceived(data) {
   }
 
   renderHeader();
-  renderRows();
   updateStats();
   showTable();
+  renderRows();
 }
 
 // ─── Mode Banner ─────────────────────────────────────────────────────────────

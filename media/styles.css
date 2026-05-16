@@ -467,7 +467,6 @@ body {
     border-spacing: 0;
     font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
     font-size: 12px;
-    table-layout: auto;
 }
 
 /* Column Select Row */
@@ -523,10 +522,6 @@ body {
     border-bottom: 3px solid var(--border-color);
     border-right: 1px solid var(--border-color);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 50px;
-    max-width: 400px;
     position: relative;
     user-select: none;
     font-size: 14px;
@@ -552,6 +547,7 @@ body {
 #csvTable tbody tr {
     background-color: var(--bg-primary);
     transition: background-color 0.1s;
+    height: 33px;
 }
 
 #csvTable tbody tr:nth-child(even) {
@@ -617,13 +613,9 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    overflow: hidden;
-    max-width: calc(100% - 24px);
 }
 
 .header-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -642,6 +634,13 @@ body {
     font-size: 9px;
     margin-left: 4px;
     flex-shrink: 0;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.sort-indicator:hover {
+    background-color: var(--hover-bg);
 }
 
 .sort-arrow {
@@ -932,4 +931,24 @@ body.selecting {
     .search-input {
         min-width: 150px;
     }
+}
+
+/* Virtual Scroll Spacers */
+#csvTable tbody tr.vs-spacer-top,
+#csvTable tbody tr.vs-spacer-bottom {
+    height: auto !important;
+    background: none !important;
+}
+
+.vs-spacer-top td,
+.vs-spacer-bottom td {
+    padding: 0 !important;
+    border: none !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+}
+
+.vs-spacer-top:hover,
+.vs-spacer-bottom:hover {
+    background: none !important;
 }
