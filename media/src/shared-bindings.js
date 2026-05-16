@@ -159,7 +159,7 @@ export function bindHeaderInteractions(
  * Bind selection (cell click, row number), copy shortcut, arrow navigation, and tooltip.
  */
 export function bindSelectionAndTooltip(
-  { handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip }
+  { handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip, onEnterCell }
 ) {
   document.addEventListener('mousedown', (e) => {
     const rowNum = e.target.closest('td.row-number');
@@ -169,6 +169,10 @@ export function bindSelectionAndTooltip(
   });
 
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !isEditing() && onEnterCell) {
+      onEnterCell();
+      return;
+    }
     handleCopyShortcut(e);
     handleArrowNavigation(e);
   });

@@ -113,7 +113,14 @@ function bindEvents() {
     state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
   });
 
-  bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip });
+  bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip, onEnterCell: () => {
+    const sel = getSelection();
+    if (!sel) { return; }
+    const row = sel.endRow;
+    const col = sel.endCol;
+    const td = document.querySelector(`tr[data-row-index="${row}"] td[data-column-index="${col}"]`);
+    if (td) { clearSelection(); startCellEdit(td); }
+  }});
 
   // Preview-specific: toolbar buttons
   if (dom.refreshBtn) { dom.refreshBtn.addEventListener('click', () => sendMessage({ type: 'refresh' })); }
