@@ -123,8 +123,8 @@ export abstract class BasePanel {
     const requestId = ++this.pageRequestId;
 
     try {
-      // Fetch only the first block (500 rows) — frontend will request more via fetchPage
-      const firstBlockSize = 500;
+      // Fetch only the first block (2000 rows) — frontend will request more via fetchPage
+      const firstBlockSize = 2000;
 
       const result = await this.tableManager.getDataPage(tableName, {
         filters: this.viewState.filters,
