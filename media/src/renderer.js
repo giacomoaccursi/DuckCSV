@@ -268,6 +268,10 @@ function createRow(index) {
     td.dataset.columnIndex = colIndex;
     td.dataset.rowid = rowid;
     td.dataset.fullText = text;
+
+    if (isInSelection(index, colIndex)) {
+      td.classList.add('selected');
+    }
     tr.appendChild(td);
   });
 
