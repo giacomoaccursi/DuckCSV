@@ -64,7 +64,15 @@ export function bindQueryBar(
   if (queryInput) {
     queryInput.addEventListener('keydown', (e) => {
       if (handleAutocompleteKeydown(e)) { return; }
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        // Cmd+Enter / Ctrl+Enter → run in side panel
+        e.preventDefault();
+        closeAutocomplete();
+        const sql = queryInput.value.trim();
+        if (sql) {
+          sendMessage({ type: 'executeQuery', sql, mode: 'side' });
+        }
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         closeAutocomplete();
         const sql = queryInput.value.trim();
