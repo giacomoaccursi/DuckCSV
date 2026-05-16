@@ -59,8 +59,8 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   dataWindow = createDataWindow({
     totalRows: data.filteredRows,
     blockSize: 2000,
-    maxBlocks: 10,
-    prefetchThreshold: 500,
+    maxBlocks: 50,
+    prefetchThreshold: 1000,
     fetchBlock: (offset, limit) => {
       sendMessage({ type: 'fetchPage', requestId: Date.now(), offset, limit });
     },
