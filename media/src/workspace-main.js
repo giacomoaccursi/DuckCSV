@@ -114,7 +114,7 @@ function bindEvents() {
   );
 
   bindHeaderInteractions(dom.tableHeader, {
-    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown,
   });
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip });
@@ -132,15 +132,6 @@ function bindEvents() {
 
   // Workspace-specific: table dropdown
   bindTableDropdown();
-
-  // Workspace-specific: filter button (delegated)
-  document.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.filter-btn');
-    if (!filterBtn) { return; }
-    e.stopPropagation();
-    const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
-    if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
-  });
 
   // Workspace-specific: context menu (copy only — no editing)
   document.addEventListener('contextmenu', (e) => {

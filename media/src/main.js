@@ -110,7 +110,7 @@ function bindEvents() {
   );
 
   const headerCtrl = bindHeaderInteractions(dom.tableHeader, {
-    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally,
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown,
   });
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip, onEnterCell: () => {
@@ -129,15 +129,6 @@ function bindEvents() {
 
   const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');
   if (openWorkspaceBtn) { openWorkspaceBtn.addEventListener('click', () => sendMessage({ type: 'openWorkspace' })); }
-
-  // Preview-specific: filter button (delegated)
-  document.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.filter-btn');
-    if (!filterBtn) { return; }
-    e.stopPropagation();
-    const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
-    if (!isNaN(colIdx)) { openFilterDropdown(colIdx, filterBtn); }
-  });
 
   // Preview-specific: header dblclick to insert column name into query
   if (dom.tableHeader) {

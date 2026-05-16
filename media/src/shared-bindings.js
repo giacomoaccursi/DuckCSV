@@ -90,7 +90,7 @@ export function bindQueryBar(
  */
 export function bindHeaderInteractions(
   tableHeader,
-  { state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally }
+  { state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown }
 ) {
   let headerClickTimer = null;
 
@@ -144,8 +144,8 @@ export function bindHeaderInteractions(
     if (!filterBtn) { return; }
     e.stopPropagation();
     const colIdx = parseInt(filterBtn.dataset.columnIndex, 10);
-    if (!isNaN(colIdx)) {
-      // Import dynamically avoided — caller passes openFilterDropdown
+    if (!isNaN(colIdx) && openFilterDropdown) {
+      openFilterDropdown(colIdx, filterBtn);
     }
   });
 
