@@ -29,10 +29,16 @@ function handleExtensionMessage(message) {
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(); break;
     case 'queryResult': onQueryResult(message.data); break;
-    case 'modeInfo': showModeBanner(message.mode, message.savePath); break;
     case 'loading':
       if (message.loading) { showLoading(message.message); setSystemLoading(true); }
       else { hideLoading(); setSystemLoading(false); }
+      break;
+    case 'saving':
+      if (message.saving) { showLoading('Saving...'); }
+      else { hideLoading(); }
+      break;
+    case 'saved':
+      hideLoading();
       break;
     case 'error': showError(message.message); break;
   }
@@ -41,31 +47,6 @@ function handleExtensionMessage(message) {
 function onDataPageReceived(data) {
   applyDataPage(data, { setOriginalHeaders: true, trackDirty: true });
 }
-
-// ─── Mode Banner ─────────────────────────────────────────────────────────────
-
-function showModeBanner(mode, savePath) {
-  const existing = document.getElementById('modeBanner');
-  if (existing) { existing.remove(); }
-
-  const banner = document.createElement('div');
-  banner.id = 'modeBanner';
-  banner.className = mode === 'edit' ? 'mode-banner mode-edit' : 'mode-banner mode-readonly';
-
-  const fileName = savePath.split('/').pop() || savePath;
-
-  if (mode === 'edit') {
-    banner.textContent = `\u270F Edit mode \u2014 Changes are saved directly to ${fileName}`;
-  } else {
-    banner.textContent = `\uD83D\uDD12 Read-only mode \u2014 Changes will be saved to ${fileName}`;
-  }
-
-  const app = document.getElementById('app');
-  if (app && app.firstChild) {
-    app.insertBefore(banner, app.firstChild);
-  }
-}
-
 // ─── Column Coloring Toggle ──────────────────────────────────────────────────
 
 function toggleColumnColors() {
@@ -100,6 +81,23 @@ function bindEvents() {
   }});
 
   // Preview-specific: toolbar buttons
+  const saveBtn = document.getElementById('saveBtn');
+  const saveAsBtn = document.getElementById('saveAsBtn');
+  if (saveBtn) { saveBtn.addEventListener('click', () => sendMessage({ type: 'save' })); }
+  if (saveAsBtn) { saveAsBtn.addEventListener('click', () => sendMessage({ type: 'saveAs' })); }
+
+  // Cmd+S / Ctrl+S to save
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        sendMessage({ type: 'saveAs' });
+      } else {
+        sendMessage({ type: 'save' });
+      }
+    }
+  });
+
   if (dom.refreshBtn) { dom.refreshBtn.addEventListener('click', () => sendMessage({ type: 'refresh' })); }
   if (dom.openAsTextBtn) { dom.openAsTextBtn.addEventListener('click', () => sendMessage({ type: 'openAsText' })); }
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }

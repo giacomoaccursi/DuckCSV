@@ -71,9 +71,10 @@ export type ExtensionMessage =
   | { type: 'columnValues'; data: ColumnValuesPayload }
   | { type: 'cellEditConfirm'; data: CellEditConfirmPayload }
   | { type: 'queryResult'; data: QueryResultPayload }
-  | { type: 'modeInfo'; mode: 'readonly' | 'edit'; savePath: string }
   | { type: 'error'; message: string }
   | { type: 'loading'; loading: boolean; message?: string }
+  | { type: 'saving'; saving: boolean }
+  | { type: 'saved' }
   | { type: 'tableList'; tables: TableInfo[] };
 
 // ─── Messages: Webview → Extension ──────────────────────────────────────────
@@ -97,6 +98,8 @@ export type WebviewMessage =
   | { type: 'copyToClipboard'; text: string }
   | { type: 'openAsText' }
   | { type: 'openWorkspace' }
+  | { type: 'save' }
+  | { type: 'saveAs' }
   | { type: 'addTable'; filePath: string }
   | { type: 'removeTable'; tableName: string }
   | { type: 'switchTable'; tableName: string }
