@@ -105,8 +105,7 @@ function executeQuery(msg: QueryRequest): void {
     const numRows = result.numRows;
     const numCols = result.numCols;
 
-    // Convert only up to 10k rows to avoid massive serialization
-    const maxRows = Math.min(numRows, 10_000);
+    // Serialize all result rows
     const rows: string[][] = [];
 
     // Pre-fetch column vectors to avoid repeated getChildAt lookups
@@ -121,7 +120,7 @@ function executeQuery(msg: QueryRequest): void {
       return lower.includes('date') || lower.includes('timestamp');
     });
 
-    for (let i = 0; i < maxRows; i++) {
+    for (let i = 0; i < numRows; i++) {
       const row: string[] = [];
       for (let j = 0; j < numCols; j++) {
         const val = columnVectors[j]?.get(i);
