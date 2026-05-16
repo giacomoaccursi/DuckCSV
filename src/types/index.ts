@@ -67,6 +67,7 @@ export interface CellEditConfirmPayload {
 
 export type ExtensionMessage =
   | { type: 'dataPage'; data: DataPagePayload }
+  | { type: 'pageData'; requestId: number; offset: number; rows: string[][]; rowids: number[] }
   | { type: 'columnValues'; data: ColumnValuesPayload }
   | { type: 'cellEditConfirm'; data: CellEditConfirmPayload }
   | { type: 'queryResult'; data: QueryResultPayload }
@@ -98,4 +99,5 @@ export type WebviewMessage =
   | { type: 'openWorkspace' }
   | { type: 'addTable'; filePath: string }
   | { type: 'removeTable'; tableName: string }
-  | { type: 'switchTable'; tableName: string };
+  | { type: 'switchTable'; tableName: string }
+  | { type: 'fetchPage'; requestId: number; offset: number; limit: number };

@@ -106,6 +106,9 @@ export abstract class BasePanel {
         await vscode.env.clipboard.writeText(message.text);
         return;
 
+      case 'fetchPage':
+        return this.handleFetchPage(message.requestId, message.offset, message.limit);
+
       default:
         return;
     }
@@ -120,14 +123,15 @@ export abstract class BasePanel {
     const requestId = ++this.pageRequestId;
 
     try {
-      const limit = this.config.pageSize;
+      // Fetch only the first block (500 rows) — frontend will request more via fetchPage
+      const firstBlockSize = 500;
 
       const result = await this.tableManager.getDataPage(tableName, {
         filters: this.viewState.filters,
         sort: this.viewState.sort,
         searchTerm: this.viewState.searchTerm,
         offset: 0,
-        limit,
+        limit: firstBlockSize,
       });
 
       // Discard stale response if a newer request was issued
@@ -174,6 +178,31 @@ export abstract class BasePanel {
 
   protected async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
     await exportQueryResultToFile(headers, rows);
+  }
+
+  protected async handleFetchPage(requestId: number, offset: number, limit: number): Promise<void> {
+    const tableName = this.getActiveTableName();
+    if (!tableName) { return; }
+
+    try {
+      const result = await this.tableManager.getDataPage(tableName, {
+        filters: this.viewState.filters,
+        sort: this.viewState.sort,
+        searchTerm: this.viewState.searchTerm,
+        offset,
+        limit,
+      });
+
+      this.postMessage({
+        type: 'pageData',
+        requestId,
+        offset,
+        rows: result.rows,
+        rowids: result.rowids,
+      });
+    } catch (error: unknown) {
+      this.postError(error);
+    }
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
