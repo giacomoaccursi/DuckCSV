@@ -224,12 +224,24 @@ export function handleCopyShortcut(e) {
 }
 
 export function handleArrowNavigation(e) {
-  if (!selection) { return false; }
   if (e.target.tagName === 'INPUT') { return false; }
 
   const { key } = e;
   if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'Tab') {
     return false;
+  }
+
+  // If no selection, select the first visible cell
+  if (!selection) {
+    const scroller = getScroller();
+    const range = scroller ? scroller.getVisibleRange() : { start: 0 };
+    const firstRow = range.start >= 0 ? range.start : 0;
+    selection = { startRow: firstRow, startCol: 0, endRow: firstRow, endCol: 0 };
+    selectionMode = 'cell';
+    applyHighlights();
+    scrollCellIntoView(firstRow, 0);
+    e.preventDefault();
+    return true;
   }
 
   e.preventDefault();
