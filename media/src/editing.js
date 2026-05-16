@@ -77,6 +77,12 @@ function commitEdit() {
   td.dataset.fullText = newValue;
 
   if (newValue !== originalValue) {
+    // Update local state immediately so virtual scroller shows the new value
+    const rowIndex = parseInt(td.closest('tr')?.dataset.rowIndex, 10);
+    if (!isNaN(rowIndex) && state.rows[rowIndex]) {
+      state.rows[rowIndex][columnIndex] = newValue;
+    }
+
     td.classList.add('cell-modified');
     setTimeout(() => td.classList.remove('cell-modified'), 1500);
     sendMessage({ type: 'editCell', rowid, columnIndex, value: newValue });
