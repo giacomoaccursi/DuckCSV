@@ -11,7 +11,17 @@ export function initResize(e) {
   e.preventDefault();
   e.stopPropagation();
 
-  const th = e.target.parentElement;
+  let th = e.target.parentElement;
+
+  // If resize started from letter row, find the corresponding sortable-header below
+  if (th.classList.contains('column-select-cell')) {
+    const colIdx = th.dataset.columnIndex;
+    const headerRow = dom.tableHeader.querySelector('tr:last-child');
+    if (headerRow && colIdx !== undefined) {
+      th = headerRow.querySelector(`th[data-column-index="${colIdx}"]`) || th;
+    }
+  }
+
   const wrapper = document.querySelector('.table-wrapper');
 
   resizeState = {
@@ -43,6 +53,16 @@ function onMove(e) {
   const colIdx = th.dataset.columnIndex;
   if (colIdx !== undefined) {
     state.columnWidths[colIdx] = widthStr;
+
+    // Update letter row cell
+    const letterCell = dom.tableHeader.querySelector(`.column-select-row th[data-column-index="${colIdx}"]`);
+    if (letterCell) {
+      letterCell.style.width = widthStr;
+      letterCell.style.minWidth = widthStr;
+      letterCell.style.maxWidth = widthStr;
+    }
+
+    // Update body cells
     const cells = dom.tableBody.querySelectorAll(`td[data-column-index="${colIdx}"]`);
     cells.forEach(td => {
       td.style.width = widthStr;

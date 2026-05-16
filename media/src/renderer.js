@@ -37,6 +37,19 @@ export function renderHeader() {
     selTh.dataset.columnIndex = i;
     selTh.title = 'Click to select entire column';
     selTh.textContent = columnLetter(i);
+
+    // Match column width from header
+    if (state.columnWidths[i]) {
+      selTh.style.width = state.columnWidths[i];
+      selTh.style.minWidth = state.columnWidths[i];
+      selTh.style.maxWidth = state.columnWidths[i];
+    }
+
+    // Resize handle on letter row too
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle';
+    selTh.appendChild(resizeHandle);
+
     selRow.appendChild(selTh);
   });
 
