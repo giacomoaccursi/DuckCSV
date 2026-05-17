@@ -27,7 +27,7 @@ function handleExtensionMessage(message) {
     case 'dataPage': onDataPageReceived(message.data); break;
     case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
-    case 'cellEditConfirm': onCellEditConfirm(); break;
+    case 'cellEditConfirm': onCellEditConfirm(message.data); break;
     case 'queryResult': onQueryResult(message.data); break;
     case 'loading':
       if (message.loading) { showLoading(message.message); setSystemLoading(true); }

@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { updateStats } from './ui.js';
 import { getScroller } from './renderer.js';
+import { getDataWindow } from './data-page.js';
 
 let editingCell = null;
 let afterCommitFn = null;
@@ -46,9 +47,17 @@ export function isEditing() {
   return editingCell !== null;
 }
 
-export function onCellEditConfirm() {
+export function onCellEditConfirm(data) {
   state.isDirty = true;
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) { saveBtn.disabled = false; }
   updateStats();
+
+  // Update the DataWindow cache so scrolling away and back shows the new value
+  if (data) {
+    const dw = getDataWindow();
+    if (dw) { dw.updateCell(data.rowid, data.columnIndex, data.value); }
+  }
 }
 
 function handleKeydown(e) {

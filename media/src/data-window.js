@@ -139,6 +139,23 @@ export function createDataWindow(options) {
     pending.clear();
   }
 
+  /**
+   * Update a cell value in the cache by rowid.
+   * Scans cached blocks to find the row with the given rowid.
+   */
+  function updateCell(rowid, columnIndex, value) {
+    for (const block of cache.values()) {
+      const idx = block.rowids.indexOf(rowid);
+      if (idx !== -1) {
+        if (block.rows[idx]) {
+          block.rows[idx][columnIndex] = value;
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   // ─── Internal ────────────────────────────────────────────────────────────
 
   function requestBlock(blockIdx) {
@@ -179,6 +196,7 @@ export function createDataWindow(options) {
     prefetch,
     receiveBlock,
     seedInitialData,
+    updateCell,
     destroy,
   };
 }
