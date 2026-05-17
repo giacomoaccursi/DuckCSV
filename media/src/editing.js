@@ -48,11 +48,6 @@ export function isEditing() {
 }
 
 export function onCellEditConfirm(data) {
-  state.isDirty = true;
-  const saveBtn = document.getElementById('saveBtn');
-  if (saveBtn) { saveBtn.disabled = false; }
-  updateStats();
-
   // Update the DataWindow cache so scrolling away and back shows the new value
   if (data) {
     const dw = getDataWindow();
@@ -93,6 +88,12 @@ function commitEdit() {
     if (!isNaN(rowIndex) && state.rows[rowIndex]) {
       state.rows[rowIndex][columnIndex] = newValue;
     }
+
+    // Mark dirty immediately (don't wait for backend confirmation)
+    state.isDirty = true;
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) { saveBtn.disabled = false; }
+    updateStats();
 
     td.classList.add('cell-modified');
     setTimeout(() => td.classList.remove('cell-modified'), 1500);
