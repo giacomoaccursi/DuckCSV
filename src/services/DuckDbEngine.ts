@@ -66,6 +66,22 @@ export class DuckDbEngine implements vscode.Disposable {
     this.terminate();
   }
 
+  /**
+   * Clear DuckDB's file cache without restarting the worker.
+   * Much faster than cancel() for reloading files.
+   */
+  async dropFiles(): Promise<void> {
+    await this.ensureReady();
+    return new Promise<void>((resolve, reject) => {
+      const id = this.nextId++;
+      this.pending.set(id, {
+        resolve: (_r: QueryResponse) => resolve(),
+        reject,
+      });
+      this.worker!.postMessage({ type: 'dropFiles', id });
+    });
+  }
+
   // ─── Internal ──────────────────────────────────────────────────────────────
 
   private ensureReady(): Promise<void> {

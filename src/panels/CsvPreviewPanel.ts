@@ -25,6 +25,7 @@ export class CsvPreviewPanel extends BasePanel {
   private fileSize: number = 0;
   private totalRows: number = 0;
   private isDirty: boolean = false;
+  private lastMtime: number = 0;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export class CsvPreviewPanel extends BasePanel {
     const existing = CsvPreviewPanel.panels.get(key);
     if (existing) {
       existing.panel.reveal(column);
-      existing.reloadFromDisk();
+      existing.reloadIfChanged();
       return;
     }
 
@@ -198,6 +199,7 @@ export class CsvPreviewPanel extends BasePanel {
       const stat = await vscode.workspace.fs.stat(this.currentUri);
       this.fileSize = stat.size;
       this.fileName = basename(this.currentUri.fsPath);
+      this.lastMtime = stat.mtime;
 
       this.postMessage({ type: 'loading', loading: true, message: `Loading ${this.fileName} (${this.formatSize(this.fileSize)})...` });
 
@@ -281,13 +283,14 @@ export class CsvPreviewPanel extends BasePanel {
     this.panel.title = `● ${this.fileName}`;
   }
 
-  private resetState(): void {
-    this.viewState.reset();
-    this.isDirty = false;
-  }
-
-  private reloadFromDisk(): void {
-    this.resetState();
-    this.loadDocument();
+  private async reloadIfChanged(): Promise<void> {
+    try {
+      const stat = await vscode.workspace.fs.stat(this.currentUri);
+      if (stat.mtime !== this.lastMtime) {
+        this.viewState.reset();
+        this.isDirty = false;
+        await this.loadDocument();
+      }
+    } catch { /* file might not exist */ }
   }
 }

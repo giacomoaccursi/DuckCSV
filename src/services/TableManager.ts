@@ -53,9 +53,10 @@ export class TableManager {
     const filePath = uri.fsPath.replace(/'/g, "''");
 
     if (this.tables.has(tableName)) {
-      this.engine.cancel(); // Clear DuckDB file cache on reload
+      this.engine.cancel(); // Restart worker to clear DuckDB file cache
       this.viewTable = null;
       this.viewFingerprint = '';
+      this.viewTotalRows = 0;
     }
 
     await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
