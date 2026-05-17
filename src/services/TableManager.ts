@@ -192,22 +192,31 @@ export class TableManager {
     const quoted = this.q(tableName);
     const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
 
-    // Update the table
+    // Update the table, widening type if needed
+    let typeWidened = false;
     const needsTypeChange = await this.isTypeIncompatible(escapedValue, types[columnIndex], value);
     if (needsTypeChange) {
       await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+      typeWidened = true;
     }
     try {
       await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
     } catch {
       await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
       await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
+      typeWidened = true;
     }
 
-    await this.tryTightenColumnType(tableName, columnIndex, value);
+    // Update meta.columnTypes locally (no query needed)
     if (meta) {
-      meta.headers = await this.getHeaders(tableName);
-      meta.columnTypes = await this.getColumnTypes(tableName);
+      if (typeWidened) {
+        meta.columnTypes[columnIndex] = 'VARCHAR';
+      }
+      // Try to tighten back to original type
+      const tightened = await this.tryTightenColumnType(tableName, columnIndex, value);
+      if (tightened && meta.originalTypes[columnIndex]) {
+        meta.columnTypes[columnIndex] = meta.originalTypes[columnIndex];
+      }
     }
 
     // Update the view in-place (position unchanged)
@@ -421,15 +430,15 @@ export class TableManager {
    * - It was originally a different type (was widened during editing)
    * - The new value is compatible with the original type (there's a chance to tighten)
    */
-  private async tryTightenColumnType(tableName: string, columnIndex: number, newValue: string): Promise<void> {
+  private async tryTightenColumnType(tableName: string, columnIndex: number, newValue: string): Promise<boolean> {
     const meta = this.tables.get(tableName);
-    if (!meta) { return; }
+    if (!meta) { return false; }
 
     const currentType = meta.columnTypes[columnIndex];
-    if (currentType !== 'VARCHAR') { return; }
+    if (currentType !== 'VARCHAR') { return false; }
 
     const originalType = meta.originalTypes[columnIndex];
-    if (!originalType || originalType === 'VARCHAR') { return; } // Was always VARCHAR
+    if (!originalType || originalType === 'VARCHAR') { return false; }
 
     // Only try if the new value is compatible with the original type
     if (newValue !== '') {
@@ -438,8 +447,8 @@ export class TableManager {
         const check = await this.engine.query(
           `SELECT TRY_CAST('${escaped}' AS ${originalType}) IS NOT NULL as ok`
         );
-        if (check.rows[0][0] !== 'true') { return; } // New value isn't compatible, no point trying
-      } catch { return; }
+        if (check.rows[0][0] !== 'true') { return false; }
+      } catch { return false; }
     }
 
     // The new value is compatible — check if ALL values can go back to original type
@@ -451,8 +460,10 @@ export class TableManager {
       );
       if (check.rows[0][0] === 'true') {
         await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${originalType}`);
+        return true;
       }
-    } catch { /* can't tighten, that's fine */ }
+    } catch { /* can't tighten */ }
+    return false;
   }
 
   // ─── SQL Helpers ─────────────────────────────────────────────────────────
