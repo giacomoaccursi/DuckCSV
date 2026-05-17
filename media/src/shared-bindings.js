@@ -98,7 +98,7 @@ export function bindQueryBar(
  */
 export function bindHeaderInteractions(
   tableHeader,
-  { state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown }
+  { state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, openFilterDropdown }
 ) {
   let headerClickTimer = null;
 
@@ -125,12 +125,8 @@ export function bindHeaderInteractions(
       else if (state.sort.direction === 'desc') { newDirection = 'none'; }
     }
 
-    if (isQueryActive()) {
-      sortQueryResultsLocally(colIdx, newDirection);
-    } else {
-      isSorting = true;
-      sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
-    }
+    isSorting = true;
+    sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
   });
 
   tableHeader.addEventListener('mousedown', (e) => {

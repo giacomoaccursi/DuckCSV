@@ -16,7 +16,7 @@ import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showCont
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
+import { clearQuery, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode, selectCell } from './selection.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 
@@ -101,7 +101,7 @@ function bindEvents() {
   );
 
   const headerCtrl = bindHeaderInteractions(dom.tableHeader, {
-    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, isQueryActive, sortQueryResultsLocally, openFilterDropdown,
+    state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, openFilterDropdown,
   });
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip, onEnterCell: () => {
