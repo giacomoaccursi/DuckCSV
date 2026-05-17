@@ -116,6 +116,7 @@ export class QueryResultPanel extends BasePanel {
       filters: this.viewState.filters,
       searchTerm: this.viewState.searchTerm,
       isDirty: false,
+      isQueryResult: true,
     };
   }
 
