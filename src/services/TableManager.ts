@@ -190,8 +190,7 @@ export class TableManager {
   }
 
   /**
-   * Append a row to the materialized view without full rebuild.
-   * Used after INSERT to avoid expensive recreation.
+   * Append a row to the materialized view at the end.
    */
   private async appendToView(newRowid: number, tableName: string): Promise<void> {
     if (!this.viewTable || !this.viewFingerprint) { return; }
@@ -208,6 +207,35 @@ export class TableManager {
     // Insert the new row into the view
     await this.engine.query(
       `INSERT INTO ${viewQuoted} SELECT ${nextPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${quoted} WHERE rowid = ${newRowid}`
+    );
+  }
+
+  /**
+   * Insert a row into the materialized view at a specific position (above/below a target rowid).
+   * Uses fractional __pos so ORDER BY __pos places it correctly.
+   */
+  private async insertIntoView(newRowid: number, targetRowid: number, position: 'above' | 'below', tableName: string): Promise<void> {
+    if (!this.viewTable || !this.viewFingerprint) { return; }
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+    const quoted = this.quoteIdentifier(tableName);
+    const viewQuoted = this.quoteIdentifier(this.viewTable);
+
+    // Find the __pos of the target row
+    const posResult = await this.engine.query(`SELECT __pos FROM ${viewQuoted} WHERE __rid = ${targetRowid}`);
+    if (posResult.rows.length === 0) {
+      // Target not in view, fall back to append
+      await this.appendToView(newRowid, tableName);
+      return;
+    }
+    const targetPos = Number(posResult.rows[0][0]);
+
+    // Calculate a fractional __pos: above = targetPos - 0.5, below = targetPos + 0.5
+    const newPos = position === 'above' ? targetPos - 0.5 : targetPos + 0.5;
+
+    await this.engine.query(
+      `INSERT INTO ${viewQuoted} SELECT ${newPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${quoted} WHERE rowid = ${newRowid}`
     );
   }
 
@@ -375,16 +403,14 @@ export class TableManager {
     return newRowid;
   }
 
-  async addRowAt(tableName: string, _rowid: number, _position: 'above' | 'below'): Promise<number> {
-    // Simple INSERT — row goes to end of table, view handles display order
+  async addRowAt(tableName: string, targetRowid: number, position: 'above' | 'below'): Promise<number> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const nulls = headers.map(() => "NULL").join(', ');
     await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
     const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
     const newRowid = Number(result.rows[0][0]);
-    // Invalidate view — position-sensitive insert requires rebuild for correct ordering
-    this.invalidateView();
+    await this.insertIntoView(newRowid, targetRowid, position, tableName);
     return newRowid;
   }
 
