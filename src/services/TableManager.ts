@@ -189,6 +189,39 @@ export class TableManager {
     this.viewFingerprint = '';
   }
 
+  /**
+   * Append a row to the materialized view without full rebuild.
+   * Used after INSERT to avoid expensive recreation.
+   */
+  private async appendToView(newRowid: number, tableName: string): Promise<void> {
+    if (!this.viewTable || !this.viewFingerprint) { return; }
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+    const quoted = this.quoteIdentifier(tableName);
+    const viewQuoted = this.quoteIdentifier(this.viewTable);
+
+    // Get current max __pos
+    const maxResult = await this.engine.query(`SELECT COALESCE(MAX(__pos), -1) FROM ${viewQuoted}`);
+    const nextPos = Number(maxResult.rows[0][0]) + 1;
+
+    // Insert the new row into the view
+    await this.engine.query(
+      `INSERT INTO ${viewQuoted} SELECT ${nextPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${quoted} WHERE rowid = ${newRowid}`
+    );
+  }
+
+  /**
+   * Remove a row from the materialized view without full rebuild.
+   * Used after DELETE to avoid expensive recreation.
+   * Note: __pos values will have a gap, but WHERE __pos >= X still works correctly.
+   */
+  private async removeFromView(rowid: number): Promise<void> {
+    if (!this.viewTable || !this.viewFingerprint) { return; }
+    const viewQuoted = this.quoteIdentifier(this.viewTable);
+    await this.engine.query(`DELETE FROM ${viewQuoted} WHERE __rid = ${rowid}`);
+  }
+
   async getDataPage(
     tableName: string,
     params: {
@@ -212,7 +245,7 @@ export class TableManager {
     const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
 
     const result = await this.engine.query(
-      `SELECT __rid, ${columns} FROM ${viewQuoted} WHERE __pos >= ${params.offset} AND __pos < ${params.offset + params.limit}`
+      `SELECT __rid, ${columns} FROM ${viewQuoted} ORDER BY __pos LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
     if (result.rows.length === 0) {
@@ -271,7 +304,19 @@ export class TableManager {
       meta.columnTypes = await this.getColumnTypes(tableName);
     }
 
-    this.invalidateView();
+    // Update the view in-place (cell value changed, position unchanged)
+    if (this.viewTable && this.viewFingerprint) {
+      const headers = meta ? meta.headers : await this.getHeaders(tableName);
+      const colName = this.quoteIdentifier(headers[columnIndex]);
+      const viewQuoted = this.quoteIdentifier(this.viewTable);
+      const escapedVal = value.replace(/'/g, "''");
+      try {
+        await this.engine.query(`UPDATE ${viewQuoted} SET ${colName} = '${escapedVal}' WHERE __rid = ${rowid}`);
+      } catch {
+        // If view update fails (e.g. type mismatch), invalidate for rebuild
+        this.invalidateView();
+      }
+    }
   }
 
   private async isTypeIncompatible(escapedValue: string, currentType: string, rawValue: string): Promise<boolean> {
@@ -318,55 +363,34 @@ export class TableManager {
     }
   }
 
-  async addRow(tableName: string): Promise<void> {
+  async addRow(tableName: string): Promise<number> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const nulls = headers.map(() => "NULL").join(', ');
     await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
-    this.invalidateView();
+    // Get the rowid of the newly inserted row
+    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
+    const newRowid = Number(result.rows[0][0]);
+    await this.appendToView(newRowid, tableName);
+    return newRowid;
   }
 
-  async addRowAt(tableName: string, rowid: number, position: 'above' | 'below'): Promise<void> {
-    const quoted = this.quoteIdentifier(tableName);
+  async addRowAt(tableName: string, _rowid: number, _position: 'above' | 'below'): Promise<number> {
+    // Simple INSERT — row goes to end of table, view handles display order
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
     const nulls = headers.map(() => "NULL").join(', ');
-
-    // Create a temp table with all rows, inserting the new row at the right position
-    const tempName = `__temp_insert_${Date.now()}`;
-    const tempQuoted = this.quoteIdentifier(tempName);
-
-    if (position === 'above') {
-      // Insert new row before the target rowid
-      await this.engine.query(`CREATE TABLE ${tempQuoted} AS 
-        SELECT ${cols} FROM (
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${rowid}
-          UNION ALL
-          SELECT ${nulls}, -1 as __rid
-          UNION ALL
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${rowid}
-        ) ORDER BY CASE WHEN __rid = -1 THEN ${rowid} - 0.5 ELSE __rid END`);
-    } else {
-      // Insert new row after the target rowid
-      await this.engine.query(`CREATE TABLE ${tempQuoted} AS 
-        SELECT ${cols} FROM (
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid <= ${rowid}
-          UNION ALL
-          SELECT ${nulls}, -1 as __rid
-          UNION ALL
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid > ${rowid}
-        ) ORDER BY CASE WHEN __rid = -1 THEN ${rowid} + 0.5 ELSE __rid END`);
-    }
-
-    await this.engine.query(`DROP TABLE ${quoted}`);
-    await this.engine.query(`ALTER TABLE ${tempQuoted} RENAME TO ${quoted}`);
+    await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
+    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
+    const newRowid = Number(result.rows[0][0]);
+    // Invalidate view — position-sensitive insert requires rebuild for correct ordering
     this.invalidateView();
+    return newRowid;
   }
 
   async deleteRow(tableName: string, rowid: number): Promise<void> {
     await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid = ${rowid}`);
-    this.invalidateView();
+    await this.removeFromView(rowid);
   }
 
   async deleteRows(tableName: string, rowids: number[]): Promise<void> {
@@ -376,7 +400,11 @@ export class TableManager {
     }
     const idList = rowids.join(', ');
     await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid IN (${idList})`);
-    this.invalidateView();
+    // Remove from view incrementally
+    if (this.viewTable && this.viewFingerprint) {
+      const viewQuoted = this.quoteIdentifier(this.viewTable);
+      await this.engine.query(`DELETE FROM ${viewQuoted} WHERE __rid IN (${idList})`);
+    }
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────
