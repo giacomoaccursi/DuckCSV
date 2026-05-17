@@ -50,7 +50,7 @@ export class QueryResultPanel extends BasePanel {
         ? QueryResultPanel.normalizeSql(sql, defaultTable)
         : sql.trim();
 
-      await engine.query(`CREATE TEMP TABLE "${tableName}" AS ${normalizedSql}`);
+      await engine.query(`CREATE TABLE "${tableName}" AS ${normalizedSql}`);
     } catch (err: unknown) {
       panel.webview.html = QueryResultPanel.buildErrorHtml(panel.webview, extensionUri, sql, err);
       return;
