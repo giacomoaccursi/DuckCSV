@@ -249,9 +249,11 @@ function renderItems() {
 
     const unquoted = item.replace(/^"|"$/g, '');
     if (state.originalHeaders.includes(item) || state.originalHeaders.includes(unquoted)) {
+      const isTable = (state.tableName && item === state.tableName) ||
+                      (state.tableNames && state.tableNames.includes(item));
       const badge = document.createElement('span');
       badge.className = 'ac-badge';
-      badge.textContent = 'column';
+      badge.textContent = isTable ? 'table' : 'column';
       div.appendChild(badge);
     }
 

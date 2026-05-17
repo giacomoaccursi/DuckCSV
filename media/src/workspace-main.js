@@ -53,7 +53,9 @@ function onTableListReceived(tables) {
 
   // Update autocomplete with all table columns
   const allHeaders = [];
+  const tableNames = [];
   tables.forEach(t => {
+    tableNames.push(t.name);
     t.headers.forEach(h => {
       allHeaders.push(h);
       allHeaders.push(`${t.name}.${h}`);
@@ -61,6 +63,7 @@ function onTableListReceived(tables) {
     allHeaders.push(t.name);
   });
   state.originalHeaders = allHeaders;
+  state.tableNames = tableNames;
 
   if (tables.length === 0) {
     toggle(dom.tableContainer, false);
