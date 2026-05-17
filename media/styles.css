@@ -848,6 +848,16 @@ body.selecting {
     100% { background-color: transparent; }
 }
 
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spinner-stop .spinner-ring {
+    animation: spin 0.8s linear infinite;
+    transform-origin: 8px 8px;
+}
+
 /* Search highlight in cells */
 .search-match {
     background-color: var(--vscode-editor-findMatchBackground);

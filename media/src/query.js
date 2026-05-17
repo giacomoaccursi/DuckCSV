@@ -58,9 +58,9 @@ export function setQueryRunning(running) {
 
   if (running) {
     if (runBtn) {
-      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><rect fill="currentColor" x="4" y="4" width="8" height="8"/></svg>';
+      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" class="spinner-stop"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="20 20" class="spinner-ring"/><rect fill="currentColor" x="5.5" y="5.5" width="5" height="5"/></svg>';
       runBtn.title = 'Stop query';
-      runBtn.disabled = false; // stop button must stay clickable
+      runBtn.disabled = false;
     }
     if (queryInput) { queryInput.disabled = true; }
   } else {
