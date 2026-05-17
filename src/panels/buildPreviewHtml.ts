@@ -24,7 +24,10 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
         </button>
         <button id="colorBtn" class="btn" data-tooltip="Toggle column colors for better readability">
           <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M8 1C4.1 1 1 4.1 1 8s3.1 7 7 7 7-3.1 7-7-3.1-7-7-7zm0 1c1.2 0 2.3.4 3.2 1H8V3h-.5V2.02c.2-.01.3-.02.5-.02zM4.8 3h2.7v3H2.3A5.97 5.97 0 0 1 4.8 3zM2 8c0-.4 0-.7.1-1h5.4v2H2.1C2 8.7 2 8.4 2 8zm2.8 5A5.97 5.97 0 0 1 2.3 10h5.2v3H4.8zm3.7 0V10h5.2a5.97 5.97 0 0 1-2.5 3H8.5zm5.4-4H8.5V6h5.4c.1.3.1.6.1 1s0 .7-.1 1z"/>
+            <rect fill="#e06c75" x="1" y="2" width="3" height="12" rx="0.5"/>
+            <rect fill="#e5c07b" x="5" y="2" width="3" height="12" rx="0.5"/>
+            <rect fill="#61afef" x="9" y="2" width="3" height="12" rx="0.5"/>
+            <rect fill="#98c379" x="13" y="2" width="2" height="12" rx="0.5"/>
           </svg>
         </button>
         <input type="text" id="searchInput" class="search-input" placeholder="Search..." />
