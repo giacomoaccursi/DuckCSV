@@ -118,10 +118,12 @@ export class TableManager {
 
   private viewTable: string | null = null;
   private viewFingerprint: string = '';
+  private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
 
   /**
    * Create or reuse a materialized view (temp table with __pos column)
    * for fast positional access. Only recreated when sort/filter changes.
+   * Serialized: concurrent calls wait for the same build to finish.
    */
   private async ensureMaterializedView(
     tableName: string,
@@ -131,13 +133,34 @@ export class TableManager {
   ): Promise<{ viewName: string; totalRows: number }> {
     const fingerprint = `${tableName}|${whereStr}|${orderClause}`;
 
+    // If view is already valid, return immediately
     if (this.viewTable && this.viewFingerprint === fingerprint) {
-      // View is still valid — get count from it
       const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.quoteIdentifier(this.viewTable)}`);
       const totalRows = Number(countResult.rows[0][0]);
       return { viewName: this.viewTable, totalRows };
     }
 
+    // If a build is already in progress, wait for it
+    if (this.viewBuildPromise) {
+      return this.viewBuildPromise;
+    }
+
+    // Start building — store the promise so concurrent callers can await it
+    this.viewBuildPromise = this.buildMaterializedView(tableName, headers, whereStr, orderClause, fingerprint);
+    try {
+      return await this.viewBuildPromise;
+    } finally {
+      this.viewBuildPromise = null;
+    }
+  }
+
+  private async buildMaterializedView(
+    tableName: string,
+    headers: string[],
+    whereStr: string,
+    orderClause: string,
+    fingerprint: string
+  ): Promise<{ viewName: string; totalRows: number }> {
     // Drop old view
     if (this.viewTable) {
       await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(this.viewTable)}`);
