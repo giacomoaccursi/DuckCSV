@@ -185,15 +185,24 @@ export abstract class BasePanel {
 
     // Inline: execute into temp table with __orig_rid for edit mapping
     const tempName = `__inline_qr_${Date.now()}`;
+    const normalizedSql = this.queryExecutor.normalizeSql(sql, tableName || '');
+
+    // Try to inject rowid into the SELECT for edit support
+    const withRowid = normalizedSql.replace(/^SELECT\s/i, 'SELECT rowid as __orig_rid, ');
+    let hasOrigRid = false;
+
     try {
-      const normalizedSql = this.queryExecutor.normalizeSql(sql, tableName || '');
-      // Wrap to include original rowid for editing support
-      await this.queryExecutor.getEngine().query(
-        `CREATE TEMP TABLE "${tempName}" AS SELECT rowid as __orig_rid, __sub.* FROM (${normalizedSql}) __sub`
-      );
-    } catch (err: unknown) {
-      this.postError(err);
-      return;
+      await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${withRowid}`);
+      hasOrigRid = true;
+    } catch {
+      // Fallback: rowid injection failed (e.g. aggregation, JOIN). Create without it.
+      try {
+        await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${tempName}"`);
+        await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${normalizedSql}`);
+      } catch (err: unknown) {
+        this.postError(err);
+        return;
+      }
     }
 
     // Get schema + count (exclude __orig_rid from visible headers)
@@ -217,7 +226,7 @@ export abstract class BasePanel {
       columnTypes: schemaResult.rows.map(r => r[1]),
       originalTypes: schemaResult.rows.map(r => r[1]),
       rowCount: Number(countResult.rows[0][0]),
-      useOrigRid: true,
+      useOrigRid: hasOrigRid,
     });
 
     this.viewState.reset();
