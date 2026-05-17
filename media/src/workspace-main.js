@@ -41,7 +41,6 @@ function handleExtensionMessage(message) {
 
 function onDataPageReceived(data) {
   applyDataPage(data, { setOriginalHeaders: false, trackDirty: false });
-  hideEmptyState();
 }
 
 function onTableListReceived(tables) {
@@ -64,19 +63,8 @@ function onTableListReceived(tables) {
   state.originalHeaders = allHeaders;
 
   if (tables.length === 0) {
-    showEmptyState();
-  } else {
-    hideEmptyState();
+    toggle(dom.tableContainer, false);
   }
-}
-
-function showEmptyState() {
-  toggle(document.getElementById('emptyState'), true);
-  toggle(dom.tableContainer, false);
-}
-
-function hideEmptyState() {
-  toggle(document.getElementById('emptyState'), false);
 }
 
 // ─── Event Binding ───────────────────────────────────────────────────────────
@@ -98,13 +86,9 @@ function bindEvents() {
 
   // Workspace-specific: add table buttons
   const addTableBtn = document.getElementById('addTableBtn');
-  const emptyAddBtn = document.getElementById('emptyAddBtn');
 
   if (addTableBtn) {
     addTableBtn.addEventListener('click', () => sendMessage({ type: 'addTable', filePath: '' }));
-  }
-  if (emptyAddBtn) {
-    emptyAddBtn.addEventListener('click', () => sendMessage({ type: 'addTable', filePath: '' }));
   }
 
   // Workspace-specific: table dropdown

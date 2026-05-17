@@ -32,12 +32,6 @@ export function buildWorkspaceHtml(webview: vscode.Webview, extensionUri: vscode
       <span class="tables-bar-label">Tables:</span>
       <div id="tablesBarList" class="tables-bar-list"></div>
     </div>
-
-    <div id="emptyState" class="empty-state">
-      <div class="empty-state-icon">📋</div>
-      <div class="empty-state-text">Add CSV files to start</div>
-      <button id="emptyAddBtn" class="btn btn-primary">+ Add Table</button>
-    </div>
 `;
 
   return buildHtmlShell({
