@@ -10,7 +10,7 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
-import { renderHeader, renderRows } from './renderer.js';
+import { renderHeader, renderRows, getScroller } from './renderer.js';
 import { applyDataPage, onPageDataReceived, getDataWindow } from './data-page.js';
 import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu, updateStats } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
@@ -58,16 +58,22 @@ function onRowMutation(data) {
   const saveBtn = document.getElementById('saveBtn');
   if (saveBtn) { saveBtn.disabled = false; }
 
-  // Invalidate DataWindow cache — positional data has changed
+  // Invalidate DataWindow cache and update total.
+  // The backend view is already updated incrementally, so re-fetches will be fast.
   const dw = getDataWindow();
   if (dw) {
     dw.setTotalRows(data.totalRows);
     dw.invalidate();
   }
 
-  // Re-render with new total (virtual scroller will fetch fresh blocks)
+  // Update virtual scroller with new total — this triggers re-render and fresh fetches
   updateStats();
-  renderRows();
+  const scroller = getScroller();
+  if (scroller) {
+    scroller.update(data.totalRows);
+  } else {
+    renderRows();
+  }
 }
 // ─── Column Coloring Toggle ──────────────────────────────────────────────────
 
