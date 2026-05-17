@@ -170,6 +170,8 @@ export abstract class BasePanel {
     const payload = { ...result, sql };
 
     if (mode === 'inline') {
+      // Reset filters/sort/search — query overrides everything
+      this.viewState.reset();
       this.postMessage({ type: 'queryResult', data: payload });
     } else {
       openQueryResultPanel(this.extensionUri, payload);

@@ -70,7 +70,6 @@ export function setQueryRunning(running) {
 export function onQueryResult(data) {
   setQueryRunning(false);
 
-  // If error and no rows, it's a real error (syntax, missing table, etc.)
   if (data.error && !data.rows.length) {
     showQueryError(data.error);
     return;
@@ -80,6 +79,11 @@ export function onQueryResult(data) {
   queryActive = true;
   toggle(dom.queryClearBtn, true);
   toggle(document.getElementById('queryExportBtn'), true);
+
+  // Clear all filters, sort, and search
+  state.filters = {};
+  state.searchTerm = '';
+  state.sort = { columnIndex: -1, direction: 'none' };
 
   state.headers = data.headers;
   state.rows = data.rows;
