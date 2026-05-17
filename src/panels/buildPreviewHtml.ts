@@ -10,16 +10,19 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
   const toolbarHtml = /* html */ `
     <div class="toolbar">
       <div class="toolbar-left">
-        <button id="saveBtn" class="btn" data-tooltip="Save to original file">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M13.3 1.3L14.7 2.7 14.7 14 2 14 2 2 12.3 2zM13 3H12V6H5V3H3V13H13zM8 3v2h3V3z"/>
+        <button id="saveBtn" class="btn" data-tooltip="Save to original file (Cmd+S)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
           </svg>
         </button>
-        <button id="saveAsBtn" class="btn" data-tooltip="Save to a different file">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M13.3 1.3L14.7 2.7 14.7 14 2 14 2 2 12.3 2zM13 3H12V6H5V3H3V13H13zM8 3v2h3V3z"/>
-            <circle fill="currentColor" cx="12" cy="12" r="3"/>
-            <path fill="var(--bg-primary)" d="M11.2 11.8h1.6v-1.2h.4v1.2h1.6v.4h-1.6v1.2h-.4v-1.2h-1.6z"/>
+        <button id="saveAsBtn" class="btn" data-tooltip="Save to a different file (Cmd+Shift+S)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v4"/>
+            <polyline points="7 3 7 8 15 8"/>
+            <path d="M17 18l3 3 3-3"/>
+            <line x1="20" y1="14" x2="20" y2="21"/>
           </svg>
         </button>
         <button id="colorBtn" class="btn" data-tooltip="Toggle column colors for better readability">
