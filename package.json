@@ -42,20 +42,17 @@
         "commands": [
             {
                 "command": "duckcsv.preview",
-                "title": "Open CSV Preview",
-                "category": "CSV",
+                "title": "DuckCSV: Open Preview",
                 "icon": "$(open-preview)"
             },
             {
                 "command": "duckcsv.previewToSide",
-                "title": "Open CSV Preview to the Side",
-                "category": "CSV",
+                "title": "DuckCSV: Open Preview to the Side",
                 "icon": "$(open-preview)"
             },
             {
                 "command": "duckcsv.workspace",
-                "title": "Open Workspace",
-                "category": "CSV",
+                "title": "DuckCSV: Open Workspace",
                 "icon": "$(multiple-windows)"
             }
         ],
