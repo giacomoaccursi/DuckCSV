@@ -110,6 +110,11 @@ export class TableManager {
     this.tables.set(meta.name, meta);
   }
 
+  /** Remove a table from the registry without dropping it from DuckDB. */
+  unregisterTable(name: string): void {
+    this.tables.delete(name);
+  }
+
   // ─── Schema Queries ──────────────────────────────────────────────────────
 
   async getHeaders(tableName: string): Promise<string[]> {

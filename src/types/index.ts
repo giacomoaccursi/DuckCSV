@@ -39,6 +39,7 @@ export interface DataPagePayload {
   filters: ColumnFilters;
   searchTerm: string;
   isDirty: boolean;
+  isQueryResult?: boolean;
 }
 
 export interface ColumnValuesPayload {

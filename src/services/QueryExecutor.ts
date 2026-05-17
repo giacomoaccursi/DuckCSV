@@ -55,7 +55,7 @@ export class QueryExecutor {
     }
   }
 
-  private normalizeSql(sql: string, defaultTable: string): string {
+  normalizeSql(sql: string, defaultTable: string): string {
     const trimmed = sql.trim();
     const quotedTable = `"${defaultTable.replace(/"/g, '""')}"`;
 

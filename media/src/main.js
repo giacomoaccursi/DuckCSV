@@ -16,7 +16,7 @@ import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showCont
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { onQueryResult, clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, sortQueryResultsLocally, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode, selectCell } from './selection.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 
@@ -29,7 +29,6 @@ function handleExtensionMessage(message) {
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(message.data); break;
     case 'rowMutation': onRowMutation(message.data); break;
-    case 'queryResult': onQueryResult(message.data); break;
     case 'loading':
       if (message.loading) { showLoading(message.message); setSystemLoading(true); }
       else { hideLoading(); setSystemLoading(false); }

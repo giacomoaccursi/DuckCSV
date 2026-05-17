@@ -7,7 +7,7 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { renderHeader, renderRows, getScroller } from './renderer.js';
 import { updateStats, showTable } from './ui.js';
-import { resetQueryState } from './query.js';
+import { resetQueryState, setQueryActive } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
 import { createDataWindow } from './data-window.js';
 import { sendMessage } from './messaging.js';
@@ -32,6 +32,7 @@ export function onPageDataReceived(data) {
  */
 export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = true } = {}) {
   resetQueryState();
+  if (data.isQueryResult) { setQueryActive(true); }
   clearSortingLock();
 
   state.headers = data.headers;

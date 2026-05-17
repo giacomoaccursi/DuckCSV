@@ -17,6 +17,11 @@ let queryRunning = false;
 
 export function isQueryActive() { return queryActive; }
 export function isQueryRunning() { return queryRunning; }
+export function setQueryActive(active) {
+  queryActive = active;
+  toggle(dom.queryClearBtn, active);
+  toggle(document.getElementById('queryExportBtn'), active);
+}
 
 let systemLoading = false;
 

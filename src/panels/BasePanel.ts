@@ -26,6 +26,7 @@ export abstract class BasePanel {
   protected readonly disposables: vscode.Disposable[] = [];
   protected readonly viewState = new ViewState();
   protected pageRequestId: number = 0;
+  private inlineQueryTable: string | null = null;
 
   constructor(
     panel: vscode.WebviewPanel,
@@ -99,7 +100,7 @@ export abstract class BasePanel {
         return this.handleExportQueryResult(message.headers, message.rows);
 
       case 'clearQuery':
-        return this.sendCurrentPage();
+        return this.handleClearQuery();
 
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(message.text);
@@ -115,8 +116,13 @@ export abstract class BasePanel {
 
   // ─── Shared Data Flow ────────────────────────────────────────────────────
 
+  /** The effective table: inline query table if active, otherwise the panel's table. */
+  private getEffectiveTable(): string {
+    return this.inlineQueryTable || this.getActiveTableName();
+  }
+
   protected async sendCurrentPage(): Promise<void> {
-    const tableName = this.getActiveTableName();
+    const tableName = this.getEffectiveTable();
     if (!tableName) { return; }
 
     const requestId = ++this.pageRequestId;
@@ -140,6 +146,7 @@ export abstract class BasePanel {
       if (!meta) { return; }
 
       const payload = this.buildPayload(result, meta);
+      payload.isQueryResult = !!this.inlineQueryTable;
       this.postMessage({ type: 'dataPage', data: payload });
     } catch (error: unknown) {
       this.postError(error);
@@ -149,7 +156,7 @@ export abstract class BasePanel {
   // ─── Common Handlers ─────────────────────────────────────────────────────
 
   protected async handleGetColumnValues(columnIndex: number): Promise<void> {
-    const tableName = this.getActiveTableName();
+    const tableName = this.getEffectiveTable();
     if (!tableName) { return; }
 
     try {
@@ -168,26 +175,66 @@ export abstract class BasePanel {
   protected async handleQuery(sql: string, mode: 'inline' | 'side'): Promise<void> {
     const tableName = this.getActiveTableName();
 
-    if (mode === 'inline') {
-      const result = await this.queryExecutor.execute(sql, tableName || undefined);
-      const payload = { ...result, sql };
-      this.viewState.reset();
-      this.postMessage({ type: 'queryResult', data: payload });
-    } else {
-      // Lazy import to avoid circular dependency
+    if (mode === 'side') {
       const { QueryResultPanel } = await import('./QueryResultPanel');
       await QueryResultPanel.open(
         this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, tableName || undefined
       );
+      return;
     }
+
+    // Inline: execute into temp table, serve paginated via normal dataPage flow
+    const tempName = `__inline_qr_${Date.now()}`;
+    try {
+      const normalizedSql = this.queryExecutor.normalizeSql(sql, tableName || '');
+      await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${normalizedSql}`);
+    } catch (err: unknown) {
+      this.postError(err);
+      return;
+    }
+
+    // Get schema + count
+    const engine = this.queryExecutor.getEngine();
+    const schemaResult = await engine.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tempName}' ORDER BY ordinal_position`
+    );
+    const countResult = await engine.query(`SELECT COUNT(*) FROM "${tempName}"`);
+
+    // Drop previous inline query table
+    if (this.inlineQueryTable) {
+      await engine.query(`DROP TABLE IF EXISTS "${this.inlineQueryTable}"`);
+      this.tableManager.unregisterTable(this.inlineQueryTable);
+    }
+
+    // Register temp table
+    this.inlineQueryTable = tempName;
+    this.tableManager.registerTable({
+      name: tempName, filePath: '', delimiter: 'Comma', delimiterChar: ',',
+      headers: schemaResult.rows.map(r => r[0]),
+      columnTypes: schemaResult.rows.map(r => r[1]),
+      originalTypes: schemaResult.rows.map(r => r[1]),
+      rowCount: Number(countResult.rows[0][0]),
+    });
+
+    this.viewState.reset();
+    await this.sendCurrentPage();
   }
 
   protected async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
     await exportQueryResultToFile(headers, rows);
   }
 
+  private async handleClearQuery(): Promise<void> {
+    if (this.inlineQueryTable) {
+      await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${this.inlineQueryTable}"`);
+      this.tableManager.unregisterTable(this.inlineQueryTable);
+      this.inlineQueryTable = null;
+    }
+    await this.sendCurrentPage();
+  }
+
   protected async handleFetchPage(requestId: number, offset: number, limit: number): Promise<void> {
-    const tableName = this.getActiveTableName();
+    const tableName = this.getEffectiveTable();
     if (!tableName) { return; }
 
     try {
