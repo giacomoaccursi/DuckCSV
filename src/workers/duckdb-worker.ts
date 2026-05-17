@@ -45,12 +45,7 @@ interface RegisterFileRequest {
   content: string;
 }
 
-interface DropFilesRequest {
-  id: number;
-  type: 'dropFiles';
-}
-
-type WorkerMessage = QueryRequest | InitRequest | RegisterFileRequest | DropFilesRequest;
+type WorkerMessage = QueryRequest | InitRequest | RegisterFileRequest;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -72,10 +67,6 @@ parentPort?.on('message', async (msg: WorkerMessage) => {
 
     case 'registerFile':
       registerFile(msg);
-      break;
-
-    case 'dropFiles':
-      dropFiles(msg);
       break;
   }
 });
@@ -174,17 +165,6 @@ function registerFile(msg: RegisterFileRequest): void {
     parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0 });
   } catch (err: unknown) {
     const error = err instanceof Error ? err.message : 'Failed to register file';
-    parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0, error });
-  }
-}
-
-function dropFiles(msg: DropFilesRequest): void {
-  const { id } = msg;
-  try {
-    db.dropFiles();
-    parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0 });
-  } catch (err: unknown) {
-    const error = err instanceof Error ? err.message : 'Failed to drop files';
     parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0, error });
   }
 }
