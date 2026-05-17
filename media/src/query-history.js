@@ -23,12 +23,15 @@ export function getHistory() {
   return history;
 }
 
+let anchorElement = null;
+
 export function openHistoryDropdown(anchorEl, onSelect) {
   if (dropdown) {
     closeHistoryDropdown();
     return;
   }
   if (history.length === 0) { return; }
+  anchorElement = anchorEl;
   renderDropdown(anchorEl, onSelect);
 }
 
@@ -119,7 +122,7 @@ export function closeHistoryDropdown() {
 }
 
 function outsideClickHandler(e) {
-  if (dropdown && !dropdown.contains(e.target)) {
+  if (dropdown && !dropdown.contains(e.target) && anchorElement && !anchorElement.contains(e.target)) {
     closeHistoryDropdown();
   }
 }
