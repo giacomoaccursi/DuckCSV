@@ -205,7 +205,9 @@ export class CsvPreviewPanel extends BasePanel {
 
       this.postMessage({ type: 'loading', loading: true, message: `Loading ${this.fileName} (${this.formatSize(this.fileSize)})...` });
 
-      const meta = await this.tableManager.loadTable(this.currentUri);
+      let tableName = this.fileName.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      if (/^\d/.test(tableName)) { tableName = '_' + tableName; }
+      const meta = await this.tableManager.loadTable(this.currentUri, tableName);
       this.tableName = meta.name;
       this.totalRows = meta.rowCount;
 
