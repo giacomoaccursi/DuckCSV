@@ -233,6 +233,14 @@ export abstract class BasePanel {
     await this.sendCurrentPage();
   }
 
+  /** Reset inline query state (call after engine cancel/restart). */
+  protected clearInlineQuery(): void {
+    if (this.inlineQueryTable) {
+      this.tableManager.unregisterTable(this.inlineQueryTable);
+      this.inlineQueryTable = null;
+    }
+  }
+
   protected async handleFetchPage(requestId: number, offset: number, limit: number): Promise<void> {
     const tableName = this.getEffectiveTable();
     if (!tableName) { return; }

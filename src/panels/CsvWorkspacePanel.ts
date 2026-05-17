@@ -108,6 +108,7 @@ export class CsvWorkspacePanel extends BasePanel {
 
       case 'cancelQuery':
         this.queryExecutor.cancel();
+        this.clearInlineQuery();
         if (this.activeTable) {
           this.postMessage({ type: 'loading', loading: true });
           try {

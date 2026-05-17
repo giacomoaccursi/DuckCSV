@@ -134,6 +134,7 @@ export class CsvPreviewPanel extends BasePanel {
         return true;
       case 'cancelQuery':
         this.queryExecutor.cancel();
+        this.clearInlineQuery();
         await this.loadDocument();
         return true;
       case 'openWorkspace':

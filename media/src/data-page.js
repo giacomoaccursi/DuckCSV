@@ -32,7 +32,12 @@ export function onPageDataReceived(data) {
  */
 export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = true } = {}) {
   resetQueryState();
-  if (data.isQueryResult) { setQueryActive(true); }
+  if (data.isQueryResult) {
+    setQueryActive(true);
+    document.body.dataset.readonly = 'true';
+  } else {
+    delete document.body.dataset.readonly;
+  }
   clearSortingLock();
 
   state.headers = data.headers;
