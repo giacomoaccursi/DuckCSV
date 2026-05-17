@@ -176,11 +176,11 @@ function bindEvents() {
         const minRow = Math.min(sel.startRow, sel.endRow);
         const maxRow = Math.max(sel.startRow, sel.endRow);
 
+        const dw = getDataWindow();
         const rowids = [];
         for (let r = minRow; r <= maxRow; r++) {
-          if (state.rowids[r] !== undefined) {
-            rowids.push(state.rowids[r]);
-          }
+          const rid = dw ? dw.getRowid(r) : (state.rowids[r] ?? -1);
+          if (rid >= 0) { rowids.push(rid); }
         }
 
         if (rowids.length > 1) {
