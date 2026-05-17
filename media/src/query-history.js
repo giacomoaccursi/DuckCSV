@@ -80,11 +80,12 @@ export function openHistoryDropdown(anchorEl, onSelect) {
   });
   dropdown.appendChild(clearBtn);
 
-  // Position below anchor
+  // Position below anchor, ensure it stays within viewport
   const rect = anchorEl.getBoundingClientRect();
   dropdown.style.top = rect.bottom + 'px';
   dropdown.style.left = rect.left + 'px';
   dropdown.style.minWidth = '300px';
+  dropdown.style.maxWidth = `${window.innerWidth - rect.left - 10}px`;
 
   document.body.appendChild(dropdown);
 
