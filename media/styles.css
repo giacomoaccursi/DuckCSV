@@ -254,6 +254,16 @@ body {
     height: 16px;
 }
 
+.query-label {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    padding: 4px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+
 .search-input {
     padding: 6px 10px;
     background-color: var(--vscode-input-background);

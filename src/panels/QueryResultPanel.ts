@@ -32,7 +32,7 @@ export class QueryResultPanel extends BasePanel {
   ): Promise<void> {
     const panel = vscode.window.createWebviewPanel(
       'csvQueryResult',
-      'Query Result',
+      `Result: ${sql.slice(0, 40)}`,
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
@@ -114,7 +114,7 @@ export class QueryResultPanel extends BasePanel {
       totalRows: this.totalRows,
       filteredRows: result.filteredCount,
       delimiter: meta.delimiter,
-      fileName: `Query: ${this.sql.slice(0, 50)}`,
+      fileName: `SQL: ${this.sql}`,
       fileSize: 0,
       sort: this.viewState.sort,
       filters: this.viewState.filters,

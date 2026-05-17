@@ -50,6 +50,10 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   state.delimiter = data.delimiter;
   state.fileName = data.fileName;
   state.fileSize = data.fileSize;
+
+  // Show query label in side panel
+  const queryLabel = document.getElementById('queryLabel');
+  if (queryLabel) { queryLabel.textContent = data.fileName || ''; }
   state.sort = data.sort;
   state.filters = data.filters;
   state.searchTerm = data.searchTerm;

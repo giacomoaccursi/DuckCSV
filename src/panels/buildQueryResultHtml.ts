@@ -20,7 +20,8 @@ export function buildQueryResultHtml(webview: vscode.Webview, extensionUri: vsco
       <div class="toolbar-right">
         <span id="stats" class="stats"></span>
       </div>
-    </div>`;
+    </div>
+    <div id="queryLabel" class="query-label"></div>`;
 
   return buildHtmlShell({
     webview,
