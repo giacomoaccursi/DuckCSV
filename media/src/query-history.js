@@ -24,7 +24,10 @@ export function getHistory() {
 }
 
 export function openHistoryDropdown(anchorEl, onSelect) {
-  closeHistoryDropdown();
+  if (dropdown) {
+    closeHistoryDropdown();
+    return;
+  }
   if (history.length === 0) { return; }
 
   dropdown = document.createElement('div');
