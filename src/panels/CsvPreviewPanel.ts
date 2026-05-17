@@ -9,6 +9,7 @@ import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { TableExporter } from '../services/TableExporter';
 import { ConfigService } from '../services/ConfigService';
+import { QueryHistoryService } from '../services/QueryHistoryService';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
 import { BasePanel } from './BasePanel';
@@ -36,7 +37,8 @@ export class CsvPreviewPanel extends BasePanel {
     tableExporter: TableExporter,
     config: ConfigService,
     uri: vscode.Uri,
-    viewColumn: vscode.ViewColumn | undefined
+    viewColumn: vscode.ViewColumn | undefined,
+    historyService?: QueryHistoryService
   ): void {
     const column = viewColumn || vscode.ViewColumn.Beside;
     const key = uri.toString();
@@ -59,7 +61,7 @@ export class CsvPreviewPanel extends BasePanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, tableManager, queryExecutor, tableExporter, config, uri);
+    const instance = new CsvPreviewPanel(panel, extensionUri, tableManager, queryExecutor, tableExporter, config, uri, historyService);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -72,11 +74,14 @@ export class CsvPreviewPanel extends BasePanel {
     queryExecutor: QueryExecutor,
     tableExporter: TableExporter,
     config: ConfigService,
-    uri: vscode.Uri
+    uri: vscode.Uri,
+    historyService?: QueryHistoryService
   ) {
     super(panel, extensionUri, tableManager, queryExecutor, config, buildPreviewHtml(panel.webview, extensionUri));
     this.tableExporter = tableExporter;
     this.currentUri = uri;
+    this.historyService = historyService;
+    this.historyKey = uri.fsPath;
   }
 
   // ─── BasePanel Implementation ────────────────────────────────────────────
@@ -111,6 +116,7 @@ export class CsvPreviewPanel extends BasePanel {
     switch (message.type) {
       case 'ready':
         await this.loadDocument();
+        this.sendHistory();
         return true;
       case 'editCell':
         await this.handleEditCell(message.rowid, message.columnIndex, message.value);

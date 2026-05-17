@@ -16,6 +16,7 @@ import { ConfigService } from '../services/ConfigService';
 import { ViewState } from '../shared/ViewState';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
+import { QueryHistoryService } from '../services/QueryHistoryService';
 
 export abstract class BasePanel {
   protected readonly panel: vscode.WebviewPanel;
@@ -27,6 +28,8 @@ export abstract class BasePanel {
   protected readonly viewState = new ViewState();
   protected pageRequestId: number = 0;
   private inlineQueryTable: string | null = null;
+  protected historyService?: QueryHistoryService;
+  protected historyKey: string = '';
 
   constructor(
     panel: vscode.WebviewPanel,
@@ -104,6 +107,12 @@ export abstract class BasePanel {
 
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(message.text);
+        return;
+
+      case 'saveHistory':
+        if (this.historyService && this.historyKey) {
+          this.historyService.saveHistory(this.historyKey, message.history);
+        }
         return;
 
       case 'fetchPage':
@@ -306,6 +315,13 @@ export abstract class BasePanel {
   protected postError(error: unknown): void {
     const msg = error instanceof Error ? error.message : 'An unexpected error occurred';
     this.postMessage({ type: 'error', message: msg });
+  }
+
+  protected sendHistory(): void {
+    if (this.historyService && this.historyKey) {
+      const history = this.historyService.getHistory(this.historyKey);
+      this.postMessage({ type: 'queryHistory', history } as any);
+    }
   }
 
   protected formatSize(bytes: number): string {

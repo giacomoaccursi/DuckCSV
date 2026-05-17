@@ -35,6 +35,9 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
 
   const queryBarHtml = showQueryBar ? /* html */ `
     <div class="query-bar">
+      <button id="queryHistoryBtn" class="btn btn-small" data-tooltip="Query history">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path fill="currentColor" d="M1 3l4 4 4-4z"/></svg>
+      </button>
       <input type="text" id="queryInput" class="query-input" placeholder="SELECT * FROM tablename WHERE ... ORDER BY ... LIMIT 100" />
       <button id="queryRunBtn" class="btn" data-tooltip="Run query inline (replaces current view)">
         <svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M4 2l10 6-10 6V2z"/></svg>

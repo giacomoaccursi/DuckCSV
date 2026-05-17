@@ -17,6 +17,7 @@ import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './e
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
 import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
+import { initHistory, addToHistory, openHistoryDropdown, closeHistoryDropdown } from './query-history.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, getSelectionMode, selectCell } from './selection.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 
@@ -47,6 +48,7 @@ function handleExtensionMessage(message) {
       const qi = document.getElementById('queryInput');
       if (qi) { qi.focus(); }
       break;
+    case 'queryHistory': initHistory(message.history); break;
   }
 }
 
@@ -102,7 +104,7 @@ function bindEvents() {
 
   bindQueryBar(
     { queryInput: dom.queryInput, queryRunBtn: dom.queryRunBtn, querySideBtn: dom.querySideBtn, queryClearBtn: dom.queryClearBtn, queryExportBtn: document.getElementById('queryExportBtn') },
-    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state }
+    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state, addToHistory }
   );
 
   const headerCtrl = bindHeaderInteractions(dom.tableHeader, {
@@ -138,6 +140,18 @@ function bindEvents() {
   });
 
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
+
+  // Query history button
+  const historyBtn = document.getElementById('queryHistoryBtn');
+  const queryInputEl = document.getElementById('queryInput');
+  if (historyBtn && queryInputEl) {
+    historyBtn.addEventListener('click', () => {
+      openHistoryDropdown(historyBtn, (sql) => {
+        queryInputEl.value = sql;
+        queryInputEl.focus();
+      });
+    });
+  }
 
   // Export button (standalone, for query result panel)
   const exportBtn = document.getElementById('exportBtnStandalone') || ((!dom.queryInput) ? document.getElementById('queryExportBtn') : null);

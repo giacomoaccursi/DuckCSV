@@ -14,6 +14,7 @@ import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
 import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
+import { addToHistory as addToHistoryWs } from './query-history.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
@@ -78,7 +79,7 @@ function bindEvents() {
 
   bindQueryBar(
     { queryInput: document.getElementById('queryInput'), queryRunBtn: document.getElementById('queryRunBtn'), querySideBtn: document.getElementById('querySideBtn'), queryClearBtn: document.getElementById('queryClearBtn'), queryExportBtn: document.getElementById('queryExportBtn') },
-    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state }
+    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state, addToHistory: addToHistoryWs }
   );
 
   bindHeaderInteractions(dom.tableHeader, {

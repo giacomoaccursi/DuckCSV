@@ -113,4 +113,5 @@ export type WebviewMessage =
   | { type: 'addTable'; filePath: string }
   | { type: 'removeTable'; tableName: string }
   | { type: 'switchTable'; tableName: string }
-  | { type: 'fetchPage'; requestId: number; offset: number; limit: number };
+  | { type: 'fetchPage'; requestId: number; offset: number; limit: number }
+  | { type: 'saveHistory'; history: string[] };

@@ -858,6 +858,73 @@ body.selecting {
     transform-origin: 8px 8px;
 }
 
+/* Query History Dropdown */
+.history-dropdown {
+    position: fixed;
+    z-index: 1000;
+    background: var(--vscode-dropdown-background, var(--bg-primary));
+    border: 1px solid var(--vscode-dropdown-border, var(--border-color));
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    max-width: 500px;
+}
+
+.history-list {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    cursor: pointer;
+    gap: 8px;
+}
+
+.history-item:hover {
+    background: var(--hover-bg);
+}
+
+.history-text {
+    flex: 1;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-remove {
+    background: none;
+    border: none;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    opacity: 0.5;
+}
+
+.history-remove:hover {
+    opacity: 1;
+    color: var(--vscode-errorForeground);
+}
+
+.history-clear {
+    padding: 6px 10px;
+    font-size: 11px;
+    text-align: center;
+    cursor: pointer;
+    border-top: 1px solid var(--vscode-dropdown-border, var(--border-color));
+    color: var(--vscode-descriptionForeground);
+}
+
+.history-clear:hover {
+    background: var(--hover-bg);
+    color: var(--vscode-errorForeground);
+}
+
 /* Search highlight in cells */
 .search-match {
     background-color: var(--vscode-editor-findMatchBackground);

@@ -27,7 +27,7 @@ export function bindSearchInput(searchInput, sendMessage) {
  */
 export function bindQueryBar(
   { queryInput, queryRunBtn, querySideBtn, queryClearBtn, queryExportBtn },
-  { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state }
+  { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state, addToHistory }
 ) {
   if (queryRunBtn) {
     queryRunBtn.addEventListener('click', () => {
@@ -39,6 +39,7 @@ export function bindQueryBar(
       const sql = queryInput ? queryInput.value.trim() : '';
       if (sql) {
         setQueryRunning(true);
+        if (addToHistory) { addToHistory(sql); }
         sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
       }
     });
@@ -47,7 +48,10 @@ export function bindQueryBar(
   if (querySideBtn) {
     querySideBtn.addEventListener('click', () => {
       const sql = queryInput ? queryInput.value.trim() : '';
-      if (sql) { sendMessage({ type: 'executeQuery', sql, mode: 'side' }); }
+      if (sql) {
+        if (addToHistory) { addToHistory(sql); }
+        sendMessage({ type: 'executeQuery', sql, mode: 'side' });
+      }
     });
   }
 
@@ -65,11 +69,11 @@ export function bindQueryBar(
     queryInput.addEventListener('keydown', (e) => {
       if (handleAutocompleteKeydown(e)) { return; }
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        // Cmd+Enter / Ctrl+Enter → run in side panel
         e.preventDefault();
         closeAutocomplete();
         const sql = queryInput.value.trim();
         if (sql) {
+          if (addToHistory) { addToHistory(sql); }
           sendMessage({ type: 'executeQuery', sql, mode: 'side' });
         }
       } else if (e.key === 'Enter') {
@@ -77,6 +81,7 @@ export function bindQueryBar(
         closeAutocomplete();
         const sql = queryInput.value.trim();
         if (sql) {
+          if (addToHistory) { addToHistory(sql); }
           setQueryRunning(true);
           sendMessage({ type: 'executeQuery', sql, mode: 'inline' });
         }
