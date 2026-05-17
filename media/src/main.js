@@ -134,8 +134,8 @@ function bindEvents() {
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
 
   // Export button (standalone, for query result panel)
-  const exportBtn = document.getElementById('queryExportBtn');
-  if (exportBtn && !dom.queryInput) {
+  const exportBtn = document.getElementById('exportBtnStandalone') || ((!dom.queryInput) ? document.getElementById('queryExportBtn') : null);
+  if (exportBtn) {
     exportBtn.addEventListener('click', () => {
       sendMessage({ type: 'exportQueryResult', headers: [], rows: [] });
     });

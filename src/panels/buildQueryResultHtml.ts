@@ -10,7 +10,7 @@ export function buildQueryResultHtml(webview: vscode.Webview, extensionUri: vsco
   const toolbarHtml = /* html */ `
     <div class="toolbar">
       <div class="toolbar-left">
-        <button id="queryExportBtn" class="btn" data-tooltip="Export result to CSV file">
+        <button id="exportBtnStandalone" class="btn" data-tooltip="Export result to CSV file">
           <svg width="16" height="16" viewBox="0 0 16 16">
             <path fill="currentColor" d="M3 13h10v1H3v-1zm5-1L4 8h2.5V3h3v5H12L8 12z"/>
           </svg>
