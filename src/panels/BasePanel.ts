@@ -16,7 +16,6 @@ import { ConfigService } from '../services/ConfigService';
 import { ViewState } from '../shared/ViewState';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
-import { openQueryResultPanel } from './QueryResultPanel';
 
 export abstract class BasePanel {
   protected readonly panel: vscode.WebviewPanel;
@@ -168,15 +167,18 @@ export abstract class BasePanel {
 
   protected async handleQuery(sql: string, mode: 'inline' | 'side'): Promise<void> {
     const tableName = this.getActiveTableName();
-    const result = await this.queryExecutor.execute(sql, tableName || undefined);
-    const payload = { ...result, sql };
 
     if (mode === 'inline') {
-      // Reset filters/sort/search — query overrides everything
+      const result = await this.queryExecutor.execute(sql, tableName || undefined);
+      const payload = { ...result, sql };
       this.viewState.reset();
       this.postMessage({ type: 'queryResult', data: payload });
     } else {
-      openQueryResultPanel(this.extensionUri, payload);
+      // Lazy import to avoid circular dependency
+      const { QueryResultPanel } = await import('./QueryResultPanel');
+      await QueryResultPanel.open(
+        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, tableName || undefined
+      );
     }
   }
 

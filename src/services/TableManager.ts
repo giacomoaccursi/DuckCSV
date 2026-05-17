@@ -105,6 +105,11 @@ export class TableManager {
     return this.tables.get(name);
   }
 
+  /** Register an existing table (e.g. from a query result) without loading from file. */
+  registerTable(meta: TableMeta): void {
+    this.tables.set(meta.name, meta);
+  }
+
   // ─── Schema Queries ──────────────────────────────────────────────────────
 
   async getHeaders(tableName: string): Promise<string[]> {

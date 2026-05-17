@@ -17,6 +17,8 @@ export interface QueryResult {
 export class QueryExecutor {
   constructor(private readonly engine: DuckDbEngine) {}
 
+  getEngine(): DuckDbEngine { return this.engine; }
+
   cancel(): void {
     this.engine.cancel();
   }

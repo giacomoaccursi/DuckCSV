@@ -1,101 +1,178 @@
 /**
  * Query Result Panel — displays SQL query results in a side panel.
- * Interactive: supports sorting, selection, and copy.
+ * Uses the same virtual scrolling and lazy loading as the main preview.
+ * Results are stored in a temp table and served via getDataPage.
  */
 
 import * as vscode from 'vscode';
-import { QueryResultPayload } from '../types';
-import { getNonce } from '../utils/nonce';
-import { escapeHtml } from '../shared/csvUtils';
-import { exportQueryResultToFile } from '../shared/exportQueryResult';
+import { DuckDbEngine } from '../services/DuckDbEngine';
+import { TableManager } from '../services/TableManager';
+import { QueryExecutor } from '../services/QueryExecutor';
+import { ConfigService } from '../services/ConfigService';
+import { WebviewMessage, DataPagePayload } from '../types';
+import { BasePanel } from './BasePanel';
+import { buildQueryResultHtml } from './buildQueryResultHtml';
 
-export function openQueryResultPanel(
-  extensionUri: vscode.Uri,
-  payload: QueryResultPayload
-): void {
-  const panel = vscode.window.createWebviewPanel(
-    'csvQueryResult',
-    'Query Result',
-    vscode.ViewColumn.Beside,
-    {
-      enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')],
+export class QueryResultPanel extends BasePanel {
+  private static counter = 0;
+
+  private tableName: string;
+  private sql: string;
+  private totalRows: number;
+
+  static async open(
+    extensionUri: vscode.Uri,
+    engine: DuckDbEngine,
+    queryExecutor: QueryExecutor,
+    config: ConfigService,
+    sql: string,
+    defaultTable?: string
+  ): Promise<void> {
+    const panel = vscode.window.createWebviewPanel(
+      'csvQueryResult',
+      'Query Result',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')],
+      }
+    );
+
+    const tableManager = new TableManager(engine);
+    const tableName = `__qr_${Date.now()}_${QueryResultPanel.counter++}`;
+
+    // Execute query into a temp table
+    try {
+      const normalizedSql = defaultTable
+        ? QueryResultPanel.normalizeSql(sql, defaultTable)
+        : sql.trim();
+
+      await engine.query(`CREATE TEMP TABLE "${tableName}" AS ${normalizedSql}`);
+    } catch (err: unknown) {
+      panel.webview.html = QueryResultPanel.buildErrorHtml(panel.webview, extensionUri, sql, err);
+      return;
     }
-  );
 
-  // Handle messages from the webview
-  panel.webview.onDidReceiveMessage(async (message: any) => {
-    if (message.type === 'exportQueryResult') {
-      await exportQueryResultToFile(message.headers, message.rows);
+    // Get metadata
+    const schemaResult = await engine.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' ORDER BY ordinal_position`
+    );
+    const headers = schemaResult.rows.map(r => r[0]);
+    const columnTypes = schemaResult.rows.map(r => r[1]);
+    const countResult = await engine.query(`SELECT COUNT(*) FROM "${tableName}"`);
+    const totalRows = Number(countResult.rows[0][0]);
+
+    // Register in TableManager so getDataPage works
+    tableManager.registerTable({
+      name: tableName,
+      filePath: '',
+      delimiter: 'Comma',
+      delimiterChar: ',',
+      headers,
+      columnTypes,
+      originalTypes: [...columnTypes],
+      rowCount: totalRows,
+    });
+
+    new QueryResultPanel(panel, extensionUri, tableManager, queryExecutor, config, tableName, sql, totalRows);
+  }
+
+  private constructor(
+    panel: vscode.WebviewPanel,
+    extensionUri: vscode.Uri,
+    tableManager: TableManager,
+    queryExecutor: QueryExecutor,
+    config: ConfigService,
+    tableName: string,
+    sql: string,
+    totalRows: number
+  ) {
+    super(panel, extensionUri, tableManager, queryExecutor, config, buildQueryResultHtml(panel.webview, extensionUri));
+    this.tableName = tableName;
+    this.sql = sql;
+    this.totalRows = totalRows;
+  }
+
+  protected getActiveTableName(): string {
+    return this.tableName;
+  }
+
+  protected buildPayload(
+    result: { rows: string[][]; rowids: number[]; filteredCount: number },
+    meta: { headers: string[]; columnTypes: string[]; delimiter: string; rowCount: number; name: string }
+  ): DataPagePayload {
+    return {
+      headers: meta.headers,
+      columnTypes: meta.columnTypes,
+      rows: result.rows,
+      rowids: result.rowids,
+      totalRows: this.totalRows,
+      filteredRows: result.filteredCount,
+      delimiter: meta.delimiter,
+      fileName: `Query: ${this.sql.slice(0, 50)}`,
+      fileSize: 0,
+      sort: this.viewState.sort,
+      filters: this.viewState.filters,
+      searchTerm: this.viewState.searchTerm,
+      isDirty: false,
+    };
+  }
+
+  protected async handleSubclassMessage(message: WebviewMessage): Promise<boolean> {
+    switch (message.type) {
+      case 'ready':
+        await this.sendCurrentPage();
+        return true;
+      default:
+        return false;
     }
-  });
+  }
 
-  const webview = panel.webview;
-  const styleUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'styles.css')
-  );
-  const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'query-result.js')
-  );
-  const duckAngryUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'psyduck.png')
-  );
-  const nonce = getNonce();
+  protected onDispose(): void {
+    this.tableManager.dropTable(this.tableName).catch(() => {});
+  }
 
-  const errorHtml = payload.error
-    ? `<div class="query-error"><img class="duck-error-icon" src="${duckAngryUri}" alt="Error" /><span>${escapeHtml(payload.error)}</span></div>`
-    : '';
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
-  // Inject data as a global variable for the script to pick up
-  const dataJson = JSON.stringify({
-    headers: payload.headers,
-    rows: payload.rows,
-    rowCount: payload.rowCount,
-    totalCount: payload.totalCount,
-    executionTimeMs: payload.executionTimeMs,
-    sql: payload.sql,
-  });
+  private static normalizeSql(sql: string, defaultTable: string): string {
+    const trimmed = sql.trim();
+    const quotedTable = `"${defaultTable.replace(/"/g, '""')}"`;
 
-  panel.webview.html = /* html */ `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
-  <link href="${styleUri}" rel="stylesheet">
-  <title>Query Result</title>
-</head>
-<body>
-  <div id="app">
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <span class="stats">SQL: ${escapeHtml(payload.sql)}</span>
+    if (/\bFROM\s+/i.test(trimmed)) { return trimmed; }
+
+    if (/^SELECT\s/i.test(trimmed)) {
+      const insertPoint = trimmed.search(/\b(WHERE|ORDER|GROUP|LIMIT|HAVING)\b/i);
+      if (insertPoint === -1) { return `${trimmed} FROM ${quotedTable}`; }
+      return `${trimmed.slice(0, insertPoint)}FROM ${quotedTable} ${trimmed.slice(insertPoint)}`;
+    }
+
+    if (/^WHERE\s/i.test(trimmed)) {
+      return `SELECT * FROM ${quotedTable} ${trimmed}`;
+    }
+
+    return trimmed;
+  }
+
+  private static buildErrorHtml(webview: vscode.Webview, extensionUri: vscode.Uri, sql: string, err: unknown): string {
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'styles.css'));
+    const psyduckUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'psyduck.png'));
+    const errorMsg = err instanceof Error ? err.message : 'Query failed';
+
+    return `<!DOCTYPE html><html><head>
+      <meta charset="UTF-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
+      <link href="${styleUri}" rel="stylesheet">
+    </head><body>
+      <div id="app">
+        <div class="toolbar"><div class="toolbar-left"><span class="stats">SQL: ${sql}</span></div></div>
+        <div class="query-error">
+          <img class="duck-error-icon" src="${psyduckUri}" alt="Error" />
+          <span>${errorMsg}</span>
+        </div>
       </div>
-      <div class="toolbar-right">
-        <button id="exportBtn" class="btn" data-tooltip="Export result to CSV file">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M3 13h10v1H3v-1zm5-1L4 8h2.5V3h3v5H12L8 12z"/>
-          </svg>
-        </button>
-        <span id="stats" class="stats"></span>
-      </div>
-    </div>
-
-    ${errorHtml}
-
-    <div class="table-container">
-      <div class="table-wrapper">
-        <table id="csvTable">
-          <thead id="tableHeader"></thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script nonce="${nonce}">window.__QUERY_RESULT__ = ${dataJson};</script>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
-</body>
-</html>`;
+    </body></html>`;
+  }
 }
+
+// Legacy export removed — QueryResultPanel.open is used directly via lazy import
