@@ -13,8 +13,8 @@ import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showCont
 import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown } from './query.js';
-import { addToHistory as addToHistoryWs, openHistoryDropdown, closeHistoryDropdown } from './query-history.js';
+import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
+import { addToHistory as addToHistoryWs, openHistoryDropdown, closeHistoryDropdown, initHistory } from './query-history.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
@@ -30,13 +30,14 @@ function handleExtensionMessage(message) {
     case 'dataPage': onDataPageReceived(message.data); break;
     case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
-    case 'queryResult': onQueryResult(message.data); break;
     case 'tableList': onTableListReceived(message.tables); break;
     case 'loading':
       if (message.loading) { showLoading(message.message); setSystemLoading(true); }
       else { hideLoading(); setSystemLoading(false); }
       break;
     case 'error': showError(message.message); break;
+    case 'queryError': setQueryRunning(false); showQueryError(message.message); break;
+    case 'queryHistory': initHistory(message.history); break;
   }
 }
 

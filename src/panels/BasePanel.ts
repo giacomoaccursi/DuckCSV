@@ -279,6 +279,7 @@ export abstract class BasePanel {
       this.tableManager.unregisterTable(this.inlineQueryTable);
       this.inlineQueryTable = null;
     }
+    this.tableManager.invalidateView();
   }
 
   protected async handleFetchPage(requestId: number, offset: number, limit: number): Promise<void> {
