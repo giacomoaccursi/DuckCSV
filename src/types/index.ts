@@ -61,6 +61,7 @@ export interface CellEditConfirmPayload {
   rowid: number;
   columnIndex: number;
   value: string;
+  columnTypes?: string[];
 }
 
 export interface RowMutationPayload {

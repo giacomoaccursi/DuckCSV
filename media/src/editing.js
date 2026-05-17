@@ -5,7 +5,7 @@
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { updateStats } from './ui.js';
-import { getScroller } from './renderer.js';
+import { getScroller, renderHeader } from './renderer.js';
 import { getDataWindow } from './data-page.js';
 
 let editingCell = null;
@@ -48,10 +48,15 @@ export function isEditing() {
 }
 
 export function onCellEditConfirm(data) {
+  if (!data) { return; }
   // Update the DataWindow cache so scrolling away and back shows the new value
-  if (data) {
-    const dw = getDataWindow();
-    if (dw) { dw.updateCell(data.rowid, data.columnIndex, data.value); }
+  const dw = getDataWindow();
+  if (dw) { dw.updateCell(data.rowid, data.columnIndex, data.value); }
+
+  // Update column types in header if they changed
+  if (data.columnTypes && JSON.stringify(data.columnTypes) !== JSON.stringify(state.columnTypes)) {
+    state.columnTypes = data.columnTypes;
+    renderHeader();
   }
 }
 

@@ -222,9 +222,8 @@ export class CsvPreviewPanel extends BasePanel {
     try {
       await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
       this.markDirty();
-      // Confirm the edit — frontend already updated the cell locally.
-      // Don't call sendCurrentPage() to avoid expensive view rebuild on every keystroke.
-      this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value } });
+      const meta = this.tableManager.getTableMeta(this.tableName);
+      this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value, columnTypes: meta?.columnTypes } });
     } catch (error: unknown) {
       this.postError(error);
     }
