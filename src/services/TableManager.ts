@@ -189,11 +189,6 @@ export class TableManager {
     this.viewFingerprint = '';
   }
 
-  /** Get the current view table name (for export with correct ordering) */
-  getViewSource(): string | null {
-    return (this.viewTable && this.viewFingerprint) ? this.viewTable : null;
-  }
-
   /**
    * Append a row to the materialized view at the end.
    */
@@ -216,52 +211,7 @@ export class TableManager {
   }
 
   /**
-   * Insert a row into the materialized view at a specific position (above/below a target rowid).
-   * Calculates __pos as the midpoint between the target and its neighbor,
-   * guaranteeing correct ordering even with multiple inserts at the same position.
-   */
-  private async insertIntoView(newRowid: number, targetRowid: number, position: 'above' | 'below', tableName: string): Promise<void> {
-    if (!this.viewTable || !this.viewFingerprint) { return; }
-    const meta = this.tables.get(tableName);
-    const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-    const quoted = this.quoteIdentifier(tableName);
-    const viewQuoted = this.quoteIdentifier(this.viewTable);
-
-    // Find the __pos of the target row
-    const posResult = await this.engine.query(`SELECT __pos FROM ${viewQuoted} WHERE __rid = ${targetRowid}`);
-    if (posResult.rows.length === 0) {
-      await this.appendToView(newRowid, tableName);
-      return;
-    }
-    const targetPos = Number(posResult.rows[0][0]);
-
-    let newPos: number;
-    if (position === 'above') {
-      // Find the row just before the target
-      const prevResult = await this.engine.query(
-        `SELECT MAX(__pos) FROM ${viewQuoted} WHERE __pos < ${targetPos}`
-      );
-      const prevPos = prevResult.rows[0][0] !== null ? Number(prevResult.rows[0][0]) : targetPos - 2;
-      newPos = (prevPos + targetPos) / 2;
-    } else {
-      // Find the row just after the target
-      const nextResult = await this.engine.query(
-        `SELECT MIN(__pos) FROM ${viewQuoted} WHERE __pos > ${targetPos}`
-      );
-      const nextPos = nextResult.rows[0][0] !== null ? Number(nextResult.rows[0][0]) : targetPos + 2;
-      newPos = (targetPos + nextPos) / 2;
-    }
-
-    await this.engine.query(
-      `INSERT INTO ${viewQuoted} SELECT ${newPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${quoted} WHERE rowid = ${newRowid}`
-    );
-  }
-
-  /**
    * Remove a row from the materialized view without full rebuild.
-   * Used after DELETE to avoid expensive recreation.
-   * Note: __pos values will have a gap, but WHERE __pos >= X still works correctly.
    */
   private async removeFromView(rowid: number): Promise<void> {
     if (!this.viewTable || !this.viewFingerprint) { return; }
@@ -423,14 +373,45 @@ export class TableManager {
   }
 
   async addRowAt(tableName: string, targetRowid: number, position: 'above' | 'below'): Promise<number> {
+    const quoted = this.quoteIdentifier(tableName);
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
     const nulls = headers.map(() => "NULL").join(', ');
-    await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
-    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
-    const newRowid = Number(result.rows[0][0]);
-    await this.insertIntoView(newRowid, targetRowid, position, tableName);
-    return newRowid;
+
+    // Rebuild table with new row at the correct position
+    const tempName = `__temp_insert_${Date.now()}`;
+    const tempQuoted = this.quoteIdentifier(tempName);
+
+    if (position === 'above') {
+      await this.engine.query(`CREATE TABLE ${tempQuoted} AS
+        SELECT ${cols} FROM (
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${targetRowid}
+          UNION ALL
+          SELECT ${nulls}, -1 as __rid
+          UNION ALL
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${targetRowid}
+        ) ORDER BY CASE WHEN __rid = -1 THEN ${targetRowid} - 0.5 ELSE __rid END`);
+    } else {
+      await this.engine.query(`CREATE TABLE ${tempQuoted} AS
+        SELECT ${cols} FROM (
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid <= ${targetRowid}
+          UNION ALL
+          SELECT ${nulls}, -1 as __rid
+          UNION ALL
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid > ${targetRowid}
+        ) ORDER BY CASE WHEN __rid = -1 THEN ${targetRowid} + 0.5 ELSE __rid END`);
+    }
+
+    await this.engine.query(`DROP TABLE ${quoted}`);
+    await this.engine.query(`ALTER TABLE ${tempQuoted} RENAME TO ${quoted}`);
+    this.invalidateView();
+
+    // Return the rowid of the new row
+    const result = await this.engine.query(
+      `SELECT rowid FROM ${quoted} LIMIT 1 OFFSET ${targetRowid + (position === 'below' ? 1 : 0)}`
+    );
+    return result.rows.length > 0 ? Number(result.rows[0][0]) : -1;
   }
 
   async deleteRow(tableName: string, rowid: number): Promise<void> {
