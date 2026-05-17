@@ -52,6 +52,8 @@ export class TableManager {
 
     if (this.tables.has(tableName)) {
       this.engine.cancel(); // Clear DuckDB file cache on reload
+      this.viewTable = null;
+      this.viewFingerprint = '';
     }
 
     await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
