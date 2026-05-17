@@ -183,20 +183,23 @@ export abstract class BasePanel {
       return;
     }
 
-    // Inline: execute into temp table, serve paginated via normal dataPage flow
+    // Inline: execute into temp table with __orig_rid for edit mapping
     const tempName = `__inline_qr_${Date.now()}`;
     try {
       const normalizedSql = this.queryExecutor.normalizeSql(sql, tableName || '');
-      await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${normalizedSql}`);
+      // Wrap to include original rowid for editing support
+      await this.queryExecutor.getEngine().query(
+        `CREATE TEMP TABLE "${tempName}" AS SELECT rowid as __orig_rid, __sub.* FROM (${normalizedSql}) __sub`
+      );
     } catch (err: unknown) {
       this.postError(err);
       return;
     }
 
-    // Get schema + count
+    // Get schema + count (exclude __orig_rid from visible headers)
     const engine = this.queryExecutor.getEngine();
     const schemaResult = await engine.query(
-      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tempName}' ORDER BY ordinal_position`
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tempName}' AND column_name != '__orig_rid' ORDER BY ordinal_position`
     );
     const countResult = await engine.query(`SELECT COUNT(*) FROM "${tempName}"`);
 
@@ -214,6 +217,7 @@ export abstract class BasePanel {
       columnTypes: schemaResult.rows.map(r => r[1]),
       originalTypes: schemaResult.rows.map(r => r[1]),
       rowCount: Number(countResult.rows[0][0]),
+      useOrigRid: true,
     });
 
     this.viewState.reset();

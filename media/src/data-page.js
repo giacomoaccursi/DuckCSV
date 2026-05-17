@@ -34,9 +34,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   resetQueryState();
   if (data.isQueryResult) {
     setQueryActive(true);
-    document.body.dataset.readonly = 'true';
+    document.body.dataset.queryActive = 'true';
   } else {
-    delete document.body.dataset.readonly;
+    delete document.body.dataset.queryActive;
   }
   clearSortingLock();
 

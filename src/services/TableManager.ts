@@ -25,6 +25,7 @@ export interface TableMeta {
   columnTypes: string[];
   originalTypes: string[]; // Types assigned by DuckDB at load time
   rowCount: number;
+  useOrigRid?: boolean; // Use __orig_rid column as rowid in view (for query results)
 }
 
 export interface DataPage {
@@ -331,13 +332,15 @@ export class TableManager {
     this.viewTable = viewName;
     this.viewFingerprint = fingerprint;
 
+    const meta = this.tables.get(tableName);
     const columns = headers.map(h => this.q(h)).join(', ');
+    const ridSource = meta?.useOrigRid ? '"__orig_rid"' : 'rowid';
 
     // Use subquery to ensure ORDER BY is applied before ROW_NUMBER
     await this.engine.query(
       `CREATE TEMP TABLE ${this.q(viewName)} AS ` +
       `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-      `(SELECT rowid as __rid, ${columns} FROM ${this.q(tableName)} ${whereStr} ${orderClause}) sub`
+      `(SELECT ${ridSource} as __rid, ${columns} FROM ${this.q(tableName)} ${whereStr} ${orderClause}) sub`
     );
 
     const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(viewName)}`);

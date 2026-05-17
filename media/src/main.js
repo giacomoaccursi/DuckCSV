@@ -161,17 +161,17 @@ function bindEvents() {
     });
   }
 
-  // Preview-specific: cell editing (disabled in readonly mode)
+  // Preview-specific: cell editing (disabled in readonly mode only)
   document.addEventListener('dblclick', (e) => {
     if (document.body.dataset.readonly) { return; }
     const td = e.target.closest('td.editable-cell');
     if (td) { clearSelection(); startCellEdit(td); }
   });
 
-  // Preview-specific: context menu (insert/delete rows, copy)
+  // Preview-specific: context menu
   document.addEventListener('contextmenu', (e) => {
     if (document.body.dataset.readonly) {
-      // Readonly: only allow copy
+      // Fully readonly (side panel): only copy
       const cell = e.target.closest('td.editable-cell');
       if (!cell) { return; }
       e.preventDefault();
@@ -188,6 +188,14 @@ function bindEvents() {
       const tr = rowNum.closest('tr');
       const rowid = parseInt(tr.dataset.rowid, 10);
       if (isNaN(rowid)) { return; }
+
+      // During inline query: no insert/delete, only copy
+      if (document.body.dataset.queryActive) {
+        showContextMenu(e.pageX, e.pageY, [
+          { label: 'Copy cell', action: () => { const cell = tr.querySelector('td.editable-cell'); if (cell) sendMessage({ type: 'copyToClipboard', text: cell.dataset.fullText || '' }); } },
+        ]);
+        return;
+      }
 
       const items = [
         { label: 'Insert row above', action: () => sendMessage({ type: 'addRowAt', rowid, position: 'above' }) },
