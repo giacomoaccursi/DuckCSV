@@ -189,6 +189,11 @@ export class TableManager {
     this.viewFingerprint = '';
   }
 
+  /** Get the current view table name (for export with correct ordering) */
+  getViewSource(): string | null {
+    return (this.viewTable && this.viewFingerprint) ? this.viewTable : null;
+  }
+
   /**
    * Append a row to the materialized view at the end.
    */

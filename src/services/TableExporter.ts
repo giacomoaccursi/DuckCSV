@@ -20,10 +20,12 @@ export class TableExporter {
     if (!meta) { throw new Error(`Table "${tableName}" not found`); }
 
     const { headers, delimiterChar } = meta;
-    const quotedTable = `"${tableName.replace(/"/g, '""')}"`;
     const columns = headers.map(h => `"${h.replace(/"/g, '""')}"`).join(', ');
 
     const headerLine = headers.map(h => quoteCsvField(h, delimiterChar)).join(delimiterChar);
+
+    // Get the view name for correct row ordering (handles insert above/below)
+    const viewSource = this.tableManager.getViewSource();
 
     const stream = createWriteStream(outputPath, { encoding: 'utf8' });
     stream.write(headerLine + '\n');
@@ -32,9 +34,17 @@ export class TableExporter {
     const batchSize = 10_000;
 
     while (true) {
-      const result = await this.engine.query(
-        `SELECT ${columns} FROM ${quotedTable} LIMIT ${batchSize} OFFSET ${offset}`
-      );
+      let query: string;
+      if (viewSource) {
+        // Export from the materialized view (preserves insert order)
+        query = `SELECT ${columns} FROM "${viewSource.replace(/"/g, '""')}" ORDER BY __pos LIMIT ${batchSize} OFFSET ${offset}`;
+      } else {
+        // No view available — export from table directly
+        const quotedTable = `"${tableName.replace(/"/g, '""')}"`;
+        query = `SELECT ${columns} FROM ${quotedTable} LIMIT ${batchSize} OFFSET ${offset}`;
+      }
+
+      const result = await this.engine.query(query);
 
       if (result.rows.length === 0) { break; }
 
