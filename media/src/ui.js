@@ -39,10 +39,11 @@ export function updateStats() {
   if (!dom.stats) { return; }
 
   const parts = [];
-  parts.push(`${state.rows.length} of ${state.filteredRows} rows`);
 
   if (state.filteredRows < state.totalRows) {
-    parts.push(`(${state.totalRows} total)`);
+    parts.push(`${state.filteredRows.toLocaleString()} of ${state.totalRows.toLocaleString()} rows`);
+  } else {
+    parts.push(`${state.totalRows.toLocaleString()} rows`);
   }
 
   parts.push(`\u2022 ${state.headers.length} columns`);
