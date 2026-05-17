@@ -459,6 +459,8 @@ export class TableManager {
         `SELECT COUNT(*) = COUNT(TRY_CAST(${colName} AS ${originalType})) as ok FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != ''`
       );
       if (check.rows[0][0] === 'true') {
+        // Convert empty strings to NULL before tightening (ALTER fails on '')
+        await this.engine.query(`UPDATE ${quoted} SET ${colName} = NULL WHERE ${colName} = ''`);
         await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${originalType}`);
         return true;
       }
