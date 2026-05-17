@@ -473,7 +473,7 @@ export class TableManager {
     }
 
     if (searchTerm) {
-      const escaped = searchTerm.replace(/'/g, "''").replace(/%/g, '\\%');
+      const escaped = searchTerm.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
       const searchClauses = headers.map(h => `CAST(${this.q(h)} AS VARCHAR) ILIKE '%${escaped}%'`);
       clauses.push(`(${searchClauses.join(' OR ')})`);
     }
