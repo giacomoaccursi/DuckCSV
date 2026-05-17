@@ -119,6 +119,7 @@ export class TableManager {
   private viewTable: string | null = null;
   private viewFingerprint: string = '';
   private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
+  private pendingRebuild: Promise<void> | null = null;
 
   /**
    * Create or reuse a materialized view (temp table with __pos column)
@@ -131,6 +132,11 @@ export class TableManager {
     whereStr: string,
     orderClause: string
   ): Promise<{ viewName: string; totalRows: number }> {
+    // Wait for any pending table rebuild to complete first
+    if (this.pendingRebuild) {
+      await this.pendingRebuild;
+    }
+
     const fingerprint = `${tableName}|${whereStr}|${orderClause}`;
 
     // If view is already valid, return immediately
@@ -373,45 +379,64 @@ export class TableManager {
   }
 
   async addRowAt(tableName: string, targetRowid: number, position: 'above' | 'below'): Promise<number> {
-    const quoted = this.quoteIdentifier(tableName);
+    // Fast path: simple INSERT to get a rowid immediately
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
     const nulls = headers.map(() => "NULL").join(', ');
+    await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
+    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
+    const newRowid = Number(result.rows[0][0]);
 
-    // Rebuild table with new row at the correct position
-    const tempName = `__temp_insert_${Date.now()}`;
+    // Invalidate view so next fetch rebuilds with correct order
+    this.invalidateView();
+
+    // Background: rebuild table to fix physical order (needed for correct save)
+    this.pendingRebuild = this.rebuildTableForInsert(tableName, headers, newRowid, targetRowid, position)
+      .finally(() => { this.pendingRebuild = null; });
+
+    return newRowid;
+  }
+
+  /**
+   * Rebuild the table so the newly inserted row is at the correct physical position.
+   * Runs in background — does not block the UI.
+   */
+  private async rebuildTableForInsert(
+    tableName: string,
+    headers: string[],
+    newRowid: number,
+    targetRowid: number,
+    position: 'above' | 'below'
+  ): Promise<void> {
+    const quoted = this.quoteIdentifier(tableName);
+    const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
+    const tempName = `__temp_reorder_${Date.now()}`;
     const tempQuoted = this.quoteIdentifier(tempName);
 
+    // Rebuild: all rows except the new one in original order, with new row at target position
     if (position === 'above') {
       await this.engine.query(`CREATE TABLE ${tempQuoted} AS
         SELECT ${cols} FROM (
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${targetRowid}
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${targetRowid} AND rowid != ${newRowid}
           UNION ALL
-          SELECT ${nulls}, -1 as __rid
+          SELECT ${cols}, ${newRowid} as __rid FROM ${quoted} WHERE rowid = ${newRowid}
           UNION ALL
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${targetRowid}
-        ) ORDER BY CASE WHEN __rid = -1 THEN ${targetRowid} - 0.5 ELSE __rid END`);
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${targetRowid} AND rowid != ${newRowid}
+        ) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${targetRowid} - 0.5 ELSE __rid END`);
     } else {
       await this.engine.query(`CREATE TABLE ${tempQuoted} AS
         SELECT ${cols} FROM (
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid <= ${targetRowid}
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid <= ${targetRowid} AND rowid != ${newRowid}
           UNION ALL
-          SELECT ${nulls}, -1 as __rid
+          SELECT ${cols}, ${newRowid} as __rid FROM ${quoted} WHERE rowid = ${newRowid}
           UNION ALL
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid > ${targetRowid}
-        ) ORDER BY CASE WHEN __rid = -1 THEN ${targetRowid} + 0.5 ELSE __rid END`);
+          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid > ${targetRowid} AND rowid != ${newRowid}
+        ) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${targetRowid} + 0.5 ELSE __rid END`);
     }
 
     await this.engine.query(`DROP TABLE ${quoted}`);
     await this.engine.query(`ALTER TABLE ${tempQuoted} RENAME TO ${quoted}`);
     this.invalidateView();
-
-    // Return the rowid of the new row
-    const result = await this.engine.query(
-      `SELECT rowid FROM ${quoted} LIMIT 1 OFFSET ${targetRowid + (position === 'below' ? 1 : 0)}`
-    );
-    return result.rows.length > 0 ? Number(result.rows[0][0]) : -1;
   }
 
   async deleteRow(tableName: string, rowid: number): Promise<void> {
