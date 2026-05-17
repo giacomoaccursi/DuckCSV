@@ -212,7 +212,8 @@ export class TableManager {
 
   /**
    * Insert a row into the materialized view at a specific position (above/below a target rowid).
-   * Uses fractional __pos so ORDER BY __pos places it correctly.
+   * Calculates __pos as the midpoint between the target and its neighbor,
+   * guaranteeing correct ordering even with multiple inserts at the same position.
    */
   private async insertIntoView(newRowid: number, targetRowid: number, position: 'above' | 'below', tableName: string): Promise<void> {
     if (!this.viewTable || !this.viewFingerprint) { return; }
@@ -225,14 +226,27 @@ export class TableManager {
     // Find the __pos of the target row
     const posResult = await this.engine.query(`SELECT __pos FROM ${viewQuoted} WHERE __rid = ${targetRowid}`);
     if (posResult.rows.length === 0) {
-      // Target not in view, fall back to append
       await this.appendToView(newRowid, tableName);
       return;
     }
     const targetPos = Number(posResult.rows[0][0]);
 
-    // Calculate a fractional __pos: above = targetPos - 0.5, below = targetPos + 0.5
-    const newPos = position === 'above' ? targetPos - 0.5 : targetPos + 0.5;
+    let newPos: number;
+    if (position === 'above') {
+      // Find the row just before the target
+      const prevResult = await this.engine.query(
+        `SELECT MAX(__pos) FROM ${viewQuoted} WHERE __pos < ${targetPos}`
+      );
+      const prevPos = prevResult.rows[0][0] !== null ? Number(prevResult.rows[0][0]) : targetPos - 2;
+      newPos = (prevPos + targetPos) / 2;
+    } else {
+      // Find the row just after the target
+      const nextResult = await this.engine.query(
+        `SELECT MIN(__pos) FROM ${viewQuoted} WHERE __pos > ${targetPos}`
+      );
+      const nextPos = nextResult.rows[0][0] !== null ? Number(nextResult.rows[0][0]) : targetPos + 2;
+      newPos = (targetPos + nextPos) / 2;
+    }
 
     await this.engine.query(
       `INSERT INTO ${viewQuoted} SELECT ${newPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${quoted} WHERE rowid = ${newRowid}`
