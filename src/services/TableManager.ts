@@ -114,6 +114,58 @@ export class TableManager {
     return Number(result.rows[0][0]);
   }
 
+  // ─── Materialized View for Fast Pagination ────────────────────────────────
+
+  private viewTable: string | null = null;
+  private viewFingerprint: string = '';
+
+  /**
+   * Create or reuse a materialized view (temp table with __pos column)
+   * for fast positional access. Only recreated when sort/filter changes.
+   */
+  private async ensureMaterializedView(
+    tableName: string,
+    headers: string[],
+    whereStr: string,
+    orderClause: string
+  ): Promise<{ viewName: string; totalRows: number }> {
+    const fingerprint = `${tableName}|${whereStr}|${orderClause}`;
+
+    if (this.viewTable && this.viewFingerprint === fingerprint) {
+      // View is still valid — get count from it
+      const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.quoteIdentifier(this.viewTable)}`);
+      const totalRows = Number(countResult.rows[0][0]);
+      return { viewName: this.viewTable, totalRows };
+    }
+
+    // Drop old view
+    if (this.viewTable) {
+      await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(this.viewTable)}`);
+    }
+
+    const viewName = `__view_${Date.now()}`;
+    this.viewTable = viewName;
+    this.viewFingerprint = fingerprint;
+
+    const quoted = this.quoteIdentifier(tableName);
+    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+
+    // Create materialized view with sequential __pos
+    await this.engine.query(
+      `CREATE TEMP TABLE ${this.quoteIdentifier(viewName)} AS SELECT (ROW_NUMBER() OVER() - 1) as __pos, rowid as __rid, ${columns} FROM ${quoted} ${whereStr} ${orderClause}`
+    );
+
+    const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.quoteIdentifier(viewName)}`);
+    const totalRows = Number(countResult.rows[0][0]);
+
+    return { viewName, totalRows };
+  }
+
+  /** Invalidate the materialized view (after insert/delete/edit) */
+  invalidateView(): void {
+    this.viewFingerprint = '';
+  }
+
   async getDataPage(
     tableName: string,
     params: {
@@ -128,27 +180,50 @@ export class TableManager {
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const whereClauses = this.buildWhereClauses(params.filters, params.searchTerm, headers);
     const orderClause = this.buildOrderClause(params.sort, headers);
-
     const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    const quoted = this.quoteIdentifier(tableName);
+
+    const hasFiltersOrSort = whereStr !== '' || orderClause !== '';
+
+    if (!hasFiltersOrSort) {
+      // Fast path: no filters/sort — use rowid directly (O(1) access)
+      const quoted = this.quoteIdentifier(tableName);
+      const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+
+      const result = await this.engine.query(
+        `SELECT rowid, ${columns}, COUNT(*) OVER() as __total FROM ${quoted} WHERE rowid >= ${params.offset} LIMIT ${params.limit}`
+      );
+
+      if (result.rows.length === 0) {
+        // Get total count separately for empty result
+        const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${quoted}`);
+        return { rows: [], rowids: [], filteredCount: Number(countResult.rows[0][0]) };
+      }
+
+      const lastCol = result.rows[0].length - 1;
+      const filteredCount = Number(result.rows[0][lastCol]);
+      const rowids = result.rows.map(row => parseInt(row[0], 10));
+      const rows = result.rows.map(row => row.slice(1, lastCol));
+
+      return { rows, rowids, filteredCount };
+    }
+
+    // Slow path: filters/sort active — use materialized view for O(1) pagination
+    const { viewName, totalRows } = await this.ensureMaterializedView(tableName, headers, whereStr, orderClause);
+    const viewQuoted = this.quoteIdentifier(viewName);
     const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
 
-    // Single query: fetch data + filtered count via window function
     const result = await this.engine.query(
-      `SELECT rowid, ${columns}, COUNT(*) OVER() as __total FROM ${quoted} ${whereStr} ${orderClause} LIMIT ${params.limit} OFFSET ${params.offset}`
+      `SELECT __rid, ${columns} FROM ${viewQuoted} WHERE __pos >= ${params.offset} LIMIT ${params.limit}`
     );
 
     if (result.rows.length === 0) {
-      return { rows: [], rowids: [], filteredCount: 0 };
+      return { rows: [], rowids: [], filteredCount: totalRows };
     }
 
-    // __total is the last column in each row
-    const lastCol = result.rows[0].length - 1;
-    const filteredCount = Number(result.rows[0][lastCol]);
     const rowids = result.rows.map(row => parseInt(row[0], 10));
-    const rows = result.rows.map(row => row.slice(1, lastCol));
+    const rows = result.rows.map(row => row.slice(1));
 
-    return { rows, rowids, filteredCount };
+    return { rows, rowids, filteredCount: totalRows };
   }
 
   async getUniqueValues(tableName: string, columnIndex: number): Promise<string[]> {
@@ -196,6 +271,8 @@ export class TableManager {
       meta.headers = await this.getHeaders(tableName);
       meta.columnTypes = await this.getColumnTypes(tableName);
     }
+
+    this.invalidateView();
   }
 
   private async isTypeIncompatible(escapedValue: string, currentType: string, rawValue: string): Promise<boolean> {
@@ -247,6 +324,7 @@ export class TableManager {
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const nulls = headers.map(() => "NULL").join(', ');
     await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
+    this.invalidateView();
   }
 
   async addRowAt(tableName: string, rowid: number, position: 'above' | 'below'): Promise<void> {
@@ -284,10 +362,12 @@ export class TableManager {
 
     await this.engine.query(`DROP TABLE ${quoted}`);
     await this.engine.query(`ALTER TABLE ${tempQuoted} RENAME TO ${quoted}`);
+    this.invalidateView();
   }
 
   async deleteRow(tableName: string, rowid: number): Promise<void> {
     await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid = ${rowid}`);
+    this.invalidateView();
   }
 
   async deleteRows(tableName: string, rowids: number[]): Promise<void> {
@@ -297,6 +377,7 @@ export class TableManager {
     }
     const idList = rowids.join(', ');
     await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid IN (${idList})`);
+    this.invalidateView();
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────
