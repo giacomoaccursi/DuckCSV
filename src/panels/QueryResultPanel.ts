@@ -38,7 +38,7 @@ export function openQueryResultPanel(
     vscode.Uri.joinPath(extensionUri, 'media', 'query-result.js')
   );
   const duckAngryUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'duck-angry.png')
+    vscode.Uri.joinPath(extensionUri, 'media', 'psyduck.png')
   );
   const nonce = getNonce();
 

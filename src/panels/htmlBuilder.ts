@@ -29,7 +29,7 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
     vscode.Uri.joinPath(extensionUri, 'media', 'duck.png')
   );
   const duckAngryUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'duck-angry.png')
+    vscode.Uri.joinPath(extensionUri, 'media', 'psyduck.png')
   );
   const nonce = getNonce();
 
