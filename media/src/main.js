@@ -105,6 +105,7 @@ function bindEvents() {
   });
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip, onEnterCell: () => {
+    if (document.body.dataset.readonly) { return; }
     const sel = getSelection();
     if (!sel) { return; }
     const row = sel.endRow;
@@ -153,14 +154,28 @@ function bindEvents() {
     });
   }
 
-  // Preview-specific: cell editing
-  document.addEventListener('dblclick', (e) => {
-    const td = e.target.closest('td.editable-cell');
-    if (td) { clearSelection(); startCellEdit(td); }
-  });
+  // Preview-specific: cell editing (disabled in readonly mode)
+  if (!document.body.dataset.readonly) {
+    document.addEventListener('dblclick', (e) => {
+      const td = e.target.closest('td.editable-cell');
+      if (td) { clearSelection(); startCellEdit(td); }
+    });
+  }
 
   // Preview-specific: context menu (insert/delete rows, copy)
   document.addEventListener('contextmenu', (e) => {
+    if (document.body.dataset.readonly) {
+      // Readonly: only allow copy
+      const cell = e.target.closest('td.editable-cell');
+      if (!cell) { return; }
+      e.preventDefault();
+      const text = cell.dataset.fullText || cell.textContent;
+      showContextMenu(e.pageX, e.pageY, [
+        { label: 'Copy cell', action: () => sendMessage({ type: 'copyToClipboard', text }) },
+      ]);
+      return;
+    }
+
     const rowNum = e.target.closest('td.row-number');
     if (rowNum) {
       e.preventDefault();

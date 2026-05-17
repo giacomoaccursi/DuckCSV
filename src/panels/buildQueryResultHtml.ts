@@ -30,5 +30,6 @@ export function buildQueryResultHtml(webview: vscode.Webview, extensionUri: vsco
     toolbarHtml,
     showQueryBar: false,
     showLoading: false,
+    readonly: true,
   });
 }

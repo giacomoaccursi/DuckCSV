@@ -15,6 +15,7 @@ export interface HtmlShellOptions {
   extraSectionsHtml?: string;
   showQueryBar?: boolean;
   showLoading?: boolean;
+  readonly?: boolean;
 }
 
 export function buildHtmlShell(options: HtmlShellOptions): string {
@@ -23,6 +24,7 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
     extraSectionsHtml = '',
     showQueryBar = true,
     showLoading = true,
+    readonly: isReadonly = false,
   } = options;
 
   const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'styles.css'));
@@ -80,7 +82,7 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
   <link href="${styleUri}" rel="stylesheet">
   <title>${title}</title>
 </head>
-<body>
+<body${isReadonly ? ' data-readonly="true"' : ''}>
   <div id="app">
     ${toolbarHtml}
 ${extraSectionsHtml}
