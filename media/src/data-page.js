@@ -103,14 +103,14 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
     dom.searchInput.value = data.searchTerm;
   }
 
-  // Preserve focus on query input if it was active
+  // Preserve focus on query input after query execution
   const qInput = document.getElementById('queryInput');
-  const hadQueryFocus = document.activeElement === qInput;
+  const restoreQueryFocus = data.isQueryResult && qInput;
 
   renderHeader();
   updateStats();
   showTable();
   renderRows();
 
-  if (hadQueryFocus && qInput) { qInput.focus(); }
+  if (restoreQueryFocus) { qInput.focus(); }
 }
