@@ -29,7 +29,7 @@ export class TableExporter {
     stream.write(headerLine + '\n');
 
     let offset = 0;
-    const batchSize = 10_000;
+    const batchSize = 50_000;
 
     while (true) {
       const result = await this.engine.query(

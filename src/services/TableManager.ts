@@ -23,6 +23,7 @@ export interface TableMeta {
   delimiterChar: string;
   headers: string[];
   columnTypes: string[];
+  originalTypes: string[]; // Types assigned by DuckDB at load time
   rowCount: number;
 }
 
@@ -39,6 +40,7 @@ export class TableManager {
 
   private viewTable: string | null = null;
   private viewFingerprint: string = '';
+  private viewTotalRows: number = 0;
   private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
   private pendingRebuild: Promise<void> | null = null;
 
@@ -76,7 +78,7 @@ export class TableManager {
     const meta: TableMeta = {
       name: tableName, filePath: uri.fsPath,
       delimiter: delimiterName, delimiterChar,
-      headers, columnTypes, rowCount,
+      headers, columnTypes, originalTypes: [...columnTypes], rowCount,
     };
     this.tables.set(tableName, meta);
     return meta;
@@ -201,7 +203,7 @@ export class TableManager {
       await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
     }
 
-    await this.tryTightenColumnType(tableName, columnIndex);
+    await this.tryTightenColumnType(tableName, columnIndex, value);
     if (meta) {
       meta.headers = await this.getHeaders(tableName);
       meta.columnTypes = await this.getColumnTypes(tableName);
@@ -257,6 +259,7 @@ export class TableManager {
 
     if (this.viewTable && this.viewFingerprint) {
       await this.engine.query(`DELETE FROM ${this.q(this.viewTable)} WHERE __rid IN (${idList})`);
+      this.viewTotalRows -= rowids.length;
     }
   }
 
@@ -278,17 +281,14 @@ export class TableManager {
     const fingerprint = `${tableName}|${whereStr}|${orderClause}`;
 
     if (this.viewTable && this.viewFingerprint === fingerprint) {
-      const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(this.viewTable)}`);
-      return { viewName: this.viewTable, totalRows: Number(countResult.rows[0][0]) };
+      return { viewName: this.viewTable, totalRows: this.viewTotalRows };
     }
 
     // If a build is in progress, wait for it then check again
     if (this.viewBuildPromise) {
       await this.viewBuildPromise;
-      // After the build completes, check if the fingerprint now matches
       if (this.viewTable && this.viewFingerprint === fingerprint) {
-        const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(this.viewTable)}`);
-        return { viewName: this.viewTable, totalRows: Number(countResult.rows[0][0]) };
+        return { viewName: this.viewTable, totalRows: this.viewTotalRows };
       }
     }
 
@@ -321,7 +321,9 @@ export class TableManager {
     );
 
     const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(viewName)}`);
-    return { viewName, totalRows: Number(countResult.rows[0][0]) };
+    const totalRows = Number(countResult.rows[0][0]);
+    this.viewTotalRows = totalRows;
+    return { viewName, totalRows };
   }
 
   /** Append a new row to the end of the view (for addRow). */
@@ -339,12 +341,14 @@ export class TableManager {
     await this.engine.query(
       `INSERT INTO ${viewQ} SELECT ${nextPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${this.q(tableName)} WHERE rowid = ${newRowid}`
     );
+    this.viewTotalRows++;
   }
 
   /** Remove a row from the view (for deleteRow). */
   private async removeRowFromView(rowid: number): Promise<void> {
     if (!this.viewTable || !this.viewFingerprint) { return; }
     await this.engine.query(`DELETE FROM ${this.q(this.viewTable)} WHERE __rid = ${rowid}`);
+    this.viewTotalRows--;
   }
 
   /** Update a single cell in the view (for updateCell). */
@@ -409,27 +413,45 @@ export class TableManager {
     }
   }
 
-  private async tryTightenColumnType(tableName: string, columnIndex: number): Promise<void> {
+  /**
+   * Try to tighten a VARCHAR column back to its original type.
+   * Only runs if:
+   * - The column is currently VARCHAR
+   * - It was originally a different type (was widened during editing)
+   * - The new value is compatible with the original type (there's a chance to tighten)
+   */
+  private async tryTightenColumnType(tableName: string, columnIndex: number, newValue: string): Promise<void> {
     const meta = this.tables.get(tableName);
-    const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
-    if (types[columnIndex] !== 'VARCHAR') { return; }
+    if (!meta) { return; }
 
-    const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const colName = this.q(headers[columnIndex]);
-    const quoted = this.q(tableName);
-    const candidates = ['BOOLEAN', 'BIGINT', 'DOUBLE', 'DATE', 'TIMESTAMP'];
+    const currentType = meta.columnTypes[columnIndex];
+    if (currentType !== 'VARCHAR') { return; }
 
-    for (const targetType of candidates) {
+    const originalType = meta.originalTypes[columnIndex];
+    if (!originalType || originalType === 'VARCHAR') { return; } // Was always VARCHAR
+
+    // Only try if the new value is compatible with the original type
+    if (newValue !== '') {
+      const escaped = newValue.replace(/'/g, "''");
       try {
         const check = await this.engine.query(
-          `SELECT COUNT(*) = COUNT(TRY_CAST(${colName} AS ${targetType})) as ok FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != ''`
+          `SELECT TRY_CAST('${escaped}' AS ${originalType}) IS NOT NULL as ok`
         );
-        if (check.rows[0][0] === 'true') {
-          await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${targetType}`);
-          return;
-        }
-      } catch { /* skip */ }
+        if (check.rows[0][0] !== 'true') { return; } // New value isn't compatible, no point trying
+      } catch { return; }
     }
+
+    // The new value is compatible — check if ALL values can go back to original type
+    const colName = this.q(meta.headers[columnIndex]);
+    const quoted = this.q(tableName);
+    try {
+      const check = await this.engine.query(
+        `SELECT COUNT(*) = COUNT(TRY_CAST(${colName} AS ${originalType})) as ok FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != ''`
+      );
+      if (check.rows[0][0] === 'true') {
+        await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${originalType}`);
+      }
+    } catch { /* can't tighten, that's fine */ }
   }
 
   // ─── SQL Helpers ─────────────────────────────────────────────────────────
