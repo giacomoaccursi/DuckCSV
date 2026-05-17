@@ -127,6 +127,8 @@ function bindEvents() {
     }
   });
 
+  if (dom.refreshBtn) { dom.refreshBtn.addEventListener('click', () => sendMessage({ type: 'refresh' })); }
+  if (dom.openAsTextBtn) { dom.openAsTextBtn.addEventListener('click', () => sendMessage({ type: 'openAsText' })); }
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
 
   const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');

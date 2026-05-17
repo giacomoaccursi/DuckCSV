@@ -287,10 +287,12 @@ export class TableManager {
     this.viewFingerprint = fingerprint;
 
     const columns = headers.map(h => this.q(h)).join(', ');
+
+    // Use subquery to ensure ORDER BY is applied before ROW_NUMBER
     await this.engine.query(
       `CREATE TEMP TABLE ${this.q(viewName)} AS ` +
-      `SELECT (ROW_NUMBER() OVER() - 1) as __pos, rowid as __rid, ${columns} ` +
-      `FROM ${this.q(tableName)} ${whereStr} ${orderClause}`
+      `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
+      `(SELECT rowid as __rid, ${columns} FROM ${this.q(tableName)} ${whereStr} ${orderClause}) sub`
     );
 
     const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(viewName)}`);

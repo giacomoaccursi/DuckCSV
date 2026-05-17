@@ -11,6 +11,8 @@ export const dom = {
   loadingContainer: document.getElementById('loadingContainer'),
   errorContainer: document.getElementById('errorContainer'),
   errorText: document.getElementById('errorText'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  openAsTextBtn: document.getElementById('openAsTextBtn'),
   colorBtn: document.getElementById('colorBtn'),
   queryInput: document.getElementById('queryInput'),
   queryRunBtn: document.getElementById('queryRunBtn'),
