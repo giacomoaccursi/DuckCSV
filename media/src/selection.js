@@ -12,6 +12,7 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { getScroller } from './renderer.js';
+import { getDataWindow } from './data-page.js';
 
 // Selection state: { startRow, startCol, endRow, endCol } or null
 let selection = null;
@@ -308,11 +309,13 @@ function getSelectionText() {
   const minCol = Math.min(selection.startCol, selection.endCol);
   const maxCol = Math.max(selection.startCol, selection.endCol);
 
+  const dw = getDataWindow();
   const isSingleCell = (minRow === maxRow && minCol === maxCol);
 
   // Single cell: just copy the value, no header
   if (isSingleCell) {
-    return state.rows[minRow]?.[minCol] || '';
+    const row = dw ? dw.getRow(minRow) : state.rows[minRow];
+    return row?.[minCol] || '';
   }
 
   // Multi-cell: include header + use file delimiter
@@ -329,10 +332,11 @@ function getSelectionText() {
 
   // Data rows
   for (let r = minRow; r <= maxRow; r++) {
-    if (r >= state.rows.length) { break; }
+    const row = dw ? dw.getRow(r) : state.rows[r];
+    if (!row) { continue; }
     const cells = [];
     for (let c = minCol; c <= maxCol; c++) {
-      cells.push(quoteIfNeeded(state.rows[r][c] || '', delimiter));
+      cells.push(quoteIfNeeded(row[c] || '', delimiter));
     }
     lines.push(cells.join(delimiter));
   }
