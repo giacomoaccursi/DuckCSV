@@ -42,7 +42,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
 
   state.headers = data.headers;
   if (setOriginalHeaders) {
-    state.originalHeaders = data.headers;
+    state.originalHeaders = data.tableName
+      ? [data.tableName, ...data.headers]
+      : data.headers;
   }
   state.columnTypes = data.columnTypes || [];
   state.totalRows = data.totalRows;
