@@ -41,7 +41,12 @@ function handleExtensionMessage(message) {
       hideLoading();
       break;
     case 'error': showError(message.message); break;
-    case 'queryError': setQueryRunning(false); showQueryError(message.message); break;
+    case 'queryError':
+      setQueryRunning(false);
+      showQueryError(message.message);
+      const qi = document.getElementById('queryInput');
+      if (qi) { qi.focus(); }
+      break;
   }
 }
 
