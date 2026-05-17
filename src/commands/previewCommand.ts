@@ -31,10 +31,6 @@ export function registerPreviewCommands(
       (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active)
     ),
     vscode.commands.registerCommand(
-      'duckcsv.previewToSide',
-      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Beside)
-    ),
-    vscode.commands.registerCommand(
       'duckcsv.workspace',
       (uri?: vscode.Uri) => openWorkspace(context, engine, queryExecutor, configService, uri)
     )

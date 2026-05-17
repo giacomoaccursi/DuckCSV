@@ -34,7 +34,6 @@
     },
     "activationEvents": [
         "onCommand:duckcsv.preview",
-        "onCommand:duckcsv.previewToSide",
         "onCommand:duckcsv.workspace"
     ],
     "main": "./dist/extension.js",
@@ -43,11 +42,6 @@
             {
                 "command": "duckcsv.preview",
                 "title": "DuckCSV: Open Preview",
-                "icon": "$(open-preview)"
-            },
-            {
-                "command": "duckcsv.previewToSide",
-                "title": "DuckCSV: Open Preview to the Side",
                 "icon": "$(open-preview)"
             },
             {
@@ -91,10 +85,6 @@
                     "when": "true"
                 },
                 {
-                    "command": "duckcsv.previewToSide",
-                    "when": "true"
-                },
-                {
                     "command": "duckcsv.workspace",
                     "when": "true"
                 }
@@ -105,12 +95,6 @@
                 "command": "duckcsv.preview",
                 "key": "cmd+k v",
                 "mac": "cmd+k v",
-                "when": "resourceExtname == .csv || resourceExtname == .tsv"
-            },
-            {
-                "command": "duckcsv.previewToSide",
-                "key": "cmd+k cmd+v",
-                "mac": "cmd+k cmd+v",
                 "when": "resourceExtname == .csv || resourceExtname == .tsv"
             }
         ],
