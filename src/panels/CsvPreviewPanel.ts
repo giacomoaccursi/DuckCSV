@@ -175,6 +175,7 @@ export class CsvPreviewPanel extends BasePanel {
   private async doExport(outputPath: string): Promise<void> {
     this.postMessage({ type: 'saving', saving: true });
     try {
+      await this.tableManager.awaitPendingRebuild();
       await this.tableExporter.exportTable(this.tableName, outputPath);
       this.isDirty = false;
       this.panel.title = this.fileName;
@@ -234,7 +235,7 @@ export class CsvPreviewPanel extends BasePanel {
       this.markDirty();
       this.viewState.applyFilters({});
       this.viewState.applySearch('');
-      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'add' } });
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, filteredRows: this.totalRows } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -245,7 +246,7 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableManager.addRowAt(this.tableName, rowid, position);
       this.totalRows++;
       this.markDirty();
-      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'add', rowid, position } });
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, filteredRows: this.totalRows } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -256,7 +257,7 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableManager.deleteRow(this.tableName, rowid);
       this.totalRows--;
       this.markDirty();
-      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'delete', rowids: [rowid] } });
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, filteredRows: this.totalRows } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -267,7 +268,7 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableManager.deleteRows(this.tableName, rowids);
       this.totalRows -= rowids.length;
       this.markDirty();
-      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'delete', rowids } });
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, filteredRows: this.totalRows } });
     } catch (error: unknown) {
       this.postError(error);
     }

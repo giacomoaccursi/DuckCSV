@@ -65,10 +65,7 @@ export interface CellEditConfirmPayload {
 
 export interface RowMutationPayload {
   totalRows: number;
-  action: 'add' | 'delete';
-  rowid?: number;
-  position?: 'above' | 'below';
-  rowids?: number[];
+  filteredRows: number;
 }
 
 // ─── Messages: Extension → Webview ──────────────────────────────────────────

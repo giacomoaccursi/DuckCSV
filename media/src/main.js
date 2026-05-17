@@ -50,27 +50,31 @@ function onDataPageReceived(data) {
 }
 
 function onRowMutation(data) {
-  // Update totals
   state.totalRows = data.totalRows;
-  state.filteredRows = data.totalRows;
+  state.filteredRows = data.filteredRows;
   state.isDirty = true;
+
+  // If filteredRows equals totalRows, filters were cleared by the backend
+  if (data.filteredRows === data.totalRows) {
+    state.filters = {};
+    state.searchTerm = '';
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) { searchInput.value = ''; }
+  }
 
   const saveBtn = document.getElementById('saveBtn');
   if (saveBtn) { saveBtn.disabled = false; }
 
-  // Invalidate DataWindow cache and update total.
-  // The backend view is already updated incrementally, so re-fetches will be fast.
   const dw = getDataWindow();
   if (dw) {
-    dw.setTotalRows(data.totalRows);
+    dw.setTotalRows(data.filteredRows);
     dw.invalidate();
   }
 
-  // Update virtual scroller with new total — this triggers re-render and fresh fetches
   updateStats();
   const scroller = getScroller();
   if (scroller) {
-    scroller.update(data.totalRows);
+    scroller.update(data.filteredRows);
   } else {
     renderRows();
   }

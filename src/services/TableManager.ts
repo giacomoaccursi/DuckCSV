@@ -266,6 +266,10 @@ export class TableManager {
     this.viewFingerprint = '';
   }
 
+  async awaitPendingRebuild(): Promise<void> {
+    if (this.pendingRebuild) { await this.pendingRebuild; }
+  }
+
   private async ensureView(
     tableName: string, headers: string[], whereStr: string, orderClause: string
   ): Promise<{ viewName: string; totalRows: number }> {
@@ -278,7 +282,15 @@ export class TableManager {
       return { viewName: this.viewTable, totalRows: Number(countResult.rows[0][0]) };
     }
 
-    if (this.viewBuildPromise) { return this.viewBuildPromise; }
+    // If a build is in progress, wait for it then check again
+    if (this.viewBuildPromise) {
+      await this.viewBuildPromise;
+      // After the build completes, check if the fingerprint now matches
+      if (this.viewTable && this.viewFingerprint === fingerprint) {
+        const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(this.viewTable)}`);
+        return { viewName: this.viewTable, totalRows: Number(countResult.rows[0][0]) };
+      }
+    }
 
     this.viewBuildPromise = this.buildView(tableName, headers, whereStr, orderClause, fingerprint);
     try {
