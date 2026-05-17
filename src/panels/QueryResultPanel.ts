@@ -27,7 +27,6 @@ export class QueryResultPanel extends BasePanel {
     queryExecutor: QueryExecutor,
     config: ConfigService,
     sql: string,
-    defaultTable?: string,
     sourceFileName?: string
   ): Promise<void> {
     const panel = vscode.window.createWebviewPanel(
@@ -46,11 +45,9 @@ export class QueryResultPanel extends BasePanel {
 
     // Execute query into a temp table
     try {
-      const normalizedSql = defaultTable
-        ? QueryResultPanel.normalizeSql(sql, defaultTable)
-        : sql.trim();
+      const finalSql = sql.trim();
 
-      await engine.query(`CREATE TABLE "${tableName}" AS ${normalizedSql}`);
+      await engine.query(`CREATE TABLE "${tableName}" AS ${finalSql}`);
     } catch (err: unknown) {
       panel.webview.html = QueryResultPanel.buildErrorHtml(panel.webview, extensionUri, sql, err);
       return;
@@ -156,25 +153,6 @@ export class QueryResultPanel extends BasePanel {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  private static normalizeSql(sql: string, defaultTable: string): string {
-    const trimmed = sql.trim();
-    const quotedTable = `"${defaultTable.replace(/"/g, '""')}"`;
-
-    if (/\bFROM\s+/i.test(trimmed)) { return trimmed; }
-
-    if (/^SELECT\s/i.test(trimmed)) {
-      const insertPoint = trimmed.search(/\b(WHERE|ORDER|GROUP|LIMIT|HAVING)\b/i);
-      if (insertPoint === -1) { return `${trimmed} FROM ${quotedTable}`; }
-      return `${trimmed.slice(0, insertPoint)}FROM ${quotedTable} ${trimmed.slice(insertPoint)}`;
-    }
-
-    if (/^WHERE\s/i.test(trimmed)) {
-      return `SELECT * FROM ${quotedTable} ${trimmed}`;
-    }
-
-    return trimmed;
-  }
 
   private static buildErrorHtml(webview: vscode.Webview, extensionUri: vscode.Uri, sql: string, err: unknown): string {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'styles.css'));

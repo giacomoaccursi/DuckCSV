@@ -54,6 +54,12 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   // Show query label in side panel
   const queryLabel = document.getElementById('queryLabel');
   if (queryLabel) { queryLabel.textContent = data.fileName || ''; }
+
+  // Update query input placeholder with table name
+  const queryInput = document.getElementById('queryInput');
+  if (queryInput && data.tableName) {
+    queryInput.setAttribute('placeholder', `SELECT * FROM ${data.tableName} WHERE ... ORDER BY ... LIMIT 100`);
+  }
   state.sort = data.sort;
   state.filters = data.filters;
   state.searchTerm = data.searchTerm;

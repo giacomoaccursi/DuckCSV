@@ -40,6 +40,7 @@ export interface DataPagePayload {
   searchTerm: string;
   isDirty: boolean;
   isQueryResult?: boolean;
+  tableName?: string;
 }
 
 export interface ColumnValuesPayload {

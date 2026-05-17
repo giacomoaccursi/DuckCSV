@@ -180,17 +180,17 @@ export abstract class BasePanel {
       const meta = this.tableManager.getTableMeta(tableName || '');
       const sourceFileName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       await QueryResultPanel.open(
-        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, tableName || undefined, sourceFileName
+        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, sourceFileName
       );
       return;
     }
 
     // Inline: execute into temp table with __orig_rid for edit mapping
     const tempName = `__inline_qr_${Date.now()}`;
-    const normalizedSql = this.queryExecutor.normalizeSql(sql, tableName || '');
+    const trimmedSql = sql.trim();
 
     // Try to inject rowid into the SELECT for edit support
-    const withRowid = normalizedSql.replace(/^SELECT\s/i, 'SELECT rowid as __orig_rid, ');
+    const withRowid = trimmedSql.replace(/^SELECT\s/i, 'SELECT rowid as __orig_rid, ');
     let hasOrigRid = false;
 
     try {
@@ -200,7 +200,7 @@ export abstract class BasePanel {
       // Fallback: rowid injection failed (e.g. aggregation, JOIN). Create without it.
       try {
         await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${tempName}"`);
-        await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${normalizedSql}`);
+        await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${trimmedSql}`);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Query failed';
         this.postMessage({ type: 'queryError', message: msg });

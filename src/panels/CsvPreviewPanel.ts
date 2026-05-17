@@ -103,6 +103,7 @@ export class CsvPreviewPanel extends BasePanel {
       filters: this.viewState.filters,
       searchTerm: this.viewState.searchTerm,
       isDirty: this.isDirty,
+      tableName: this.tableName,
     };
   }
 
@@ -204,7 +205,7 @@ export class CsvPreviewPanel extends BasePanel {
 
       this.postMessage({ type: 'loading', loading: true, message: `Loading ${this.fileName} (${this.formatSize(this.fileSize)})...` });
 
-      const meta = await this.tableManager.loadTable(this.currentUri, 'csv');
+      const meta = await this.tableManager.loadTable(this.currentUri);
       this.tableName = meta.name;
       this.totalRows = meta.rowCount;
 

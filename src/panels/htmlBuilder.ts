@@ -35,7 +35,7 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
 
   const queryBarHtml = showQueryBar ? /* html */ `
     <div class="query-bar">
-      <input type="text" id="queryInput" class="query-input" placeholder="SQL: SELECT * WHERE Status = 'Active' ORDER BY Name LIMIT 100" />
+      <input type="text" id="queryInput" class="query-input" placeholder="SELECT * FROM tablename WHERE ... ORDER BY ... LIMIT 100" />
       <button id="queryRunBtn" class="btn" data-tooltip="Run query inline (replaces current view)">
         <svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M4 2l10 6-10 6V2z"/></svg>
       </button>
