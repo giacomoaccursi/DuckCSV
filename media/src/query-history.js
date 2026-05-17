@@ -29,9 +29,19 @@ export function openHistoryDropdown(anchorEl, onSelect) {
     return;
   }
   if (history.length === 0) { return; }
+  renderDropdown(anchorEl, onSelect);
+}
+
+function renderDropdown(anchorEl, onSelect) {
+  if (dropdown) { dropdown.remove(); }
 
   dropdown = document.createElement('div');
   dropdown.className = 'history-dropdown';
+
+  if (history.length === 0) {
+    closeHistoryDropdown();
+    return;
+  }
 
   // Scrollable list
   const list = document.createElement('div');
@@ -56,7 +66,7 @@ export function openHistoryDropdown(anchorEl, onSelect) {
       e.stopPropagation();
       history.splice(i, 1);
       sendMessage({ type: 'saveHistory', history });
-      openHistoryDropdown(anchorEl, onSelect); // Re-render
+      renderDropdown(anchorEl, onSelect);
     });
     item.appendChild(removeBtn);
 
