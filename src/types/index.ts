@@ -80,6 +80,7 @@ export type ExtensionMessage =
   | { type: 'rowMutation'; data: RowMutationPayload }
   | { type: 'queryResult'; data: QueryResultPayload }
   | { type: 'error'; message: string }
+  | { type: 'queryError'; message: string }
   | { type: 'loading'; loading: boolean; message?: string }
   | { type: 'saving'; saving: boolean }
   | { type: 'saved' }

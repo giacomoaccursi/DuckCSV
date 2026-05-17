@@ -202,7 +202,8 @@ export abstract class BasePanel {
         await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${tempName}"`);
         await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${normalizedSql}`);
       } catch (err: unknown) {
-        this.postError(err);
+        const msg = err instanceof Error ? err.message : 'Query failed';
+        this.postMessage({ type: 'queryError', message: msg });
         return;
       }
     }

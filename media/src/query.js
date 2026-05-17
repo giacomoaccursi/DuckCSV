@@ -139,7 +139,7 @@ export function resetQueryState() {
   hideQueryError();
 }
 
-function showQueryError(msg) {
+export function showQueryError(msg) {
   if (dom.queryError) {
     const textEl = dom.queryError.querySelector('#queryErrorText') || dom.queryError;
     textEl.textContent = msg;
