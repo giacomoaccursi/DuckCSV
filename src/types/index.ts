@@ -63,6 +63,14 @@ export interface CellEditConfirmPayload {
   value: string;
 }
 
+export interface RowMutationPayload {
+  totalRows: number;
+  action: 'add' | 'delete';
+  rowid?: number;
+  position?: 'above' | 'below';
+  rowids?: number[];
+}
+
 // ─── Messages: Extension → Webview ──────────────────────────────────────────
 
 export type ExtensionMessage =
@@ -70,6 +78,7 @@ export type ExtensionMessage =
   | { type: 'pageData'; requestId: number; offset: number; rows: string[][]; rowids: number[] }
   | { type: 'columnValues'; data: ColumnValuesPayload }
   | { type: 'cellEditConfirm'; data: CellEditConfirmPayload }
+  | { type: 'rowMutation'; data: RowMutationPayload }
   | { type: 'queryResult'; data: QueryResultPayload }
   | { type: 'error'; message: string }
   | { type: 'loading'; loading: boolean; message?: string }

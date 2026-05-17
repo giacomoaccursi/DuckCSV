@@ -248,7 +248,7 @@ export class CsvPreviewPanel extends BasePanel {
       this.markDirty();
       this.viewState.applyFilters({});
       this.viewState.applySearch('');
-      await this.sendCurrentPage();
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'add' } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -259,7 +259,7 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableManager.addRowAt(this.tableName, rowid, position);
       this.totalRows++;
       this.markDirty();
-      await this.sendCurrentPage();
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'add', rowid, position } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -270,7 +270,7 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableManager.deleteRow(this.tableName, rowid);
       this.totalRows--;
       this.markDirty();
-      await this.sendCurrentPage();
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'delete', rowids: [rowid] } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -281,7 +281,7 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableManager.deleteRows(this.tableName, rowids);
       this.totalRows -= rowids.length;
       this.markDirty();
-      await this.sendCurrentPage();
+      this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, action: 'delete', rowids } });
     } catch (error: unknown) {
       this.postError(error);
     }

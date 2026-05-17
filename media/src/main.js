@@ -11,8 +11,8 @@ import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
 import { renderHeader, renderRows } from './renderer.js';
-import { applyDataPage, onPageDataReceived } from './data-page.js';
-import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
+import { applyDataPage, onPageDataReceived, getDataWindow } from './data-page.js';
+import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu, updateStats } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
@@ -28,6 +28,7 @@ function handleExtensionMessage(message) {
     case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(message.data); break;
+    case 'rowMutation': onRowMutation(message.data); break;
     case 'queryResult': onQueryResult(message.data); break;
     case 'loading':
       if (message.loading) { showLoading(message.message); setSystemLoading(true); }
@@ -46,6 +47,27 @@ function handleExtensionMessage(message) {
 
 function onDataPageReceived(data) {
   applyDataPage(data, { setOriginalHeaders: true, trackDirty: true });
+}
+
+function onRowMutation(data) {
+  // Update totals
+  state.totalRows = data.totalRows;
+  state.filteredRows = data.totalRows;
+  state.isDirty = true;
+
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) { saveBtn.disabled = false; }
+
+  // Invalidate DataWindow cache — positional data has changed
+  const dw = getDataWindow();
+  if (dw) {
+    dw.setTotalRows(data.totalRows);
+    dw.invalidate();
+  }
+
+  // Re-render with new total (virtual scroller will fetch fresh blocks)
+  updateStats();
+  renderRows();
 }
 // ─── Column Coloring Toggle ──────────────────────────────────────────────────
 
