@@ -93,12 +93,14 @@ function renderDropdown(anchorEl, onSelect) {
   });
   dropdown.appendChild(clearBtn);
 
-  // Position below anchor, ensure it stays within viewport
+  // Position below anchor, aligned to query bar for more space
   const rect = anchorEl.getBoundingClientRect();
-  dropdown.style.top = rect.bottom + 'px';
-  dropdown.style.left = rect.left + 'px';
-  dropdown.style.minWidth = '300px';
-  dropdown.style.maxWidth = `${window.innerWidth - rect.left - 10}px`;
+  const queryBar = anchorEl.closest('.query-bar');
+  const barRect = queryBar ? queryBar.getBoundingClientRect() : rect;
+  dropdown.style.top = barRect.bottom + 2 + 'px';
+  dropdown.style.left = barRect.left + 'px';
+  dropdown.style.minWidth = Math.min(400, barRect.width) + 'px';
+  dropdown.style.maxWidth = barRect.width + 'px';
 
   document.body.appendChild(dropdown);
 
