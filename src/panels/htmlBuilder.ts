@@ -1,7 +1,6 @@
 /**
- * Shared HTML shell builder for webview panels.
- * Generates the full HTML with CSP, stylesheet, toolbar slot, query bar,
- * error/loading/table containers, and script tag.
+ * Modular HTML shell builder for webview panels.
+ * Each section is optional — panels pick what they need.
  */
 
 import * as vscode from 'vscode';
@@ -14,40 +13,25 @@ export interface HtmlShellOptions {
   scriptPath: string;
   toolbarHtml: string;
   extraSectionsHtml?: string;
+  showQueryBar?: boolean;
+  showLoading?: boolean;
 }
 
 export function buildHtmlShell(options: HtmlShellOptions): string {
-  const { webview, extensionUri, title, scriptPath, toolbarHtml, extraSectionsHtml } = options;
+  const {
+    webview, extensionUri, title, scriptPath, toolbarHtml,
+    extraSectionsHtml = '',
+    showQueryBar = true,
+    showLoading = true,
+  } = options;
 
-  const styleUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'styles.css')
-  );
-  const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', scriptPath)
-  );
-  const duckUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'duck.png')
-  );
-  const duckAngryUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'media', 'psyduck.png')
-  );
+  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'styles.css'));
+  const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', scriptPath));
+  const duckUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'duck.png'));
+  const psyduckUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'psyduck.png'));
   const nonce = getNonce();
 
-  return /* html */ `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
-  <link href="${styleUri}" rel="stylesheet">
-  <title>${title}</title>
-</head>
-<body>
-  <div id="app">
-    ${toolbarHtml}
-
-${extraSectionsHtml || ''}
+  const queryBarHtml = showQueryBar ? /* html */ `
     <div class="query-bar">
       <input type="text" id="queryInput" class="query-input" placeholder="SQL: SELECT * WHERE Status = 'Active' ORDER BY Name LIMIT 100" />
       <button id="queryRunBtn" class="btn" data-tooltip="Run query inline (replaces current view)">
@@ -71,14 +55,11 @@ ${extraSectionsHtml || ''}
       </button>
     </div>
     <div id="queryError" class="query-error hidden">
-      <img class="duck-error-icon" src="${duckAngryUri}" alt="Error" />
+      <img class="duck-error-icon" src="${psyduckUri}" alt="Error" />
       <span id="queryErrorText"></span>
-    </div>
+    </div>` : '';
 
-    <div id="errorContainer" class="error-container hidden">
-      <div class="error-message"><span id="errorText"></span></div>
-    </div>
-
+  const loadingHtml = showLoading ? /* html */ `
     <div id="loadingContainer" class="loading-container hidden">
       <div class="duck-sea">
         <img class="duck-float" src="${duckUri}" alt="Loading duck" />
@@ -87,7 +68,29 @@ ${extraSectionsHtml || ''}
         </svg>
       </div>
       <div class="loading-text">Loading...</div>
+    </div>` : '';
+
+  return /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <link href="${styleUri}" rel="stylesheet">
+  <title>${title}</title>
+</head>
+<body>
+  <div id="app">
+    ${toolbarHtml}
+${extraSectionsHtml}
+${queryBarHtml}
+
+    <div id="errorContainer" class="error-container hidden">
+      <div class="error-message"><span id="errorText"></span></div>
     </div>
+
+${loadingHtml}
 
     <div id="tableContainer" class="table-container hidden">
       <div class="table-wrapper">
