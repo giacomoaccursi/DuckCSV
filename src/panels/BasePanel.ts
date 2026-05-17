@@ -177,8 +177,10 @@ export abstract class BasePanel {
 
     if (mode === 'side') {
       const { QueryResultPanel } = await import('./QueryResultPanel');
+      const meta = this.tableManager.getTableMeta(tableName || '');
+      const sourceFileName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       await QueryResultPanel.open(
-        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, tableName || undefined
+        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, tableName || undefined, sourceFileName
       );
       return;
     }
@@ -233,8 +235,23 @@ export abstract class BasePanel {
     await this.sendCurrentPage();
   }
 
-  protected async handleExportQueryResult(headers: string[], rows: string[][]): Promise<void> {
-    await exportQueryResultToFile(headers, rows);
+  protected async handleExportQueryResult(_headers: string[], _rows: string[][]): Promise<void> {
+    // If inline query is active, export from the temp table
+    if (this.inlineQueryTable) {
+      const meta = this.tableManager.getTableMeta(this.getActiveTableName());
+      const baseName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(`${baseName}_query_result.csv`),
+        filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
+        title: 'Export Query Result',
+      });
+      if (!uri) { return; }
+      const { TableExporter } = await import('../services/TableExporter');
+      const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+      await exporter.exportTable(this.inlineQueryTable, uri.fsPath);
+      return;
+    }
+    await exportQueryResultToFile(_headers, _rows);
   }
 
   private async handleClearQuery(): Promise<void> {

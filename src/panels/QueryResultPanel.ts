@@ -19,6 +19,7 @@ export class QueryResultPanel extends BasePanel {
   private tableName: string;
   private sql: string;
   private totalRows: number;
+  private sourceFileName: string;
 
   static async open(
     extensionUri: vscode.Uri,
@@ -26,7 +27,8 @@ export class QueryResultPanel extends BasePanel {
     queryExecutor: QueryExecutor,
     config: ConfigService,
     sql: string,
-    defaultTable?: string
+    defaultTable?: string,
+    sourceFileName?: string
   ): Promise<void> {
     const panel = vscode.window.createWebviewPanel(
       'csvQueryResult',
@@ -75,7 +77,7 @@ export class QueryResultPanel extends BasePanel {
       rowCount: totalRows,
     });
 
-    new QueryResultPanel(panel, extensionUri, tableManager, queryExecutor, config, tableName, sql, totalRows);
+    new QueryResultPanel(panel, extensionUri, tableManager, queryExecutor, config, tableName, sql, totalRows, sourceFileName || 'query');
   }
 
   private constructor(
@@ -86,12 +88,14 @@ export class QueryResultPanel extends BasePanel {
     config: ConfigService,
     tableName: string,
     sql: string,
-    totalRows: number
+    totalRows: number,
+    sourceFileName: string
   ) {
     super(panel, extensionUri, tableManager, queryExecutor, config, buildQueryResultHtml(panel.webview, extensionUri));
     this.tableName = tableName;
     this.sql = sql;
     this.totalRows = totalRows;
+    this.sourceFileName = sourceFileName;
   }
 
   protected getActiveTableName(): string {
@@ -139,6 +143,7 @@ export class QueryResultPanel extends BasePanel {
 
   private async handleExport(): Promise<void> {
     const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(`${this.sourceFileName}_query_result.csv`),
       filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
       title: 'Export Query Result',
     });
