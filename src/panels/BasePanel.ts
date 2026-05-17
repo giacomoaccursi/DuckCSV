@@ -206,12 +206,15 @@ export abstract class BasePanel {
     try {
       await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${withRowid}`);
       hasOrigRid = true;
-    } catch {
+    } catch (firstErr: unknown) {
+      // If query was cancelled, don't retry
+      if (firstErr instanceof Error && firstErr.message.includes('cancelled')) { return; }
       // Fallback: rowid injection failed (e.g. aggregation, JOIN). Create without it.
       try {
         await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${tempName}"`);
         await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${trimmedSql}`);
       } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes('cancelled')) { return; }
         const msg = err instanceof Error ? err.message : 'Query failed';
         this.postMessage({ type: 'queryError', message: msg });
         return;
