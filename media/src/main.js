@@ -75,6 +75,7 @@ function onRowMutation(data) {
     renderRows();
   }
 }
+
 // ─── Column Coloring Toggle ──────────────────────────────────────────────────
 
 function toggleColumnColors() {

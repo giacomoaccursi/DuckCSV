@@ -1,6 +1,14 @@
 /**
- * TableManager — manages loading/dropping tables, metadata, data pages, and unique values.
- * Depends on DuckDbEngine for database access.
+ * TableManager — manages loading/dropping tables, metadata, data pages, and mutations.
+ *
+ * Uses a materialized view (temp table with __pos column) for fast positional pagination.
+ * The view is cached and only rebuilt when sort/filter changes or after structural mutations.
+ *
+ * Mutation strategy:
+ * - updateCell: UPDATE in-place on both table and view (no rebuild)
+ * - addRow (append): INSERT + append to view (no rebuild)
+ * - addRowAt (positional): INSERT + async table rebuild in background
+ * - deleteRow/deleteRows: DELETE from both table and view (no rebuild)
  */
 
 import { DuckDbEngine } from './DuckDbEngine';
@@ -27,60 +35,59 @@ export interface DataPage {
 export class TableManager {
   private tables = new Map<string, TableMeta>();
 
+  // ─── View State ──────────────────────────────────────────────────────────
+
+  private viewTable: string | null = null;
+  private viewFingerprint: string = '';
+  private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
+  private pendingRebuild: Promise<void> | null = null;
+
   constructor(private readonly engine: DuckDbEngine) {}
+
+  // ─── Table Lifecycle ─────────────────────────────────────────────────────
 
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
     const tableName = customName ?? this.deriveTableName(uri);
     const filePath = uri.fsPath.replace(/'/g, "''");
 
-    // If reloading an existing table, restart engine to clear DuckDB file cache
     if (this.tables.has(tableName)) {
-      this.engine.cancel();
+      this.engine.cancel(); // Clear DuckDB file cache on reload
     }
 
-    // Drop if already exists
-    await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(tableName)}`);
+    await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
+    await this.engine.query(
+      `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`
+    );
 
-    // Load directly from file path (fast — DuckDB reads from disk)
-    await this.engine.query(`CREATE TABLE ${this.quoteIdentifier(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`);
-
-    // Detect delimiter using DuckDB's sniffer
     const sniffResult = await this.engine.query(`SELECT Delimiter FROM sniff_csv('${filePath}')`);
     const detectedDelimiter = sniffResult.rows[0]?.[0] || ',';
     const { name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter);
 
-    // Get schema (headers + types) and row count in 2 queries instead of 3
     const escaped = tableName.replace(/'/g, "''");
     const schemaResult = await this.engine.query(
       `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
     );
     const headers = schemaResult.rows.map(row => row[0]);
     const columnTypes = schemaResult.rows.map(row => row[1]);
-
     const rowCount = await this.getRowCount(tableName);
 
     const meta: TableMeta = {
-      name: tableName,
-      filePath: uri.fsPath,
-      delimiter: delimiterName,
-      delimiterChar,
-      headers,
-      columnTypes,
-      rowCount,
+      name: tableName, filePath: uri.fsPath,
+      delimiter: delimiterName, delimiterChar,
+      headers, columnTypes, rowCount,
     };
-
     this.tables.set(tableName, meta);
     return meta;
   }
 
   async dropTable(name: string): Promise<void> {
-    await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
+    await this.engine.query(`DROP TABLE IF EXISTS ${this.q(name)}`);
     this.tables.delete(name);
   }
 
   async dropAllTables(): Promise<void> {
     for (const name of this.tables.keys()) {
-      await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(name)}`);
+      await this.engine.query(`DROP TABLE IF EXISTS ${this.q(name)}`);
     }
     this.tables.clear();
   }
@@ -92,6 +99,8 @@ export class TableManager {
   getTableMeta(name: string): TableMeta | undefined {
     return this.tables.get(name);
   }
+
+  // ─── Schema Queries ──────────────────────────────────────────────────────
 
   async getHeaders(tableName: string): Promise<string[]> {
     const escaped = tableName.replace(/'/g, "''");
@@ -110,155 +119,37 @@ export class TableManager {
   }
 
   async getRowCount(tableName: string): Promise<number> {
-    const result = await this.engine.query(`SELECT COUNT(*) as cnt FROM ${this.quoteIdentifier(tableName)}`);
+    const result = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(tableName)}`);
     return Number(result.rows[0][0]);
   }
 
-  // ─── Materialized View for Fast Pagination ────────────────────────────────
-
-  private viewTable: string | null = null;
-  private viewFingerprint: string = '';
-  private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
-  private pendingRebuild: Promise<void> | null = null;
-
-  /**
-   * Create or reuse a materialized view (temp table with __pos column)
-   * for fast positional access. Only recreated when sort/filter changes.
-   * Serialized: concurrent calls wait for the same build to finish.
-   */
-  private async ensureMaterializedView(
-    tableName: string,
-    headers: string[],
-    whereStr: string,
-    orderClause: string
-  ): Promise<{ viewName: string; totalRows: number }> {
-    // Wait for any pending table rebuild to complete first
-    if (this.pendingRebuild) {
-      await this.pendingRebuild;
-    }
-
-    const fingerprint = `${tableName}|${whereStr}|${orderClause}`;
-
-    // If view is already valid, return immediately
-    if (this.viewTable && this.viewFingerprint === fingerprint) {
-      const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.quoteIdentifier(this.viewTable)}`);
-      const totalRows = Number(countResult.rows[0][0]);
-      return { viewName: this.viewTable, totalRows };
-    }
-
-    // If a build is already in progress, wait for it
-    if (this.viewBuildPromise) {
-      return this.viewBuildPromise;
-    }
-
-    // Start building — store the promise so concurrent callers can await it
-    this.viewBuildPromise = this.buildMaterializedView(tableName, headers, whereStr, orderClause, fingerprint);
-    try {
-      return await this.viewBuildPromise;
-    } finally {
-      this.viewBuildPromise = null;
-    }
-  }
-
-  private async buildMaterializedView(
-    tableName: string,
-    headers: string[],
-    whereStr: string,
-    orderClause: string,
-    fingerprint: string
-  ): Promise<{ viewName: string; totalRows: number }> {
-    // Drop old view
-    if (this.viewTable) {
-      await this.engine.query(`DROP TABLE IF EXISTS ${this.quoteIdentifier(this.viewTable)}`);
-    }
-
-    const viewName = `__view_${Date.now()}`;
-    this.viewTable = viewName;
-    this.viewFingerprint = fingerprint;
-
-    const quoted = this.quoteIdentifier(tableName);
-    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-
-    // Create materialized view with sequential __pos
-    await this.engine.query(
-      `CREATE TEMP TABLE ${this.quoteIdentifier(viewName)} AS SELECT (ROW_NUMBER() OVER() - 1) as __pos, rowid as __rid, ${columns} FROM ${quoted} ${whereStr} ${orderClause}`
-    );
-
-    const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.quoteIdentifier(viewName)}`);
-    const totalRows = Number(countResult.rows[0][0]);
-
-    return { viewName, totalRows };
-  }
-
-  /** Invalidate the materialized view (after insert/delete/edit) */
-  invalidateView(): void {
-    this.viewFingerprint = '';
-  }
-
-  /**
-   * Append a row to the materialized view at the end.
-   */
-  private async appendToView(newRowid: number, tableName: string): Promise<void> {
-    if (!this.viewTable || !this.viewFingerprint) { return; }
-    const meta = this.tables.get(tableName);
-    const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-    const quoted = this.quoteIdentifier(tableName);
-    const viewQuoted = this.quoteIdentifier(this.viewTable);
-
-    // Get current max __pos
-    const maxResult = await this.engine.query(`SELECT COALESCE(MAX(__pos), -1) FROM ${viewQuoted}`);
-    const nextPos = Number(maxResult.rows[0][0]) + 1;
-
-    // Insert the new row into the view
-    await this.engine.query(
-      `INSERT INTO ${viewQuoted} SELECT ${nextPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${quoted} WHERE rowid = ${newRowid}`
-    );
-  }
-
-  /**
-   * Remove a row from the materialized view without full rebuild.
-   */
-  private async removeFromView(rowid: number): Promise<void> {
-    if (!this.viewTable || !this.viewFingerprint) { return; }
-    const viewQuoted = this.quoteIdentifier(this.viewTable);
-    await this.engine.query(`DELETE FROM ${viewQuoted} WHERE __rid = ${rowid}`);
-  }
+  // ─── Data Page (Pagination) ──────────────────────────────────────────────
 
   async getDataPage(
     tableName: string,
-    params: {
-      filters: ColumnFilters;
-      sort: SortState;
-      searchTerm: string;
-      offset: number;
-      limit: number;
-    }
+    params: { filters: ColumnFilters; sort: SortState; searchTerm: string; offset: number; limit: number }
   ): Promise<DataPage> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const whereClauses = this.buildWhereClauses(params.filters, params.searchTerm, headers);
+    const whereStr = this.buildWhereStr(params.filters, params.searchTerm, headers);
     const orderClause = this.buildOrderClause(params.sort, headers);
-    const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    // Use materialized view for O(1) positional access in all cases.
-    // The view is cached and only rebuilt when sort/filter/data changes.
-    const { viewName, totalRows } = await this.ensureMaterializedView(tableName, headers, whereStr, orderClause);
-    const viewQuoted = this.quoteIdentifier(viewName);
-    const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
+    const { viewName, totalRows } = await this.ensureView(tableName, headers, whereStr, orderClause);
+    const columns = headers.map(h => this.q(h)).join(', ');
 
     const result = await this.engine.query(
-      `SELECT __rid, ${columns} FROM ${viewQuoted} ORDER BY __pos LIMIT ${params.limit} OFFSET ${params.offset}`
+      `SELECT __rid, ${columns} FROM ${this.q(viewName)} ORDER BY __pos LIMIT ${params.limit} OFFSET ${params.offset}`
     );
 
     if (result.rows.length === 0) {
       return { rows: [], rowids: [], filteredCount: totalRows };
     }
 
-    const rowids = result.rows.map(row => parseInt(row[0], 10));
-    const rows = result.rows.map(row => row.slice(1));
-
-    return { rows, rowids, filteredCount: totalRows };
+    return {
+      rows: result.rows.map(row => row.slice(1)),
+      rowids: result.rows.map(row => parseInt(row[0], 10)),
+      filteredCount: totalRows,
+    };
   }
 
   async getUniqueValues(tableName: string, columnIndex: number): Promise<string[]> {
@@ -266,88 +157,239 @@ export class TableManager {
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return []; }
 
-    const colName = this.quoteIdentifier(headers[columnIndex]);
-    const quoted = this.quoteIdentifier(tableName);
+    const colName = this.q(headers[columnIndex]);
     const result = await this.engine.query(
-      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${quoted} WHERE ${colName} IS NOT NULL ORDER BY ${colName} LIMIT 1000`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} WHERE ${colName} IS NOT NULL ORDER BY ${colName} LIMIT 1000`
     );
-
     return result.rows.map(row => row[0]).filter(v => v !== '');
   }
+
+  // ─── Mutations ───────────────────────────────────────────────────────────
 
   async updateCell(tableName: string, rowid: number, columnIndex: number, value: string): Promise<void> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return; }
 
-    const colName = this.quoteIdentifier(headers[columnIndex]);
+    const colName = this.q(headers[columnIndex]);
     const escapedValue = value.replace(/'/g, "''");
-    const quoted = this.quoteIdentifier(tableName);
+    const quoted = this.q(tableName);
     const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
-    const currentType = types[columnIndex];
 
-    const needsTypeChange = await this.isTypeIncompatible(escapedValue, currentType, value);
-
+    // Update the table
+    const needsTypeChange = await this.isTypeIncompatible(escapedValue, types[columnIndex], value);
     if (needsTypeChange) {
       await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+    }
+    try {
       await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
-    } else {
-      try {
-        await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
-      } catch {
-        await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
-        await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
-      }
+    } catch {
+      await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE VARCHAR`);
+      await this.engine.query(`UPDATE ${quoted} SET ${colName} = '${escapedValue}' WHERE rowid = ${rowid}`);
     }
 
     await this.tryTightenColumnType(tableName, columnIndex);
-
     if (meta) {
       meta.headers = await this.getHeaders(tableName);
       meta.columnTypes = await this.getColumnTypes(tableName);
     }
 
-    // Update the view in-place (cell value changed, position unchanged)
+    // Update the view in-place (position unchanged)
+    this.updateViewCell(columnIndex, rowid, value, meta);
+  }
+
+  async addRow(tableName: string): Promise<number> {
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const nulls = headers.map(() => "NULL").join(', ');
+
+    await this.engine.query(`INSERT INTO ${this.q(tableName)} VALUES (${nulls})`);
+    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.q(tableName)}`);
+    const newRowid = Number(result.rows[0][0]);
+
+    await this.appendRowToView(newRowid, tableName);
+    return newRowid;
+  }
+
+  async addRowAt(tableName: string, targetRowid: number, position: 'above' | 'below'): Promise<number> {
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const nulls = headers.map(() => "NULL").join(', ');
+
+    // Fast: simple INSERT to get a rowid immediately
+    await this.engine.query(`INSERT INTO ${this.q(tableName)} VALUES (${nulls})`);
+    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.q(tableName)}`);
+    const newRowid = Number(result.rows[0][0]);
+
+    this.invalidateView();
+
+    // Background: rebuild table so physical order matches logical order (for save)
+    this.pendingRebuild = this.rebuildForInsert(tableName, headers, newRowid, targetRowid, position)
+      .finally(() => { this.pendingRebuild = null; });
+
+    return newRowid;
+  }
+
+  async deleteRow(tableName: string, rowid: number): Promise<void> {
+    await this.engine.query(`DELETE FROM ${this.q(tableName)} WHERE rowid = ${rowid}`);
+    await this.removeRowFromView(rowid);
+  }
+
+  async deleteRows(tableName: string, rowids: number[]): Promise<void> {
+    if (rowids.length === 0) { return; }
+    if (rowids.length === 1) { return this.deleteRow(tableName, rowids[0]); }
+
+    const idList = rowids.join(', ');
+    await this.engine.query(`DELETE FROM ${this.q(tableName)} WHERE rowid IN (${idList})`);
+
     if (this.viewTable && this.viewFingerprint) {
-      const headers = meta ? meta.headers : await this.getHeaders(tableName);
-      const colName = this.quoteIdentifier(headers[columnIndex]);
-      const viewQuoted = this.quoteIdentifier(this.viewTable);
-      const escapedVal = value.replace(/'/g, "''");
-      try {
-        await this.engine.query(`UPDATE ${viewQuoted} SET ${colName} = '${escapedVal}' WHERE __rid = ${rowid}`);
-      } catch {
-        // If view update fails (e.g. type mismatch), invalidate for rebuild
-        this.invalidateView();
-      }
+      await this.engine.query(`DELETE FROM ${this.q(this.viewTable)} WHERE __rid IN (${idList})`);
     }
   }
 
+  // ─── Materialized View ───────────────────────────────────────────────────
+
+  invalidateView(): void {
+    this.viewFingerprint = '';
+  }
+
+  private async ensureView(
+    tableName: string, headers: string[], whereStr: string, orderClause: string
+  ): Promise<{ viewName: string; totalRows: number }> {
+    if (this.pendingRebuild) { await this.pendingRebuild; }
+
+    const fingerprint = `${tableName}|${whereStr}|${orderClause}`;
+
+    if (this.viewTable && this.viewFingerprint === fingerprint) {
+      const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(this.viewTable)}`);
+      return { viewName: this.viewTable, totalRows: Number(countResult.rows[0][0]) };
+    }
+
+    if (this.viewBuildPromise) { return this.viewBuildPromise; }
+
+    this.viewBuildPromise = this.buildView(tableName, headers, whereStr, orderClause, fingerprint);
+    try {
+      return await this.viewBuildPromise;
+    } finally {
+      this.viewBuildPromise = null;
+    }
+  }
+
+  private async buildView(
+    tableName: string, headers: string[], whereStr: string, orderClause: string, fingerprint: string
+  ): Promise<{ viewName: string; totalRows: number }> {
+    if (this.viewTable) {
+      await this.engine.query(`DROP TABLE IF EXISTS ${this.q(this.viewTable)}`);
+    }
+
+    const viewName = `__view_${Date.now()}`;
+    this.viewTable = viewName;
+    this.viewFingerprint = fingerprint;
+
+    const columns = headers.map(h => this.q(h)).join(', ');
+    await this.engine.query(
+      `CREATE TEMP TABLE ${this.q(viewName)} AS ` +
+      `SELECT (ROW_NUMBER() OVER() - 1) as __pos, rowid as __rid, ${columns} ` +
+      `FROM ${this.q(tableName)} ${whereStr} ${orderClause}`
+    );
+
+    const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(viewName)}`);
+    return { viewName, totalRows: Number(countResult.rows[0][0]) };
+  }
+
+  /** Append a new row to the end of the view (for addRow). */
+  private async appendRowToView(newRowid: number, tableName: string): Promise<void> {
+    if (!this.viewTable || !this.viewFingerprint) { return; }
+
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const columns = headers.map(h => this.q(h)).join(', ');
+    const viewQ = this.q(this.viewTable);
+
+    const maxResult = await this.engine.query(`SELECT COALESCE(MAX(__pos), -1) FROM ${viewQ}`);
+    const nextPos = Number(maxResult.rows[0][0]) + 1;
+
+    await this.engine.query(
+      `INSERT INTO ${viewQ} SELECT ${nextPos} as __pos, ${newRowid} as __rid, ${columns} FROM ${this.q(tableName)} WHERE rowid = ${newRowid}`
+    );
+  }
+
+  /** Remove a row from the view (for deleteRow). */
+  private async removeRowFromView(rowid: number): Promise<void> {
+    if (!this.viewTable || !this.viewFingerprint) { return; }
+    await this.engine.query(`DELETE FROM ${this.q(this.viewTable)} WHERE __rid = ${rowid}`);
+  }
+
+  /** Update a single cell in the view (for updateCell). */
+  private async updateViewCell(columnIndex: number, rowid: number, value: string, meta: TableMeta | undefined): Promise<void> {
+    if (!this.viewTable || !this.viewFingerprint) { return; }
+
+    const headers = meta ? meta.headers : await this.getHeaders('');
+    const colName = this.q(headers[columnIndex]);
+    const escapedVal = value.replace(/'/g, "''");
+
+    try {
+      await this.engine.query(`UPDATE ${this.q(this.viewTable)} SET ${colName} = '${escapedVal}' WHERE __rid = ${rowid}`);
+    } catch {
+      this.invalidateView();
+    }
+  }
+
+  // ─── Background Table Rebuild ────────────────────────────────────────────
+
+  /**
+   * Rebuild the table so a newly inserted row is at the correct physical position.
+   * Runs asynchronously — getDataPage waits for completion via pendingRebuild.
+   */
+  private async rebuildForInsert(
+    tableName: string, headers: string[], newRowid: number, targetRowid: number, position: 'above' | 'below'
+  ): Promise<void> {
+    const quoted = this.q(tableName);
+    const cols = headers.map(h => this.q(h)).join(', ');
+    const tempName = `__temp_reorder_${Date.now()}`;
+    const tempQ = this.q(tempName);
+
+    const pivot = position === 'above' ? targetRowid : targetRowid + 1;
+    const newRowPos = position === 'above' ? `${targetRowid} - 0.5` : `${targetRowid} + 0.5`;
+
+    await this.engine.query(
+      `CREATE TABLE ${tempQ} AS SELECT ${cols} FROM (` +
+      `  SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${pivot} AND rowid != ${newRowid}` +
+      `  UNION ALL` +
+      `  SELECT ${cols}, ${newRowid} as __rid FROM ${quoted} WHERE rowid = ${newRowid}` +
+      `  UNION ALL` +
+      `  SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${pivot} AND rowid != ${newRowid}` +
+      `) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${newRowPos} ELSE __rid END`
+    );
+
+    await this.engine.query(`DROP TABLE ${quoted}`);
+    await this.engine.query(`ALTER TABLE ${tempQ} RENAME TO ${quoted}`);
+    this.invalidateView();
+  }
+
+  // ─── Type Helpers ────────────────────────────────────────────────────────
+
   private async isTypeIncompatible(escapedValue: string, currentType: string, rawValue: string): Promise<boolean> {
     if (!currentType || currentType === 'VARCHAR') { return false; }
+    if (rawValue === '') { return false; }
     try {
       const check = await this.engine.query(
         `SELECT TRY_CAST('${escapedValue}' AS ${currentType}) IS NOT NULL as ok`
       );
-      return check.rows[0][0] !== 'true' && rawValue !== '';
+      return check.rows[0][0] !== 'true';
     } catch {
       return true;
     }
   }
 
-  /**
-   * If a column is VARCHAR, check if all values can be cast to a tighter type (BIGINT, DOUBLE, DATE).
-   * If so, alter the column type.
-   */
   private async tryTightenColumnType(tableName: string, columnIndex: number): Promise<void> {
     const meta = this.tables.get(tableName);
     const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
     if (types[columnIndex] !== 'VARCHAR') { return; }
 
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const colName = this.quoteIdentifier(headers[columnIndex]);
-    const quoted = this.quoteIdentifier(tableName);
-
-    // Try types from most restrictive to least
+    const colName = this.q(headers[columnIndex]);
+    const quoted = this.q(tableName);
     const candidates = ['BOOLEAN', 'BIGINT', 'DOUBLE', 'DATE', 'TIMESTAMP'];
 
     for (const targetType of candidates) {
@@ -355,166 +397,57 @@ export class TableManager {
         const check = await this.engine.query(
           `SELECT COUNT(*) = COUNT(TRY_CAST(${colName} AS ${targetType})) as ok FROM ${quoted} WHERE ${colName} IS NOT NULL AND ${colName} != ''`
         );
-        const allCastable = check.rows[0][0];
-        if (allCastable === 'true') {
+        if (check.rows[0][0] === 'true') {
           await this.engine.query(`ALTER TABLE ${quoted} ALTER COLUMN ${colName} TYPE ${targetType}`);
           return;
         }
-      } catch {
-        // Skip this type
-      }
+      } catch { /* skip */ }
     }
   }
 
-  async addRow(tableName: string): Promise<number> {
-    const meta = this.tables.get(tableName);
-    const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const nulls = headers.map(() => "NULL").join(', ');
-    await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
-    // Get the rowid of the newly inserted row
-    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
-    const newRowid = Number(result.rows[0][0]);
-    await this.appendToView(newRowid, tableName);
-    return newRowid;
-  }
+  // ─── SQL Helpers ─────────────────────────────────────────────────────────
 
-  async addRowAt(tableName: string, targetRowid: number, position: 'above' | 'below'): Promise<number> {
-    // Fast path: simple INSERT to get a rowid immediately
-    const meta = this.tables.get(tableName);
-    const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const nulls = headers.map(() => "NULL").join(', ');
-    await this.engine.query(`INSERT INTO ${this.quoteIdentifier(tableName)} VALUES (${nulls})`);
-    const result = await this.engine.query(`SELECT MAX(rowid) FROM ${this.quoteIdentifier(tableName)}`);
-    const newRowid = Number(result.rows[0][0]);
-
-    // Invalidate view so next fetch rebuilds with correct order
-    this.invalidateView();
-
-    // Background: rebuild table to fix physical order (needed for correct save)
-    this.pendingRebuild = this.rebuildTableForInsert(tableName, headers, newRowid, targetRowid, position)
-      .finally(() => { this.pendingRebuild = null; });
-
-    return newRowid;
-  }
-
-  /**
-   * Rebuild the table so the newly inserted row is at the correct physical position.
-   * Runs in background — does not block the UI.
-   */
-  private async rebuildTableForInsert(
-    tableName: string,
-    headers: string[],
-    newRowid: number,
-    targetRowid: number,
-    position: 'above' | 'below'
-  ): Promise<void> {
-    const quoted = this.quoteIdentifier(tableName);
-    const cols = headers.map(h => this.quoteIdentifier(h)).join(', ');
-    const tempName = `__temp_reorder_${Date.now()}`;
-    const tempQuoted = this.quoteIdentifier(tempName);
-
-    // Rebuild: all rows except the new one in original order, with new row at target position
-    if (position === 'above') {
-      await this.engine.query(`CREATE TABLE ${tempQuoted} AS
-        SELECT ${cols} FROM (
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid < ${targetRowid} AND rowid != ${newRowid}
-          UNION ALL
-          SELECT ${cols}, ${newRowid} as __rid FROM ${quoted} WHERE rowid = ${newRowid}
-          UNION ALL
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid >= ${targetRowid} AND rowid != ${newRowid}
-        ) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${targetRowid} - 0.5 ELSE __rid END`);
-    } else {
-      await this.engine.query(`CREATE TABLE ${tempQuoted} AS
-        SELECT ${cols} FROM (
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid <= ${targetRowid} AND rowid != ${newRowid}
-          UNION ALL
-          SELECT ${cols}, ${newRowid} as __rid FROM ${quoted} WHERE rowid = ${newRowid}
-          UNION ALL
-          SELECT ${cols}, rowid as __rid FROM ${quoted} WHERE rowid > ${targetRowid} AND rowid != ${newRowid}
-        ) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${targetRowid} + 0.5 ELSE __rid END`);
-    }
-
-    await this.engine.query(`DROP TABLE ${quoted}`);
-    await this.engine.query(`ALTER TABLE ${tempQuoted} RENAME TO ${quoted}`);
-    this.invalidateView();
-  }
-
-  async deleteRow(tableName: string, rowid: number): Promise<void> {
-    await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid = ${rowid}`);
-    await this.removeFromView(rowid);
-  }
-
-  async deleteRows(tableName: string, rowids: number[]): Promise<void> {
-    if (rowids.length === 0) { return; }
-    if (rowids.length === 1) {
-      return this.deleteRow(tableName, rowids[0]);
-    }
-    const idList = rowids.join(', ');
-    await this.engine.query(`DELETE FROM ${this.quoteIdentifier(tableName)} WHERE rowid IN (${idList})`);
-    // Remove from view incrementally
-    if (this.viewTable && this.viewFingerprint) {
-      const viewQuoted = this.quoteIdentifier(this.viewTable);
-      await this.engine.query(`DELETE FROM ${viewQuoted} WHERE __rid IN (${idList})`);
-    }
-  }
-
-  // ─── Private Helpers ─────────────────────────────────────────────────────
-
-  private deriveTableName(uri: vscode.Uri): string {
-    const fileName = basename(uri.fsPath, extname(uri.fsPath));
-    let name = fileName.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-
-    // Ensure name doesn't start with a digit
-    if (/^\d/.test(name)) {
-      name = '_' + name;
-    }
-
-    // Deduplicate if name already exists
-    if (!this.tables.has(name)) {
-      return name;
-    }
-
-    let counter = 2;
-    while (this.tables.has(`${name}_${counter}`)) {
-      counter++;
-    }
-    return `${name}_${counter}`;
-  }
-
-  private quoteIdentifier(name: string): string {
+  /** Quote a SQL identifier. */
+  private q(name: string): string {
     return `"${name.replace(/"/g, '""')}"`;
   }
 
-  private buildWhereClauses(filters: ColumnFilters, searchTerm: string, headers: string[]): string[] {
+  private buildWhereStr(filters: ColumnFilters, searchTerm: string, headers: string[]): string {
     const clauses: string[] = [];
 
-    // Column filters
     for (const [colIdx, values] of Object.entries(filters)) {
       if (values.length === 0) { continue; }
-      const colName = this.quoteIdentifier(headers[parseInt(colIdx, 10)]);
+      const colName = this.q(headers[parseInt(colIdx, 10)]);
       const escaped = values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
       clauses.push(`${colName} IN (${escaped})`);
     }
 
-    // Global search (ILIKE across all columns)
     if (searchTerm) {
       const escaped = searchTerm.replace(/'/g, "''").replace(/%/g, '\\%');
-      const searchClauses = headers.map(h =>
-        `CAST(${this.quoteIdentifier(h)} AS VARCHAR) ILIKE '%${escaped}%'`
-      );
+      const searchClauses = headers.map(h => `CAST(${this.q(h)} AS VARCHAR) ILIKE '%${escaped}%'`);
       clauses.push(`(${searchClauses.join(' OR ')})`);
     }
 
-    return clauses;
+    return clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   }
 
   private buildOrderClause(sort: SortState, headers: string[]): string {
     if (sort.direction === 'none' || sort.columnIndex < 0 || sort.columnIndex >= headers.length) {
       return '';
     }
-    const colName = this.quoteIdentifier(headers[sort.columnIndex]);
     const dir = sort.direction === 'asc' ? 'ASC' : 'DESC';
-    return `ORDER BY ${colName} ${dir} NULLS LAST`;
+    return `ORDER BY ${this.q(headers[sort.columnIndex])} ${dir} NULLS LAST`;
+  }
+
+  private deriveTableName(uri: vscode.Uri): string {
+    const fileName = basename(uri.fsPath, extname(uri.fsPath));
+    let name = fileName.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (/^\d/.test(name)) { name = '_' + name; }
+    if (!this.tables.has(name)) { return name; }
+
+    let counter = 2;
+    while (this.tables.has(`${name}_${counter}`)) { counter++; }
+    return `${name}_${counter}`;
   }
 
   private delimiterInfo(char: string): { name: string; char: string } {
