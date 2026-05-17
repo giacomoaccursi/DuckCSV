@@ -10,31 +10,27 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
   const toolbarHtml = /* html */ `
     <div class="toolbar">
       <div class="toolbar-left">
-        <button id="saveBtn" class="btn" data-tooltip="Save to original file">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M13.3 1.3L14.7 2.7 14.7 14 2 14 2 2 12.3 2zM13 3H12V6H5V3H3V13H13zM8 3v2h3V3z"/>
+        <button id="saveBtn" class="btn" data-tooltip="Save to original file (Cmd+S)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
           </svg>
         </button>
-        <button id="saveAsBtn" class="btn" data-tooltip="Save to a different file">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M13.3 1.3L14.7 2.7 14.7 14 2 14 2 2 12.3 2zM13 3H12V6H5V3H3V13H13zM8 3v2h3V3z"/>
-            <circle fill="currentColor" cx="12" cy="12" r="3"/>
-            <path fill="var(--bg-primary)" d="M11.2 11.8h1.6v-1.2h.4v1.2h1.6v.4h-1.6v1.2h-.4v-1.2h-1.6z"/>
-          </svg>
-        </button>
-        <button id="refreshBtn" class="btn" data-tooltip="Reload file from disk">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M13 2v4H9l1.6-1.6A4.5 4.5 0 0 0 8 3.5a4.5 4.5 0 1 0 4.5 4.5h1A5.5 5.5 0 1 1 8 2.5c1.4 0 2.7.5 3.6 1.4L13 2z"/>
-          </svg>
-        </button>
-        <button id="openAsTextBtn" class="btn" data-tooltip="Open file as plain text">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M3 1h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zm7 0v3h3L10 1zM5 6h6v1H5V6zm0 2h6v1H5V8zm0 2h4v1H5v-1z"/>
+        <button id="saveAsBtn" class="btn" data-tooltip="Save to a different file (Cmd+Shift+S)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v4"/>
+            <polyline points="7 3 7 8 15 8"/>
+            <path d="M17 18l3 3 3-3"/>
+            <line x1="20" y1="14" x2="20" y2="21"/>
           </svg>
         </button>
         <button id="colorBtn" class="btn" data-tooltip="Toggle column colors for better readability">
           <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M8 1C4.1 1 1 4.1 1 8s3.1 7 7 7 7-3.1 7-7-3.1-7-7-7zm0 1c1.2 0 2.3.4 3.2 1H8V3h-.5V2.02c.2-.01.3-.02.5-.02zM4.8 3h2.7v3H2.3A5.97 5.97 0 0 1 4.8 3zM2 8c0-.4 0-.7.1-1h5.4v2H2.1C2 8.7 2 8.4 2 8zm2.8 5A5.97 5.97 0 0 1 2.3 10h5.2v3H4.8zm3.7 0V10h5.2a5.97 5.97 0 0 1-2.5 3H8.5zm5.4-4H8.5V6h5.4c.1.3.1.6.1 1s0 .7-.1 1z"/>
+            <rect fill="#e06c75" x="1" y="2" width="3" height="12" rx="0.5"/>
+            <rect fill="#e5c07b" x="5" y="2" width="3" height="12" rx="0.5"/>
+            <rect fill="#61afef" x="9" y="2" width="3" height="12" rx="0.5"/>
+            <rect fill="#98c379" x="13" y="2" width="2" height="12" rx="0.5"/>
           </svg>
         </button>
         <input type="text" id="searchInput" class="search-input" placeholder="Search..." />

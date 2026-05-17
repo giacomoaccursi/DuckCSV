@@ -1,24 +1,17 @@
 /**
- * Integration tests for TableManager.
+ * Integration tests for TableManager SQL logic.
  * Uses DuckDB WASM (node blocking) directly to test real SQL queries.
+ * Catches regressions in sort, filter, pagination, mutations, and edge cases.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'path';
 import { writeFileSync, unlinkSync } from 'fs';
 
-// Use the same DuckDB blocking API as the worker
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const duckdb = require('@duckdb/duckdb-wasm/dist/duckdb-node-blocking.cjs');
 
-// ─── Minimal DuckDbEngine interface for testing ──────────────────────────────
-
-interface QueryResponse {
-  columns: string[];
-  columnTypes: string[];
-  rows: string[][];
-  numRows: number;
-}
+// ─── Test DuckDB Engine ──────────────────────────────────────────────────────
 
 class TestDuckDbEngine {
   private db: any;
@@ -43,10 +36,9 @@ class TestDuckDbEngine {
     this.conn = this.db.connect();
   }
 
-  async query(sql: string): Promise<QueryResponse> {
+  async query(sql: string) {
     const result = this.conn.query(sql);
     const columns: string[] = result.schema.fields.map((f: any) => f.name);
-    const columnTypes: string[] = result.schema.fields.map((f: any) => String(f.type));
     const rows: string[][] = [];
     for (let i = 0; i < result.numRows; i++) {
       const row: string[] = [];
@@ -57,10 +49,8 @@ class TestDuckDbEngine {
       }
       rows.push(row);
     }
-    return { columns, columnTypes, rows, numRows: result.numRows };
+    return { columns, rows, numRows: result.numRows };
   }
-
-  cancel() {}
 
   dispose() {
     if (this.conn) { this.conn.close(); this.conn = null; }
@@ -68,24 +58,35 @@ class TestDuckDbEngine {
   }
 }
 
-// ─── Import TableManager (need to mock vscode) ──────────────────────────────
+// ─── Helper: build view like TableManager does ───────────────────────────────
 
-// We can't import TableManager directly because it imports 'vscode'.
-// Instead, test the SQL logic directly using the engine.
+async function buildView(engine: TestDuckDbEngine, viewName: string, tableName: string, columns: string, whereStr = '', orderClause = '') {
+  await engine.query(
+    `CREATE TEMP TABLE "${viewName}" AS ` +
+    `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
+    `(SELECT rowid as __rid, ${columns} FROM "${tableName}" ${whereStr} ${orderClause}) sub`
+  );
+}
+
+async function getViewRows(engine: TestDuckDbEngine, viewName: string, columns: string, limit = 100, offset = 0) {
+  const result = await engine.query(
+    `SELECT __rid, ${columns} FROM "${viewName}" ORDER BY __pos LIMIT ${limit} OFFSET ${offset}`
+  );
+  return result.rows;
+}
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('TableManager SQL logic', () => {
   let engine: TestDuckDbEngine;
   const testCsvPath = join(__dirname, '..', '..', 'test-data-tmp.csv');
+  const columns = '"Name", "Age", "City"';
 
   beforeEach(async () => {
     engine = new TestDuckDbEngine();
     await engine.init();
-
-    // Create a test CSV
     const csv = 'Name,Age,City\nAlice,30,Rome\nBob,25,Milan\nCharlie,35,Naples\nDiana,28,Turin\n';
     writeFileSync(testCsvPath, csv);
-
-    // Load it into DuckDB
     await engine.query(`CREATE TABLE csv AS SELECT * FROM read_csv_auto('${testCsvPath.replace(/'/g, "''")}', ignore_errors=true)`);
   });
 
@@ -94,218 +95,322 @@ describe('TableManager SQL logic', () => {
     try { unlinkSync(testCsvPath); } catch {}
   });
 
-  // ─── Sort Tests ──────────────────────────────────────────────────────────
+  // ─── Sort ────────────────────────────────────────────────────────────────
 
-  describe('sort via materialized view', () => {
-    it('should sort ascending', async () => {
-      const columns = '"Name", "Age", "City"';
-      const orderClause = 'ORDER BY "Age" ASC NULLS LAST';
-
-      // Build view with subquery (the fix for ROW_NUMBER)
-      await engine.query(
-        `CREATE TEMP TABLE __view_test AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ${orderClause}) sub`
-      );
-
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_test ORDER BY __pos LIMIT 4 OFFSET 0`
-      );
-
-      // Should be sorted by Age ascending: Bob(25), Diana(28), Alice(30), Charlie(35)
-      expect(result.rows[0][1]).toBe('Bob');
-      expect(result.rows[1][1]).toBe('Diana');
-      expect(result.rows[2][1]).toBe('Alice');
-      expect(result.rows[3][1]).toBe('Charlie');
+  describe('sort', () => {
+    it('ascending by numeric column', async () => {
+      await buildView(engine, 'v', 'csv', columns, '', 'ORDER BY "Age" ASC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.map(r => r[1])).toEqual(['Bob', 'Diana', 'Alice', 'Charlie']);
     });
 
-    it('should sort descending', async () => {
-      const columns = '"Name", "Age", "City"';
-      const orderClause = 'ORDER BY "Name" DESC NULLS LAST';
-
-      await engine.query(
-        `CREATE TEMP TABLE __view_desc AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ${orderClause}) sub`
-      );
-
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_desc ORDER BY __pos LIMIT 4 OFFSET 0`
-      );
-
-      // Should be sorted by Name descending: Diana, Charlie, Bob, Alice
-      expect(result.rows[0][1]).toBe('Diana');
-      expect(result.rows[1][1]).toBe('Charlie');
-      expect(result.rows[2][1]).toBe('Bob');
-      expect(result.rows[3][1]).toBe('Alice');
+    it('descending by text column', async () => {
+      await buildView(engine, 'v', 'csv', columns, '', 'ORDER BY "Name" DESC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.map(r => r[1])).toEqual(['Diana', 'Charlie', 'Bob', 'Alice']);
     });
 
-    it('should return unsorted when no ORDER BY', async () => {
-      const columns = '"Name", "Age", "City"';
+    it('no sort preserves insertion order', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.map(r => r[1])).toEqual(['Alice', 'Bob', 'Charlie', 'Diana']);
+    });
 
-      await engine.query(
-        `CREATE TEMP TABLE __view_nosort AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ) sub`
-      );
+    it('sort with NULLs last', async () => {
+      await engine.query(`INSERT INTO csv VALUES (NULL, NULL, NULL)`);
+      await buildView(engine, 'v', 'csv', columns, '', 'ORDER BY "Age" ASC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows[rows.length - 1][1]).toBe(''); // NULL name last
+      expect(rows[0][1]).toBe('Bob'); // 25 first
+    });
 
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_nosort ORDER BY __pos LIMIT 4 OFFSET 0`
-      );
+    it('sort after cell update reflects new value', async () => {
+      await engine.query(`UPDATE csv SET "Age" = 50 WHERE rowid = 0`); // Alice now 50
+      await buildView(engine, 'v', 'csv', columns, '', 'ORDER BY "Age" ASC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.map(r => r[1])).toEqual(['Bob', 'Diana', 'Charlie', 'Alice']);
+    });
 
-      // Should be in original CSV order: Alice, Bob, Charlie, Diana
-      expect(result.rows[0][1]).toBe('Alice');
-      expect(result.rows[1][1]).toBe('Bob');
-      expect(result.rows[2][1]).toBe('Charlie');
-      expect(result.rows[3][1]).toBe('Diana');
+    it('sort after delete excludes deleted row', async () => {
+      await engine.query(`DELETE FROM csv WHERE rowid = 1`); // Delete Bob
+      await buildView(engine, 'v', 'csv', columns, '', 'ORDER BY "Age" ASC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(3);
+      expect(rows.map(r => r[1])).toEqual(['Diana', 'Alice', 'Charlie']);
     });
   });
 
-  // ─── Filter Tests ────────────────────────────────────────────────────────
+  // ─── Filter ──────────────────────────────────────────────────────────────
 
-  describe('filter via materialized view', () => {
-    it('should filter rows with WHERE clause', async () => {
-      const columns = '"Name", "Age", "City"';
-      const whereStr = `WHERE "City" IN ('Rome', 'Milan')`;
-
-      await engine.query(
-        `CREATE TEMP TABLE __view_filter AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ${whereStr} ) sub`
-      );
-
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_filter ORDER BY __pos`
-      );
-
-      expect(result.rows.length).toBe(2);
-      expect(result.rows[0][1]).toBe('Alice');
-      expect(result.rows[1][1]).toBe('Bob');
+  describe('filter', () => {
+    it('single column IN filter', async () => {
+      await buildView(engine, 'v', 'csv', columns, `WHERE "City" IN ('Rome', 'Milan')`);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(2);
+      expect(rows.map(r => r[1])).toEqual(['Alice', 'Bob']);
     });
 
-    it('should filter and sort together', async () => {
-      const columns = '"Name", "Age", "City"';
-      const whereStr = `WHERE "Age" IN ('30', '35', '28')`;
-      const orderClause = 'ORDER BY "Age" ASC NULLS LAST';
+    it('filter + sort combined', async () => {
+      await buildView(engine, 'v', 'csv', columns, `WHERE "Age" IN ('30', '35', '28')`, 'ORDER BY "Age" ASC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.map(r => r[1])).toEqual(['Diana', 'Alice', 'Charlie']);
+    });
 
-      await engine.query(
-        `CREATE TEMP TABLE __view_fs AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ${whereStr} ${orderClause}) sub`
-      );
+    it('filter with no matches returns empty', async () => {
+      await buildView(engine, 'v', 'csv', columns, `WHERE "Name" = 'Nobody'`);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(0);
+    });
 
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_fs ORDER BY __pos`
-      );
-
-      expect(result.rows.length).toBe(3);
-      expect(result.rows[0][1]).toBe('Diana');  // 28
-      expect(result.rows[1][1]).toBe('Alice');  // 30
-      expect(result.rows[2][1]).toBe('Charlie'); // 35
+    it('multiple column filters (AND)', async () => {
+      await buildView(engine, 'v', 'csv', columns, `WHERE "City" IN ('Rome', 'Milan') AND "Age" IN ('30')`);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(1);
+      expect(rows[0][1]).toBe('Alice');
     });
   });
 
-  // ─── Pagination Tests ────────────────────────────────────────────────────
+  // ─── Global Search ───────────────────────────────────────────────────────
 
-  describe('pagination via OFFSET/LIMIT', () => {
-    it('should paginate correctly', async () => {
-      const columns = '"Name", "Age", "City"';
+  describe('global search (ILIKE)', () => {
+    it('matches text in any column', async () => {
+      const where = `WHERE (CAST("Name" AS VARCHAR) ILIKE '%rome%' OR CAST("Age" AS VARCHAR) ILIKE '%rome%' OR CAST("City" AS VARCHAR) ILIKE '%rome%')`;
+      await buildView(engine, 'v', 'csv', columns, where);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(1);
+      expect(rows[0][1]).toBe('Alice');
+    });
 
-      await engine.query(
-        `CREATE TEMP TABLE __view_page AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ) sub`
-      );
+    it('case insensitive', async () => {
+      const where = `WHERE (CAST("Name" AS VARCHAR) ILIKE '%BOB%' OR CAST("Age" AS VARCHAR) ILIKE '%BOB%' OR CAST("City" AS VARCHAR) ILIKE '%BOB%')`;
+      await buildView(engine, 'v', 'csv', columns, where);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(1);
+      expect(rows[0][1]).toBe('Bob');
+    });
 
-      const page1 = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_page ORDER BY __pos LIMIT 2 OFFSET 0`
-      );
-      expect(page1.rows.length).toBe(2);
-      expect(page1.rows[0][1]).toBe('Alice');
-      expect(page1.rows[1][1]).toBe('Bob');
+    it('matches numeric values as text', async () => {
+      const where = `WHERE (CAST("Name" AS VARCHAR) ILIKE '%25%' OR CAST("Age" AS VARCHAR) ILIKE '%25%' OR CAST("City" AS VARCHAR) ILIKE '%25%')`;
+      await buildView(engine, 'v', 'csv', columns, where);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(1);
+      expect(rows[0][1]).toBe('Bob');
+    });
 
-      const page2 = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_page ORDER BY __pos LIMIT 2 OFFSET 2`
-      );
-      expect(page2.rows.length).toBe(2);
-      expect(page2.rows[0][1]).toBe('Charlie');
-      expect(page2.rows[1][1]).toBe('Diana');
+    it('search + sort combined', async () => {
+      const where = `WHERE (CAST("Name" AS VARCHAR) ILIKE '%a%' OR CAST("Age" AS VARCHAR) ILIKE '%a%' OR CAST("City" AS VARCHAR) ILIKE '%a%')`;
+      await buildView(engine, 'v', 'csv', columns, where, 'ORDER BY "Name" ASC NULLS LAST');
+      const rows = await getViewRows(engine, 'v', columns);
+      // All rows match '%a%' (Alice, Charlie, Diana have 'a'; Milan/Naples have 'a')
+      expect(rows.length).toBeGreaterThan(0);
+      // Verify sorted
+      for (let i = 1; i < rows.length; i++) {
+        expect(rows[i][1] >= rows[i - 1][1]).toBe(true);
+      }
     });
   });
 
-  // ─── Mutation Tests ──────────────────────────────────────────────────────
+  // ─── Pagination ──────────────────────────────────────────────────────────
+
+  describe('pagination', () => {
+    it('first page', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      const rows = await getViewRows(engine, 'v', columns, 2, 0);
+      expect(rows.length).toBe(2);
+      expect(rows.map(r => r[1])).toEqual(['Alice', 'Bob']);
+    });
+
+    it('second page', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      const rows = await getViewRows(engine, 'v', columns, 2, 2);
+      expect(rows.length).toBe(2);
+      expect(rows.map(r => r[1])).toEqual(['Charlie', 'Diana']);
+    });
+
+    it('offset beyond total returns empty', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      const rows = await getViewRows(engine, 'v', columns, 10, 100);
+      expect(rows.length).toBe(0);
+    });
+
+    it('pagination after delete (gaps in __pos)', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      await engine.query(`DELETE FROM "v" WHERE __rid = 1`); // Delete Bob
+      const rows = await getViewRows(engine, 'v', columns, 2, 0);
+      expect(rows.length).toBe(2);
+      expect(rows[0][1]).toBe('Alice');
+      expect(rows[1][1]).toBe('Charlie');
+    });
+
+    it('pagination with sort', async () => {
+      await buildView(engine, 'v', 'csv', columns, '', 'ORDER BY "Age" ASC NULLS LAST');
+      const page1 = await getViewRows(engine, 'v', columns, 2, 0);
+      const page2 = await getViewRows(engine, 'v', columns, 2, 2);
+      expect(page1.map(r => r[1])).toEqual(['Bob', 'Diana']);
+      expect(page2.map(r => r[1])).toEqual(['Alice', 'Charlie']);
+    });
+  });
+
+  // ─── Mutations ───────────────────────────────────────────────────────────
 
   describe('mutations', () => {
-    it('should delete a row from view', async () => {
-      const columns = '"Name", "Age", "City"';
-
-      await engine.query(
-        `CREATE TEMP TABLE __view_del AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ) sub`
-      );
-
-      // Delete Bob (rowid 1)
-      await engine.query(`DELETE FROM "csv" WHERE rowid = 1`);
-      await engine.query(`DELETE FROM __view_del WHERE __rid = 1`);
-
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_del ORDER BY __pos`
-      );
-
-      expect(result.rows.length).toBe(3);
-      expect(result.rows[0][1]).toBe('Alice');
-      expect(result.rows[1][1]).toBe('Charlie');
-      expect(result.rows[2][1]).toBe('Diana');
+    it('delete single row from view', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      await engine.query(`DELETE FROM csv WHERE rowid = 1`);
+      await engine.query(`DELETE FROM "v" WHERE __rid = 1`);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(3);
+      expect(rows.map(r => r[1])).toEqual(['Alice', 'Charlie', 'Diana']);
     });
 
-    it('should append a row to view', async () => {
-      const columns = '"Name", "Age", "City"';
-
-      await engine.query(
-        `CREATE TEMP TABLE __view_add AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ) sub`
-      );
-
-      // Insert a new row
-      await engine.query(`INSERT INTO "csv" VALUES ('Eve', '22', 'Florence')`);
-      const newRowResult = await engine.query(`SELECT MAX(rowid) FROM "csv"`);
-      const newRowid = Number(newRowResult.rows[0][0]);
-
-      // Append to view
-      const maxPosResult = await engine.query(`SELECT COALESCE(MAX(__pos), -1) FROM __view_add`);
-      const nextPos = Number(maxPosResult.rows[0][0]) + 1;
-      await engine.query(
-        `INSERT INTO __view_add SELECT ${nextPos} as __pos, ${newRowid} as __rid, ${columns} FROM "csv" WHERE rowid = ${newRowid}`
-      );
-
-      const result = await engine.query(
-        `SELECT __rid, ${columns} FROM __view_add ORDER BY __pos`
-      );
-
-      expect(result.rows.length).toBe(5);
-      expect(result.rows[4][1]).toBe('Eve');
+    it('delete multiple rows from view', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      await engine.query(`DELETE FROM csv WHERE rowid IN (0, 2)`);
+      await engine.query(`DELETE FROM "v" WHERE __rid IN (0, 2)`);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(2);
+      expect(rows.map(r => r[1])).toEqual(['Bob', 'Diana']);
     });
 
-    it('should update a cell in view', async () => {
-      const columns = '"Name", "Age", "City"';
+    it('append row to view', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      await engine.query(`INSERT INTO csv VALUES ('Eve', '22', 'Florence')`);
+      const newRowid = (await engine.query(`SELECT MAX(rowid) FROM csv`)).rows[0][0];
+      const maxPos = Number((await engine.query(`SELECT COALESCE(MAX(__pos), -1) FROM "v"`)).rows[0][0]);
+      await engine.query(`INSERT INTO "v" SELECT ${maxPos + 1} as __pos, ${newRowid} as __rid, ${columns} FROM csv WHERE rowid = ${newRowid}`);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(5);
+      expect(rows[4][1]).toBe('Eve');
+    });
 
-      await engine.query(
-        `CREATE TEMP TABLE __view_upd AS ` +
-        `SELECT (ROW_NUMBER() OVER() - 1) as __pos, __rid, ${columns} FROM ` +
-        `(SELECT rowid as __rid, ${columns} FROM "csv" ) sub`
-      );
-
-      // Update Alice's city
-      await engine.query(`UPDATE "csv" SET "City" = 'Florence' WHERE rowid = 0`);
-      await engine.query(`UPDATE __view_upd SET "City" = 'Florence' WHERE __rid = 0`);
-
-      const result = await engine.query(
-        `SELECT "City" FROM __view_upd WHERE __rid = 0`
-      );
-
+    it('update cell in view', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+      await engine.query(`UPDATE csv SET "City" = 'Florence' WHERE rowid = 0`);
+      await engine.query(`UPDATE "v" SET "City" = 'Florence' WHERE __rid = 0`);
+      const result = await engine.query(`SELECT "City" FROM "v" WHERE __rid = 0`);
       expect(result.rows[0][0]).toBe('Florence');
+    });
+
+    it('addRowAt above (table rebuild)', async () => {
+      await engine.query(`INSERT INTO csv VALUES (NULL, NULL, NULL)`);
+      const newRowid = Number((await engine.query(`SELECT MAX(rowid) FROM csv`)).rows[0][0]);
+      const targetRowid = 2; // Charlie
+      const pivot = targetRowid;
+
+      await engine.query(
+        `CREATE TABLE __temp AS SELECT ${columns} FROM (` +
+        `  SELECT ${columns}, rowid as __rid FROM csv WHERE rowid < ${pivot} AND rowid != ${newRowid}` +
+        `  UNION ALL SELECT ${columns}, ${newRowid} as __rid FROM csv WHERE rowid = ${newRowid}` +
+        `  UNION ALL SELECT ${columns}, rowid as __rid FROM csv WHERE rowid >= ${pivot} AND rowid != ${newRowid}` +
+        `) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${targetRowid} - 0.5 ELSE __rid END`
+      );
+      await engine.query(`DROP TABLE csv`);
+      await engine.query(`ALTER TABLE __temp RENAME TO csv`);
+
+      const result = await engine.query(`SELECT "Name" FROM csv`);
+      expect(result.rows.map(r => r[0])).toEqual(['Alice', 'Bob', '', 'Charlie', 'Diana']);
+    });
+
+    it('addRowAt below (table rebuild)', async () => {
+      await engine.query(`INSERT INTO csv VALUES (NULL, NULL, NULL)`);
+      const newRowid = Number((await engine.query(`SELECT MAX(rowid) FROM csv`)).rows[0][0]);
+      const targetRowid = 1; // Bob
+      const pivot = targetRowid + 1;
+
+      await engine.query(
+        `CREATE TABLE __temp2 AS SELECT ${columns} FROM (` +
+        `  SELECT ${columns}, rowid as __rid FROM csv WHERE rowid < ${pivot} AND rowid != ${newRowid}` +
+        `  UNION ALL SELECT ${columns}, ${newRowid} as __rid FROM csv WHERE rowid = ${newRowid}` +
+        `  UNION ALL SELECT ${columns}, rowid as __rid FROM csv WHERE rowid >= ${pivot} AND rowid != ${newRowid}` +
+        `) ORDER BY CASE WHEN __rid = ${newRowid} THEN ${targetRowid} + 0.5 ELSE __rid END`
+      );
+      await engine.query(`DROP TABLE csv`);
+      await engine.query(`ALTER TABLE __temp2 RENAME TO csv`);
+
+      const result = await engine.query(`SELECT "Name" FROM csv`);
+      expect(result.rows.map(r => r[0])).toEqual(['Alice', 'Bob', '', 'Charlie', 'Diana']);
+    });
+  });
+
+  // ─── Type Coercion ───────────────────────────────────────────────────────
+
+  describe('type coercion', () => {
+    it('ALTER to VARCHAR allows text in numeric column', async () => {
+      await engine.query(`ALTER TABLE csv ALTER COLUMN "Age" TYPE VARCHAR`);
+      await engine.query(`UPDATE csv SET "Age" = 'unknown' WHERE rowid = 0`);
+      const result = await engine.query(`SELECT "Age" FROM csv WHERE rowid = 0`);
+      expect(result.rows[0][0]).toBe('unknown');
+    });
+
+    it('TRY_CAST detects incompatible values', async () => {
+      const check = await engine.query(`SELECT TRY_CAST('hello' AS BIGINT) IS NOT NULL as ok`);
+      expect(check.rows[0][0]).toBe('false');
+    });
+
+    it('TRY_CAST passes for compatible values', async () => {
+      const check = await engine.query(`SELECT TRY_CAST('42' AS BIGINT) IS NOT NULL as ok`);
+      expect(check.rows[0][0]).toBe('true');
+    });
+
+    it('can tighten VARCHAR back to BIGINT', async () => {
+      await engine.query(`ALTER TABLE csv ALTER COLUMN "Age" TYPE VARCHAR`);
+      const check = await engine.query(
+        `SELECT COUNT(*) = COUNT(TRY_CAST("Age" AS BIGINT)) as ok FROM csv WHERE "Age" IS NOT NULL AND "Age" != ''`
+      );
+      expect(check.rows[0][0]).toBe('true');
+    });
+  });
+
+  // ─── Edge Cases ──────────────────────────────────────────────────────────
+
+  describe('edge cases', () => {
+    it('column names with spaces', async () => {
+      await engine.query(`CREATE TABLE special ("First Name" VARCHAR, "Last Name" VARCHAR)`);
+      await engine.query(`INSERT INTO special VALUES ('John', 'Doe')`);
+      await buildView(engine, 'v', 'special', '"First Name", "Last Name"', '', 'ORDER BY "First Name" ASC');
+      const rows = await getViewRows(engine, 'v', '"First Name", "Last Name"');
+      expect(rows[0][1]).toBe('John');
+    });
+
+    it('single quotes in values', async () => {
+      const escaped = "O''Brien";
+      await engine.query(`INSERT INTO csv VALUES ('${escaped}', '40', 'Dublin')`);
+      const result = await engine.query(`SELECT "Name" FROM csv WHERE "Name" LIKE '%Brien%'`);
+      expect(result.rows[0][0]).toBe("O'Brien");
+    });
+
+    it('percent in search term is escaped', async () => {
+      await engine.query(`INSERT INTO csv VALUES ('100%', '99', 'Test')`);
+      // DuckDB ILIKE uses backslash escape for %
+      const where = `WHERE CAST("Name" AS VARCHAR) ILIKE '%100\\%%' ESCAPE '\\'`;
+      await buildView(engine, 'v', 'csv', columns, where);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(1);
+      expect(rows[0][1]).toBe('100%');
+    });
+
+    it('empty table produces empty view', async () => {
+      await engine.query(`DELETE FROM csv`);
+      await buildView(engine, 'v', 'csv', columns);
+      const rows = await getViewRows(engine, 'v', columns);
+      expect(rows.length).toBe(0);
+    });
+
+    it('view count matches after multiple operations', async () => {
+      await buildView(engine, 'v', 'csv', columns);
+
+      // Add a row
+      await engine.query(`INSERT INTO csv VALUES ('Eve', '22', 'Florence')`);
+      const newRowid = (await engine.query(`SELECT MAX(rowid) FROM csv`)).rows[0][0];
+      const maxPos = Number((await engine.query(`SELECT COALESCE(MAX(__pos), -1) FROM "v"`)).rows[0][0]);
+      await engine.query(`INSERT INTO "v" SELECT ${maxPos + 1} as __pos, ${newRowid} as __rid, ${columns} FROM csv WHERE rowid = ${newRowid}`);
+
+      // Delete a row
+      await engine.query(`DELETE FROM csv WHERE rowid = 2`);
+      await engine.query(`DELETE FROM "v" WHERE __rid = 2`);
+
+      const count = await engine.query(`SELECT COUNT(*) FROM "v"`);
+      expect(Number(count.rows[0][0])).toBe(4); // 4 original + 1 added - 1 deleted = 4
     });
   });
 });
