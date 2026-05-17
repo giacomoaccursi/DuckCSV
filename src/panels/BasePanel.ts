@@ -28,6 +28,7 @@ export abstract class BasePanel {
   protected readonly viewState = new ViewState();
   protected pageRequestId: number = 0;
   private inlineQueryTable: string | null = null;
+  private disposed = false;
   protected historyService?: QueryHistoryService;
   protected historyKey: string = '';
 
@@ -310,7 +311,8 @@ export abstract class BasePanel {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   protected postMessage(message: ExtensionMessage): void {
-    this.panel.webview.postMessage(message);
+    if (this.disposed) { return; }
+    try { this.panel.webview.postMessage(message); } catch { /* panel disposed */ }
   }
 
   protected postError(error: unknown): void {
@@ -332,6 +334,7 @@ export abstract class BasePanel {
   }
 
   private dispose(): void {
+    this.disposed = true;
     this.onDispose();
 
     while (this.disposables.length) {
