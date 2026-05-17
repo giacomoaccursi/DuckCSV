@@ -124,6 +124,9 @@ export class QueryResultPanel extends BasePanel {
       case 'ready':
         await this.sendCurrentPage();
         return true;
+      case 'exportQueryResult':
+        await this.handleExport();
+        return true;
       default:
         return false;
     }
@@ -131,6 +134,19 @@ export class QueryResultPanel extends BasePanel {
 
   protected onDispose(): void {
     this.tableManager.dropTable(this.tableName).catch(() => {});
+  }
+
+  private async handleExport(): Promise<void> {
+    const uri = await vscode.window.showSaveDialog({
+      filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
+      title: 'Export Query Result',
+    });
+    if (!uri) { return; }
+
+    const { TableExporter } = await import('../services/TableExporter');
+    const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+    await exporter.exportTable(this.tableName, uri.fsPath);
+    vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────

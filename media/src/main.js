@@ -134,6 +134,14 @@ function bindEvents() {
 
   if (dom.colorBtn) { dom.colorBtn.addEventListener('click', toggleColumnColors); }
 
+  // Export button (standalone, for query result panel)
+  const exportBtn = document.getElementById('queryExportBtn');
+  if (exportBtn && !dom.queryInput) {
+    exportBtn.addEventListener('click', () => {
+      sendMessage({ type: 'exportQueryResult', headers: [], rows: [] });
+    });
+  }
+
   const openWorkspaceBtn = document.getElementById('openWorkspaceBtn');
   if (openWorkspaceBtn) { openWorkspaceBtn.addEventListener('click', () => sendMessage({ type: 'openWorkspace' })); }
 
