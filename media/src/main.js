@@ -162,12 +162,11 @@ function bindEvents() {
   }
 
   // Preview-specific: cell editing (disabled in readonly mode)
-  if (!document.body.dataset.readonly) {
-    document.addEventListener('dblclick', (e) => {
-      const td = e.target.closest('td.editable-cell');
-      if (td) { clearSelection(); startCellEdit(td); }
-    });
-  }
+  document.addEventListener('dblclick', (e) => {
+    if (document.body.dataset.readonly) { return; }
+    const td = e.target.closest('td.editable-cell');
+    if (td) { clearSelection(); startCellEdit(td); }
+  });
 
   // Preview-specific: context menu (insert/delete rows, copy)
   document.addEventListener('contextmenu', (e) => {
