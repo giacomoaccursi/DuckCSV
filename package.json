@@ -42,7 +42,7 @@
             {
                 "command": "duckcsv.preview",
                 "title": "DuckCSV: Open Preview",
-                "icon": "$(open-preview)"
+                "icon": "$(table)"
             },
             {
                 "command": "duckcsv.workspace",
