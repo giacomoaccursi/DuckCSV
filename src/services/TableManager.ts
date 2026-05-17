@@ -152,14 +152,25 @@ export class TableManager {
     };
   }
 
-  async getUniqueValues(tableName: string, columnIndex: number): Promise<string[]> {
+  async getUniqueValues(tableName: string, columnIndex: number, filters: ColumnFilters = {}, searchTerm: string = ''): Promise<string[]> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return []; }
 
     const colName = this.q(headers[columnIndex]);
+
+    // Build WHERE from active filters (excluding the column being queried)
+    const otherFilters: ColumnFilters = {};
+    for (const [idx, values] of Object.entries(filters)) {
+      const colIdx = parseInt(idx, 10);
+      if (colIdx !== columnIndex) { otherFilters[colIdx] = values; }
+    }
+    const baseWhere = this.buildWhereStr(otherFilters, searchTerm, headers);
+    const notNull = `${colName} IS NOT NULL`;
+    const whereStr = baseWhere ? `${baseWhere} AND ${notNull}` : `WHERE ${notNull}`;
+
     const result = await this.engine.query(
-      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} WHERE ${colName} IS NOT NULL ORDER BY ${colName} LIMIT 1000`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 1000`
     );
     return result.rows.map(row => row[0]).filter(v => v !== '');
   }

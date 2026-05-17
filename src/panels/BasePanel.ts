@@ -154,7 +154,9 @@ export abstract class BasePanel {
     if (!tableName) { return; }
 
     try {
-      const values = await this.tableManager.getUniqueValues(tableName, columnIndex);
+      const values = await this.tableManager.getUniqueValues(
+        tableName, columnIndex, this.viewState.filters, this.viewState.searchTerm
+      );
       this.postMessage({
         type: 'columnValues',
         data: { columnIndex, values, totalCount: values.length },
