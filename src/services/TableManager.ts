@@ -182,38 +182,14 @@ export class TableManager {
     const orderClause = this.buildOrderClause(params.sort, headers);
     const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    const hasFiltersOrSort = whereStr !== '' || orderClause !== '';
-
-    if (!hasFiltersOrSort) {
-      // Fast path: no filters/sort — use rowid directly (O(1) access)
-      const quoted = this.quoteIdentifier(tableName);
-      const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
-
-      const result = await this.engine.query(
-        `SELECT rowid, ${columns}, COUNT(*) OVER() as __total FROM ${quoted} WHERE rowid >= ${params.offset} LIMIT ${params.limit}`
-      );
-
-      if (result.rows.length === 0) {
-        // Get total count separately for empty result
-        const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${quoted}`);
-        return { rows: [], rowids: [], filteredCount: Number(countResult.rows[0][0]) };
-      }
-
-      const lastCol = result.rows[0].length - 1;
-      const filteredCount = Number(result.rows[0][lastCol]);
-      const rowids = result.rows.map(row => parseInt(row[0], 10));
-      const rows = result.rows.map(row => row.slice(1, lastCol));
-
-      return { rows, rowids, filteredCount };
-    }
-
-    // Slow path: filters/sort active — use materialized view for O(1) pagination
+    // Use materialized view for O(1) positional access in all cases.
+    // The view is cached and only rebuilt when sort/filter/data changes.
     const { viewName, totalRows } = await this.ensureMaterializedView(tableName, headers, whereStr, orderClause);
     const viewQuoted = this.quoteIdentifier(viewName);
     const columns = headers.map(h => this.quoteIdentifier(h)).join(', ');
 
     const result = await this.engine.query(
-      `SELECT __rid, ${columns} FROM ${viewQuoted} WHERE __pos >= ${params.offset} LIMIT ${params.limit}`
+      `SELECT __rid, ${columns} FROM ${viewQuoted} WHERE __pos >= ${params.offset} AND __pos < ${params.offset + params.limit}`
     );
 
     if (result.rows.length === 0) {
