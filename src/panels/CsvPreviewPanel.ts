@@ -110,17 +110,6 @@ export class CsvPreviewPanel extends BasePanel {
       case 'ready':
         await this.loadDocument();
         return true;
-      case 'refresh':
-        if (this.isDirty) {
-          const answer = await vscode.window.showWarningMessage(
-            'You have unsaved changes. Reload will discard them.',
-            'Reload', 'Cancel'
-          );
-          if (answer !== 'Reload') { return true; }
-        }
-        this.resetState();
-        await this.loadDocument();
-        return true;
       case 'editCell':
         await this.handleEditCell(message.rowid, message.columnIndex, message.value);
         return true;
@@ -145,9 +134,6 @@ export class CsvPreviewPanel extends BasePanel {
       case 'cancelQuery':
         this.queryExecutor.cancel();
         await this.loadDocument();
-        return true;
-      case 'openAsText':
-        await vscode.window.showTextDocument(this.currentUri);
         return true;
       case 'openWorkspace':
         await vscode.commands.executeCommand('duckcsv.workspace', this.currentUri);
