@@ -133,6 +133,7 @@ export function sortQueryResultsLocally(colIdx, direction) {
 
 export function resetQueryState() {
   queryActive = false;
+  setQueryRunning(false);
   toggle(dom.queryClearBtn, false);
   toggle(document.getElementById('queryExportBtn'), false);
   hideQueryError();
