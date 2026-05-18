@@ -8,6 +8,7 @@ import { DuckDbEngine } from './DuckDbEngine';
 import { TableManager } from './TableManager';
 import { createWriteStream } from 'fs';
 import { quoteCsvField } from '../shared/csvUtils';
+import { EXPORT_BATCH_SIZE } from '../shared/constants';
 
 export class TableExporter {
   constructor(
@@ -29,11 +30,10 @@ export class TableExporter {
     stream.write(headerLine + '\n');
 
     let offset = 0;
-    const batchSize = 50_000;
 
     while (true) {
       const result = await this.engine.query(
-        `SELECT ${columns} FROM ${quotedTable} LIMIT ${batchSize} OFFSET ${offset}`
+        `SELECT ${columns} FROM ${quotedTable} LIMIT ${EXPORT_BATCH_SIZE} OFFSET ${offset}`
       );
 
       if (result.rows.length === 0) { break; }
@@ -44,8 +44,8 @@ export class TableExporter {
       }
       stream.write(lines.join('\n') + '\n');
 
-      if (result.rows.length < batchSize) { break; }
-      offset += batchSize;
+      if (result.rows.length < EXPORT_BATCH_SIZE) { break; }
+      offset += EXPORT_BATCH_SIZE;
     }
 
     await new Promise<void>((resolve, reject) => {

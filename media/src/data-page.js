@@ -11,6 +11,7 @@ import { resetQueryState, setQueryActive } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
 import { createDataWindow } from './data-window.js';
 import { sendMessage } from './messaging.js';
+import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from './constants.js';
 
 let dataWindow = null;
 
@@ -77,9 +78,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
 
   dataWindow = createDataWindow({
     totalRows: data.filteredRows,
-    blockSize: 2000,
-    maxBlocks: 50,
-    prefetchThreshold: 1000,
+    blockSize: BLOCK_SIZE,
+    maxBlocks: MAX_BLOCKS,
+    prefetchThreshold: PREFETCH_THRESHOLD,
     fetchBlock: (offset, limit) => {
       sendMessage({ type: 'fetchPage', requestId: Date.now(), offset, limit });
     },
@@ -95,10 +96,6 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
     dataWindow.seedInitialData(data.rows, data.rowids || [], 0);
   }
 
-  // Store rows/rowids reference for backward compatibility (selection copy, etc.)
-  state.rows = data.rows || [];
-  state.rowids = data.rowids || [];
-
   if (dom.searchInput && document.activeElement !== dom.searchInput) {
     dom.searchInput.value = data.searchTerm;
   }
@@ -113,4 +110,39 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   renderRows();
 
   if (restoreQueryFocus) { qInput.focus(); }
+}
+
+/**
+ * Handle row mutation response (add/delete row).
+ * Updates state, DataWindow, and triggers re-render.
+ */
+export function onRowMutation(data) {
+  state.totalRows = data.totalRows;
+  state.filteredRows = data.filteredRows;
+  state.isDirty = true;
+
+  // If filteredRows equals totalRows, filters were cleared by the backend
+  if (data.filteredRows === data.totalRows) {
+    state.filters = {};
+    state.searchTerm = '';
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) { searchInput.value = ''; }
+  }
+
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) { saveBtn.disabled = false; }
+
+  const dw = getDataWindow();
+  if (dw) {
+    dw.setTotalRows(data.filteredRows);
+    dw.invalidate();
+  }
+
+  updateStats();
+  const scroller = getScroller();
+  if (scroller) {
+    scroller.update(data.filteredRows);
+  } else {
+    renderRows();
+  }
 }

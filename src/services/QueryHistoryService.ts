@@ -3,8 +3,8 @@
  */
 
 import * as vscode from 'vscode';
+import { MAX_QUERY_HISTORY } from '../shared/constants';
 
-const MAX_HISTORY = 50;
 const KEY_PREFIX = 'queryHistory:';
 
 export class QueryHistoryService {
@@ -22,7 +22,7 @@ export class QueryHistoryService {
     // Add to front
     history.unshift(sql);
     // Trim
-    if (history.length > MAX_HISTORY) { history.length = MAX_HISTORY; }
+    if (history.length > MAX_QUERY_HISTORY) { history.length = MAX_QUERY_HISTORY; }
     this.state.update(KEY_PREFIX + fileKey, history);
     return history;
   }
@@ -40,7 +40,7 @@ export class QueryHistoryService {
   }
 
   saveHistory(fileKey: string, history: string[]): void {
-    const trimmed = history.slice(0, MAX_HISTORY);
+    const trimmed = history.slice(0, MAX_QUERY_HISTORY);
     this.state.update(KEY_PREFIX + fileKey, trimmed);
   }
 }

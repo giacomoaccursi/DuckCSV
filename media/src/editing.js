@@ -89,10 +89,9 @@ function commitEdit() {
   td.dataset.fullText = newValue;
 
   if (newValue !== originalValue) {
-    // Update local state immediately so virtual scroller shows the new value
-    if (!isNaN(rowIndex) && state.rows[rowIndex]) {
-      state.rows[rowIndex][columnIndex] = newValue;
-    }
+    // Update DataWindow cache so virtual scroller shows the new value
+    const dw = getDataWindow();
+    if (dw) { dw.updateCell(rowid, columnIndex, newValue); }
 
     // Mark dirty immediately (don't wait for backend confirmation)
     state.isDirty = true;

@@ -24,11 +24,12 @@ export function bindSearchInput(searchInput, sendMessage) {
 
 /**
  * Bind query bar buttons and input (run, side, clear, export, autocomplete).
+ * @param {object} ctx - QueryBarContext with all dependencies
  */
-export function bindQueryBar(
-  { queryInput, queryRunBtn, querySideBtn, queryClearBtn, queryExportBtn },
-  { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state, addToHistory }
-) {
+export function bindQueryBar(ctx) {
+  const { queryInput, queryRunBtn, querySideBtn, queryClearBtn, queryExportBtn,
+    sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery,
+    closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, addToHistory } = ctx;
   if (queryRunBtn) {
     queryRunBtn.addEventListener('click', () => {
       if (isQueryRunning()) {
@@ -60,7 +61,7 @@ export function bindQueryBar(
   if (queryExportBtn) {
     queryExportBtn.addEventListener('click', () => {
       if (isQueryActive()) {
-        sendMessage({ type: 'exportQueryResult', headers: state.headers, rows: state.rows });
+        sendMessage({ type: 'exportQueryResult', headers: [], rows: [] });
       }
     });
   }

@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
-import { ConfigService } from '../services/ConfigService';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { BasePanel } from './BasePanel';
 import { buildQueryResultHtml } from './buildQueryResultHtml';
@@ -25,7 +24,6 @@ export class QueryResultPanel extends BasePanel {
     extensionUri: vscode.Uri,
     engine: DuckDbEngine,
     queryExecutor: QueryExecutor,
-    config: ConfigService,
     sql: string,
     sourceFileName?: string
   ): Promise<void> {
@@ -74,7 +72,7 @@ export class QueryResultPanel extends BasePanel {
       rowCount: totalRows,
     });
 
-    new QueryResultPanel(panel, extensionUri, tableManager, queryExecutor, config, tableName, sql, totalRows, sourceFileName || 'query');
+    new QueryResultPanel(panel, extensionUri, tableManager, queryExecutor, tableName, sql, totalRows, sourceFileName || 'query');
   }
 
   private constructor(
@@ -82,13 +80,12 @@ export class QueryResultPanel extends BasePanel {
     extensionUri: vscode.Uri,
     tableManager: TableManager,
     queryExecutor: QueryExecutor,
-    config: ConfigService,
     tableName: string,
     sql: string,
     totalRows: number,
     sourceFileName: string
   ) {
-    super(panel, extensionUri, tableManager, queryExecutor, config, buildQueryResultHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, queryExecutor, buildQueryResultHtml(panel.webview, extensionUri));
     this.tableName = tableName;
     this.sql = sql;
     this.totalRows = totalRows;

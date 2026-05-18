@@ -157,7 +157,8 @@ export function handleRowNumberClick(e) {
 }
 
 export function handleSelectAll() {
-  const maxRow = state.rows.length - 1;
+  const dw = getDataWindow();
+  const maxRow = (dw ? dw.getTotalRows() : state.filteredRows) - 1;
   const maxCol = state.headers.length - 1;
   if (maxRow < 0 || maxCol < 0) { return; }
 
@@ -173,7 +174,8 @@ export function handleSelectAll() {
 }
 
 export function handleHeaderClickForSelection(colIdx, e) {
-  const maxRow = state.rows.length - 1;
+  const dw = getDataWindow();
+  const maxRow = (dw ? dw.getTotalRows() : state.filteredRows) - 1;
   if (maxRow < 0) { return; }
 
   // Toggle: if same column already selected, deselect
@@ -249,7 +251,8 @@ export function handleArrowNavigation(e) {
 
   let row = selection.endRow;
   let col = selection.endCol;
-  const maxRow = state.rows.length - 1;
+  const dw2 = getDataWindow();
+  const maxRow = (dw2 ? dw2.getTotalRows() : state.filteredRows) - 1;
   const maxCol = state.headers.length - 1;
 
   if (key === 'ArrowUp') { row = Math.max(0, row - 1); }
@@ -314,7 +317,7 @@ function getSelectionText() {
 
   // Single cell: just copy the value, no header
   if (isSingleCell) {
-    const row = dw ? dw.getRow(minRow) : state.rows[minRow];
+    const row = dw ? dw.getRow(minRow) : null;
     return row?.[minCol] || '';
   }
 
@@ -332,7 +335,7 @@ function getSelectionText() {
 
   // Data rows
   for (let r = minRow; r <= maxRow; r++) {
-    const row = dw ? dw.getRow(r) : state.rows[r];
+    const row = dw ? dw.getRow(r) : null;
     if (!row) { continue; }
     const cells = [];
     for (let c = minCol; c <= maxCol; c++) {

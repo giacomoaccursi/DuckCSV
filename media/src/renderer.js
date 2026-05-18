@@ -199,48 +199,12 @@ export function renderRows() {
   }
 }
 
-export function renderQueryRows(rows) {
-  if (!dom.tableBody) { return; }
-
-  if (scroller) { scroller.destroy(); scroller = null; }
-
-  if (rows.length === 0) {
-    dom.tableBody.innerHTML = '<tr><td colspan="100" class="empty-message">No results</td></tr>';
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < rows.length; i++) {
-    const tr = document.createElement('tr');
-    tr.dataset.rowIndex = i;
-
-    const numTd = document.createElement('td');
-    numTd.className = 'row-number';
-    numTd.textContent = i + 1;
-    tr.appendChild(numTd);
-
-    rows[i].forEach((cell, colIndex) => {
-      const td = document.createElement('td');
-      td.className = 'editable-cell';
-      td.textContent = cell || '';
-      td.title = cell || '';
-      td.dataset.columnIndex = colIndex;
-      td.dataset.fullText = cell || '';
-      tr.appendChild(td);
-    });
-    fragment.appendChild(tr);
-  }
-
-  dom.tableBody.innerHTML = '';
-  dom.tableBody.appendChild(fragment);
-}
-
 // ─── Row creation and recycling ──────────────────────────────────────────────
 
 function createRow(index) {
   const dw = getDataWindow();
-  const row = dw ? dw.getRow(index) : (state.rows[index] || null);
-  const rowid = dw ? dw.getRowid(index) : (state.rowids[index] ?? -1);
+  const row = dw ? dw.getRow(index) : null;
+  const rowid = dw ? dw.getRowid(index) : -1;
   const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
 
   const tr = document.createElement('tr');
@@ -299,8 +263,8 @@ function createRow(index) {
 
 function recycleRow(tr, index) {
   const dw = getDataWindow();
-  const row = dw ? dw.getRow(index) : (state.rows[index] || null);
-  const rowid = dw ? dw.getRowid(index) : (state.rowids[index] ?? -1);
+  const row = dw ? dw.getRow(index) : null;
+  const rowid = dw ? dw.getRowid(index) : -1;
   const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
 
   tr.dataset.rowIndex = index;

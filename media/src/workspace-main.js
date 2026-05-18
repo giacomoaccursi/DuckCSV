@@ -78,10 +78,13 @@ function bindEvents() {
   // Shared: search, query bar, header, selection/tooltip
   bindSearchInput(dom.searchInput, sendMessage);
 
-  bindQueryBar(
-    { queryInput: document.getElementById('queryInput'), queryRunBtn: document.getElementById('queryRunBtn'), querySideBtn: document.getElementById('querySideBtn'), queryClearBtn: document.getElementById('queryClearBtn'), queryExportBtn: document.getElementById('queryExportBtn') },
-    { sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery, closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, state, addToHistory: addToHistoryWs }
-  );
+  bindQueryBar({
+    queryInput: document.getElementById('queryInput'), queryRunBtn: document.getElementById('queryRunBtn'),
+    querySideBtn: document.getElementById('querySideBtn'), queryClearBtn: document.getElementById('queryClearBtn'),
+    queryExportBtn: document.getElementById('queryExportBtn'),
+    sendMessage, isQueryRunning, setQueryRunning, isQueryActive, clearQuery,
+    closeAutocomplete, handleAutocompleteKeydown, showAutocomplete, addToHistory: addToHistoryWs,
+  });
 
   bindHeaderInteractions(dom.tableHeader, {
     state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, openFilterDropdown,

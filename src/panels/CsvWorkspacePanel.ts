@@ -4,10 +4,9 @@
  */
 
 import * as vscode from 'vscode';
-import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
-import { ConfigService } from '../services/ConfigService';
+import { Services } from '../services/Services';
 import { WebviewMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
 import { BasePanel } from './BasePanel';
@@ -22,9 +21,7 @@ export class CsvWorkspacePanel extends BasePanel {
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    engine: DuckDbEngine,
-    queryExecutor: QueryExecutor,
-    config: ConfigService,
+    services: Services,
     initialUri?: vscode.Uri
   ): void {
     const panel = vscode.window.createWebviewPanel(
@@ -39,8 +36,8 @@ export class CsvWorkspacePanel extends BasePanel {
       }
     );
 
-    const tableManager = new TableManager(engine);
-    new CsvWorkspacePanel(panel, extensionUri, tableManager, queryExecutor, config, initialUri);
+    const tableManager = new TableManager(services.engine);
+    new CsvWorkspacePanel(panel, extensionUri, tableManager, services.queryExecutor, initialUri);
   }
 
   // ─── Constructor ─────────────────────────────────────────────────────────
@@ -50,10 +47,9 @@ export class CsvWorkspacePanel extends BasePanel {
     extensionUri: vscode.Uri,
     tableManager: TableManager,
     queryExecutor: QueryExecutor,
-    config: ConfigService,
     initialUri?: vscode.Uri
   ) {
-    super(panel, extensionUri, tableManager, queryExecutor, config, buildWorkspaceHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, queryExecutor, buildWorkspaceHtml(panel.webview, extensionUri));
     if (initialUri) { this.pendingInitialUri = initialUri; }
   }
 
