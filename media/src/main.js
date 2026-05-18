@@ -10,9 +10,9 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
-import { renderHeader, renderRows, getScroller } from './renderer.js';
-import { applyDataPage, onPageDataReceived, getDataWindow } from './data-page.js';
-import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu, updateStats } from './ui.js';
+import { renderHeader, renderRows } from './renderer.js';
+import { applyDataPage, onPageDataReceived, onRowMutation } from './data-page.js';
+import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
@@ -55,37 +55,6 @@ function handleExtensionMessage(message) {
 
 function onDataPageReceived(data) {
   applyDataPage(data, { setOriginalHeaders: true, trackDirty: true });
-}
-
-function onRowMutation(data) {
-  state.totalRows = data.totalRows;
-  state.filteredRows = data.filteredRows;
-  state.isDirty = true;
-
-  // If filteredRows equals totalRows, filters were cleared by the backend
-  if (data.filteredRows === data.totalRows) {
-    state.filters = {};
-    state.searchTerm = '';
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) { searchInput.value = ''; }
-  }
-
-  const saveBtn = document.getElementById('saveBtn');
-  if (saveBtn) { saveBtn.disabled = false; }
-
-  const dw = getDataWindow();
-  if (dw) {
-    dw.setTotalRows(data.filteredRows);
-    dw.invalidate();
-  }
-
-  updateStats();
-  const scroller = getScroller();
-  if (scroller) {
-    scroller.update(data.filteredRows);
-  } else {
-    renderRows();
-  }
 }
 
 // ─── Column Coloring Toggle ──────────────────────────────────────────────────

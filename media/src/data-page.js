@@ -111,3 +111,38 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
 
   if (restoreQueryFocus) { qInput.focus(); }
 }
+
+/**
+ * Handle row mutation response (add/delete row).
+ * Updates state, DataWindow, and triggers re-render.
+ */
+export function onRowMutation(data) {
+  state.totalRows = data.totalRows;
+  state.filteredRows = data.filteredRows;
+  state.isDirty = true;
+
+  // If filteredRows equals totalRows, filters were cleared by the backend
+  if (data.filteredRows === data.totalRows) {
+    state.filters = {};
+    state.searchTerm = '';
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) { searchInput.value = ''; }
+  }
+
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) { saveBtn.disabled = false; }
+
+  const dw = getDataWindow();
+  if (dw) {
+    dw.setTotalRows(data.filteredRows);
+    dw.invalidate();
+  }
+
+  updateStats();
+  const scroller = getScroller();
+  if (scroller) {
+    scroller.update(data.filteredRows);
+  } else {
+    renderRows();
+  }
+}
