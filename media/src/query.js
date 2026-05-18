@@ -6,9 +6,6 @@ import { dom } from './dom.js';
 import { state, SQL_KEYWORDS } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
-import { renderHeader, renderQueryRows } from './renderer.js';
-import { showTable } from './ui.js';
-import { sortRows } from './sort-utils.js';
 
 // ─── Query State ─────────────────────────────────────────────────────────────
 
@@ -73,43 +70,6 @@ export function setQueryRunning(running) {
   }
 }
 
-export function onQueryResult(data) {
-  setQueryRunning(false);
-
-  if (data.error && !data.rows.length) {
-    showQueryError(data.error);
-    return;
-  }
-
-  hideQueryError();
-  queryActive = true;
-  toggle(dom.queryClearBtn, true);
-  toggle(document.getElementById('queryExportBtn'), true);
-
-  // Clear all filters, sort, and search
-  state.filters = {};
-  state.searchTerm = '';
-  state.sort = { columnIndex: -1, direction: 'none' };
-
-  state.headers = data.headers;
-  state.rows = data.rows;
-  state.rowids = [];
-  state.filteredRows = data.rowCount;
-  state.totalRows = data.totalCount;
-
-  renderHeader();
-  renderQueryRows(data.rows);
-  showTable();
-
-  if (dom.stats) {
-    if (data.totalCount > data.rowCount) {
-      dom.stats.textContent = `Query: ${data.rowCount.toLocaleString()} of ${data.totalCount.toLocaleString()} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
-    } else {
-      dom.stats.textContent = `Query: ${data.rowCount.toLocaleString()} rows \u2022 ${data.executionTimeMs.toFixed(1)}ms`;
-    }
-  }
-}
-
 export function clearQuery() {
   queryActive = false;
   toggle(dom.queryClearBtn, false);
@@ -117,19 +77,6 @@ export function clearQuery() {
   hideQueryError();
   if (dom.queryInput) { dom.queryInput.value = ''; }
   sendMessage({ type: 'clearQuery' });
-}
-
-export function sortQueryResultsLocally(colIdx, direction) {
-  state.sort = { columnIndex: colIdx, direction };
-
-  if (direction === 'none') {
-    renderHeader();
-    return;
-  }
-
-  sortRows(state.rows, colIdx, direction);
-  renderHeader();
-  renderQueryRows(state.rows);
 }
 
 export function resetQueryState() {

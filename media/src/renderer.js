@@ -199,42 +199,6 @@ export function renderRows() {
   }
 }
 
-export function renderQueryRows(rows) {
-  if (!dom.tableBody) { return; }
-
-  if (scroller) { scroller.destroy(); scroller = null; }
-
-  if (rows.length === 0) {
-    dom.tableBody.innerHTML = '<tr><td colspan="100" class="empty-message">No results</td></tr>';
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < rows.length; i++) {
-    const tr = document.createElement('tr');
-    tr.dataset.rowIndex = i;
-
-    const numTd = document.createElement('td');
-    numTd.className = 'row-number';
-    numTd.textContent = i + 1;
-    tr.appendChild(numTd);
-
-    rows[i].forEach((cell, colIndex) => {
-      const td = document.createElement('td');
-      td.className = 'editable-cell';
-      td.textContent = cell || '';
-      td.title = cell || '';
-      td.dataset.columnIndex = colIndex;
-      td.dataset.fullText = cell || '';
-      tr.appendChild(td);
-    });
-    fragment.appendChild(tr);
-  }
-
-  dom.tableBody.innerHTML = '';
-  dom.tableBody.appendChild(fragment);
-}
-
 // ─── Row creation and recycling ──────────────────────────────────────────────
 
 function createRow(index) {
