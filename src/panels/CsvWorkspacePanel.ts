@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
-import { ConfigService } from '../services/ConfigService';
 import { Services } from '../services/Services';
 import { WebviewMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
@@ -38,7 +37,7 @@ export class CsvWorkspacePanel extends BasePanel {
     );
 
     const tableManager = new TableManager(services.engine);
-    new CsvWorkspacePanel(panel, extensionUri, tableManager, services.queryExecutor, services.config, initialUri);
+    new CsvWorkspacePanel(panel, extensionUri, tableManager, services.queryExecutor, initialUri);
   }
 
   // ─── Constructor ─────────────────────────────────────────────────────────
@@ -48,10 +47,9 @@ export class CsvWorkspacePanel extends BasePanel {
     extensionUri: vscode.Uri,
     tableManager: TableManager,
     queryExecutor: QueryExecutor,
-    config: ConfigService,
     initialUri?: vscode.Uri
   ) {
-    super(panel, extensionUri, tableManager, queryExecutor, config, buildWorkspaceHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, queryExecutor, buildWorkspaceHtml(panel.webview, extensionUri));
     if (initialUri) { this.pendingInitialUri = initialUri; }
   }
 

@@ -66,7 +66,7 @@ export class CsvPreviewPanel extends BasePanel {
     services: Services,
     uri: vscode.Uri
   ) {
-    super(panel, extensionUri, services.tableManager, services.queryExecutor, services.config, buildPreviewHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, services.tableManager, services.queryExecutor, buildPreviewHtml(panel.webview, extensionUri));
     this.tableExporter = services.tableExporter;
     this.currentUri = uri;
     this.historyService = services.queryHistory;

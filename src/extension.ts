@@ -6,7 +6,6 @@
  */
 
 import * as vscode from 'vscode';
-import { ConfigService } from './services/ConfigService';
 import { DuckDbEngine } from './services/DuckDbEngine';
 import { TableManager } from './services/TableManager';
 import { QueryExecutor } from './services/QueryExecutor';
@@ -16,16 +15,15 @@ import { Services } from './services/Services';
 import { registerPreviewCommands } from './commands/previewCommand';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const config = new ConfigService();
   const engine = new DuckDbEngine();
   const tableManager = new TableManager(engine);
   const queryExecutor = new QueryExecutor(engine);
   const tableExporter = new TableExporter(engine, tableManager);
   const queryHistory = new QueryHistoryService(context.globalState);
 
-  const services: Services = { engine, tableManager, queryExecutor, tableExporter, config, queryHistory };
+  const services: Services = { engine, tableManager, queryExecutor, tableExporter, queryHistory };
 
-  context.subscriptions.push(config, engine);
+  context.subscriptions.push(engine);
 
   registerPreviewCommands(context, services);
 }

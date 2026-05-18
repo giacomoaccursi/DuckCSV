@@ -12,7 +12,6 @@
 import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
-import { ConfigService } from '../services/ConfigService';
 import { InlineQueryManager } from '../services/InlineQueryManager';
 import { ViewState } from '../shared/ViewState';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
@@ -24,7 +23,6 @@ export abstract class BasePanel {
   protected readonly extensionUri: vscode.Uri;
   protected readonly tableManager: TableManager;
   protected readonly queryExecutor: QueryExecutor;
-  protected readonly config: ConfigService;
   protected readonly disposables: vscode.Disposable[] = [];
   protected readonly viewState = new ViewState();
   protected readonly inlineQuery: InlineQueryManager;
@@ -38,14 +36,12 @@ export abstract class BasePanel {
     extensionUri: vscode.Uri,
     tableManager: TableManager,
     queryExecutor: QueryExecutor,
-    config: ConfigService,
     html: string
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.tableManager = tableManager;
     this.queryExecutor = queryExecutor;
-    this.config = config;
     this.inlineQuery = new InlineQueryManager(queryExecutor.getEngine(), tableManager);
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -192,7 +188,7 @@ export abstract class BasePanel {
       const meta = this.tableManager.getTableMeta(tableName || '');
       const sourceFileName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       await QueryResultPanel.open(
-        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, this.config, sql, sourceFileName
+        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, sql, sourceFileName
       );
       return;
     }
