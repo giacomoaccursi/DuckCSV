@@ -13,6 +13,7 @@ import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { ConfigService } from '../services/ConfigService';
+import { InlineQueryManager } from '../services/InlineQueryManager';
 import { ViewState } from '../shared/ViewState';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
@@ -26,8 +27,8 @@ export abstract class BasePanel {
   protected readonly config: ConfigService;
   protected readonly disposables: vscode.Disposable[] = [];
   protected readonly viewState = new ViewState();
+  protected readonly inlineQuery: InlineQueryManager;
   protected pageRequestId: number = 0;
-  private inlineQueryTable: string | null = null;
   private disposed = false;
   protected historyService?: QueryHistoryService;
   protected historyKey: string = '';
@@ -45,6 +46,7 @@ export abstract class BasePanel {
     this.tableManager = tableManager;
     this.queryExecutor = queryExecutor;
     this.config = config;
+    this.inlineQuery = new InlineQueryManager(queryExecutor.getEngine(), tableManager);
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
@@ -128,7 +130,7 @@ export abstract class BasePanel {
 
   /** The effective table: inline query table if active, otherwise the panel's table. */
   private getEffectiveTable(): string {
-    return this.inlineQueryTable || this.getActiveTableName();
+    return this.inlineQuery.getEffectiveTable(this.getActiveTableName());
   }
 
   protected async sendCurrentPage(): Promise<void> {
@@ -156,7 +158,7 @@ export abstract class BasePanel {
       if (!meta) { return; }
 
       const payload = this.buildPayload(result, meta);
-      payload.isQueryResult = !!this.inlineQueryTable;
+      payload.isQueryResult = this.inlineQuery.isActive();
       this.postMessage({ type: 'dataPage', data: payload });
     } catch (error: unknown) {
       this.postError(error);
@@ -195,55 +197,12 @@ export abstract class BasePanel {
       return;
     }
 
-    // Inline: execute into temp table with __orig_rid for edit mapping
-    const tempName = `__inline_qr_${Date.now()}`;
-    const trimmedSql = sql.trim();
-
-    // Try to inject rowid into the SELECT for edit support
-    const withRowid = trimmedSql.replace(/^SELECT\s/i, 'SELECT rowid as __orig_rid, ');
-    let hasOrigRid = false;
-
-    try {
-      await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${withRowid}`);
-      hasOrigRid = true;
-    } catch (firstErr: unknown) {
-      // If query was cancelled, don't retry
-      if (firstErr instanceof Error && firstErr.message.includes('cancelled')) { return; }
-      // Fallback: rowid injection failed (e.g. aggregation, JOIN). Create without it.
-      try {
-        await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${tempName}"`);
-        await this.queryExecutor.getEngine().query(`CREATE TEMP TABLE "${tempName}" AS ${trimmedSql}`);
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message.includes('cancelled')) { return; }
-        const msg = err instanceof Error ? err.message : 'Query failed';
-        this.postMessage({ type: 'queryError', message: msg });
-        return;
-      }
+    const result = await this.inlineQuery.executeInline(sql);
+    if (result.cancelled) { return; }
+    if (result.error) {
+      this.postMessage({ type: 'queryError', message: result.error });
+      return;
     }
-
-    // Get schema + count (exclude __orig_rid from visible headers)
-    const engine = this.queryExecutor.getEngine();
-    const schemaResult = await engine.query(
-      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tempName}' AND column_name != '__orig_rid' ORDER BY ordinal_position`
-    );
-    const countResult = await engine.query(`SELECT COUNT(*) FROM "${tempName}"`);
-
-    // Drop previous inline query table
-    if (this.inlineQueryTable) {
-      await engine.query(`DROP TABLE IF EXISTS "${this.inlineQueryTable}"`);
-      this.tableManager.unregisterTable(this.inlineQueryTable);
-    }
-
-    // Register temp table
-    this.inlineQueryTable = tempName;
-    this.tableManager.registerTable({
-      name: tempName, filePath: '', delimiter: 'Comma', delimiterChar: ',',
-      headers: schemaResult.rows.map(r => r[0]),
-      columnTypes: schemaResult.rows.map(r => r[1]),
-      originalTypes: schemaResult.rows.map(r => r[1]),
-      rowCount: Number(countResult.rows[0][0]),
-      useOrigRid: hasOrigRid,
-    });
 
     this.viewState.reset();
     await this.sendCurrentPage();
@@ -251,7 +210,8 @@ export abstract class BasePanel {
 
   protected async handleExportQueryResult(_headers: string[], _rows: string[][]): Promise<void> {
     // If inline query is active, export from the temp table
-    if (this.inlineQueryTable) {
+    const inlineTable = this.inlineQuery.getActiveTable();
+    if (inlineTable) {
       const meta = this.tableManager.getTableMeta(this.getActiveTableName());
       const baseName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       const uri = await vscode.window.showSaveDialog({
@@ -262,28 +222,20 @@ export abstract class BasePanel {
       if (!uri) { return; }
       const { TableExporter } = await import('../services/TableExporter');
       const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
-      await exporter.exportTable(this.inlineQueryTable, uri.fsPath);
+      await exporter.exportTable(inlineTable, uri.fsPath);
       return;
     }
     await exportQueryResultToFile(_headers, _rows);
   }
 
   private async handleClearQuery(): Promise<void> {
-    if (this.inlineQueryTable) {
-      await this.queryExecutor.getEngine().query(`DROP TABLE IF EXISTS "${this.inlineQueryTable}"`);
-      this.tableManager.unregisterTable(this.inlineQueryTable);
-      this.inlineQueryTable = null;
-    }
+    await this.inlineQuery.clear();
     await this.sendCurrentPage();
   }
 
   /** Reset inline query state (call after engine cancel/restart). */
   protected clearInlineQuery(): void {
-    if (this.inlineQueryTable) {
-      this.tableManager.unregisterTable(this.inlineQueryTable);
-      this.inlineQueryTable = null;
-    }
-    this.tableManager.invalidateView();
+    this.inlineQuery.reset();
   }
 
   protected async handleFetchPage(requestId: number, offset: number, limit: number): Promise<void> {
