@@ -203,8 +203,8 @@ export function renderRows() {
 
 function createRow(index) {
   const dw = getDataWindow();
-  const row = dw ? dw.getRow(index) : (state.rows[index] || null);
-  const rowid = dw ? dw.getRowid(index) : (state.rowids[index] ?? -1);
+  const row = dw ? dw.getRow(index) : null;
+  const rowid = dw ? dw.getRowid(index) : -1;
   const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
 
   const tr = document.createElement('tr');
@@ -263,8 +263,8 @@ function createRow(index) {
 
 function recycleRow(tr, index) {
   const dw = getDataWindow();
-  const row = dw ? dw.getRow(index) : (state.rows[index] || null);
-  const rowid = dw ? dw.getRowid(index) : (state.rowids[index] ?? -1);
+  const row = dw ? dw.getRow(index) : null;
+  const rowid = dw ? dw.getRowid(index) : -1;
   const searchLower = state.searchTerm ? state.searchTerm.toLowerCase() : '';
 
   tr.dataset.rowIndex = index;

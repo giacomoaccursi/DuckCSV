@@ -230,7 +230,7 @@ function bindEvents() {
         const dw = getDataWindow();
         const rowids = [];
         for (let r = minRow; r <= maxRow; r++) {
-          const rid = dw ? dw.getRowid(r) : (state.rowids[r] ?? -1);
+          const rid = dw ? dw.getRowid(r) : -1;
           if (rid >= 0) { rowids.push(rid); }
         }
 

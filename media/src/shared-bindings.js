@@ -60,7 +60,7 @@ export function bindQueryBar(
   if (queryExportBtn) {
     queryExportBtn.addEventListener('click', () => {
       if (isQueryActive()) {
-        sendMessage({ type: 'exportQueryResult', headers: state.headers, rows: state.rows });
+        sendMessage({ type: 'exportQueryResult', headers: [], rows: [] });
       }
     });
   }

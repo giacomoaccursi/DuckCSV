@@ -95,10 +95,6 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
     dataWindow.seedInitialData(data.rows, data.rowids || [], 0);
   }
 
-  // Store rows/rowids reference for backward compatibility (selection copy, etc.)
-  state.rows = data.rows || [];
-  state.rowids = data.rowids || [];
-
   if (dom.searchInput && document.activeElement !== dom.searchInput) {
     dom.searchInput.value = data.searchTerm;
   }
