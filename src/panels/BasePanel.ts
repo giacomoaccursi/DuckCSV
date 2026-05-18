@@ -14,6 +14,7 @@ import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
 import { InlineQueryManager } from '../services/InlineQueryManager';
 import { ViewState } from '../shared/ViewState';
+import { BLOCK_SIZE } from '../shared/constants';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
 import { QueryHistoryService } from '../services/QueryHistoryService';
@@ -136,15 +137,13 @@ export abstract class BasePanel {
     const requestId = ++this.pageRequestId;
 
     try {
-      // Fetch only the first block (2000 rows) — frontend will request more via fetchPage
-      const firstBlockSize = 2000;
-
+      // Fetch only the first block — frontend will request more via fetchPage
       const result = await this.tableManager.getDataPage(tableName, {
         filters: this.viewState.filters,
         sort: this.viewState.sort,
         searchTerm: this.viewState.searchTerm,
         offset: 0,
-        limit: firstBlockSize,
+        limit: BLOCK_SIZE,
       });
 
       // Discard stale response if a newer request was issued

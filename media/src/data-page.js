@@ -11,6 +11,7 @@ import { resetQueryState, setQueryActive } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
 import { createDataWindow } from './data-window.js';
 import { sendMessage } from './messaging.js';
+import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from './constants.js';
 
 let dataWindow = null;
 
@@ -77,9 +78,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
 
   dataWindow = createDataWindow({
     totalRows: data.filteredRows,
-    blockSize: 2000,
-    maxBlocks: 50,
-    prefetchThreshold: 1000,
+    blockSize: BLOCK_SIZE,
+    maxBlocks: MAX_BLOCKS,
+    prefetchThreshold: PREFETCH_THRESHOLD,
     fetchBlock: (offset, limit) => {
       sendMessage({ type: 'fetchPage', requestId: Date.now(), offset, limit });
     },
