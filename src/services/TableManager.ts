@@ -11,7 +11,7 @@
  * - deleteRow/deleteRows: DELETE from both table and view (no rebuild)
  */
 
-import { DuckDbEngine } from './DuckDbEngine';
+import { IQueryEngine } from './IQueryEngine';
 import { SortState, ColumnFilters } from '../types';
 import * as vscode from 'vscode';
 import { basename, extname } from 'path';
@@ -45,7 +45,7 @@ export class TableManager {
   private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
   private pendingRebuild: Promise<void> | null = null;
 
-  constructor(private readonly engine: DuckDbEngine) {}
+  constructor(private readonly engine: IQueryEngine) {}
 
   // ─── Table Lifecycle ─────────────────────────────────────────────────────
 

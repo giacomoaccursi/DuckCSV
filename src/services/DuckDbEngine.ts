@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import { Worker } from 'worker_threads';
 import { join } from 'path';
+import { IQueryEngine } from './IQueryEngine';
 
 export interface QueryResponse {
   columns: string[];
@@ -17,7 +18,7 @@ export interface QueryResponse {
   error?: string;
 }
 
-export class DuckDbEngine implements vscode.Disposable {
+export class DuckDbEngine implements vscode.Disposable, IQueryEngine {
   private worker: Worker | null = null;
   private initPromise: Promise<void> | null = null;
   private nextId = 1;
