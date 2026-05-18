@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { basename } from 'path';
 import { TableExporter } from '../services/TableExporter';
 import { Services } from '../services/Services';
+import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
 import { BasePanel } from './BasePanel';
@@ -161,10 +162,9 @@ export class CsvPreviewPanel extends BasePanel {
   }
 
   private async handleSaveAs(): Promise<void> {
-    const uri = await vscode.window.showSaveDialog({
-      defaultUri: this.currentUri,
-      filters: { 'CSV Files': ['csv', 'tsv'], 'All Files': ['*'] },
-      title: 'Save As',
+    const uri = await pickFormatAndSave({
+      defaultName: this.currentUri.fsPath,
+      defaultExtension: this.currentUri.fsPath.endsWith('.tsv') ? 'tsv' : 'csv',
     });
     if (!uri) { return; }
     await this.doExport(uri.fsPath);
@@ -174,14 +174,14 @@ export class CsvPreviewPanel extends BasePanel {
     this.postMessage({ type: 'saving', saving: true });
     try {
       await this.tableManager.awaitPendingRebuild();
-      await this.tableExporter.exportTable(this.tableName, outputPath);
+      await this.tableExporter.exportAuto(this.tableName, outputPath);
       this.isDirty = false;
       this.panel.title = this.fileName;
       this.postMessage({ type: 'saved' });
       await this.sendCurrentPage();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to save file';
-      vscode.window.showErrorMessage(`CSV save error: ${msg}`);
+      vscode.window.showErrorMessage(`Save error: ${msg}`);
     } finally {
       this.postMessage({ type: 'saving', saving: false });
     }

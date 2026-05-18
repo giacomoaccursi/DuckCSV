@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { QueryExecutor } from '../services/QueryExecutor';
+import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { BasePanel } from './BasePanel';
 import { buildQueryResultHtml } from './buildQueryResultHtml';
@@ -136,16 +137,14 @@ export class QueryResultPanel extends BasePanel {
   }
 
   private async handleExport(): Promise<void> {
-    const uri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(`${this.sourceFileName}_query_result.csv`),
-      filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
-      title: 'Export Query Result',
+    const uri = await pickFormatAndSave({
+      defaultName: `${this.sourceFileName}_query_result`,
     });
     if (!uri) { return; }
 
     const { TableExporter } = await import('../services/TableExporter');
     const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
-    await exporter.exportTable(this.tableName, uri.fsPath);
+    await exporter.exportAuto(this.tableName, uri.fsPath);
     vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
   }
 

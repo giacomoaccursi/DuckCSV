@@ -45,7 +45,14 @@ interface RegisterFileRequest {
   content: string;
 }
 
-type WorkerMessage = QueryRequest | InitRequest | RegisterFileRequest;
+interface ExportParquetRequest {
+  id: number;
+  type: 'exportParquet';
+  tableName: string;
+  compression: 'ZSTD' | 'SNAPPY' | 'UNCOMPRESSED';
+}
+
+type WorkerMessage = QueryRequest | InitRequest | RegisterFileRequest | ExportParquetRequest;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -67,6 +74,10 @@ parentPort?.on('message', async (msg: WorkerMessage) => {
 
     case 'registerFile':
       registerFile(msg);
+      break;
+
+    case 'exportParquet':
+      exportParquet(msg);
       break;
   }
 });
@@ -166,5 +177,23 @@ function registerFile(msg: RegisterFileRequest): void {
   } catch (err: unknown) {
     const error = err instanceof Error ? err.message : 'Failed to register file';
     parentPort?.postMessage({ id, type: 'result', columns: [], columnTypes: [], rows: [], numRows: 0, error });
+  }
+}
+
+// ─── Parquet Export ──────────────────────────────────────────────────────────
+
+function exportParquet(msg: ExportParquetRequest): void {
+  const { id, tableName, compression } = msg;
+  const vfsPath = `/tmp/__export_${id}.parquet`;
+  const quoted = `"${tableName.replace(/"/g, '""')}"`;
+
+  try {
+    conn.query(`COPY ${quoted} TO '${vfsPath}' (FORMAT PARQUET, COMPRESSION ${compression})`);
+    const buffer: Uint8Array = db.copyFileToBuffer(vfsPath);
+    db.dropFile(vfsPath);
+    parentPort?.postMessage({ id, type: 'parquetBuffer', buffer }, [buffer.buffer as ArrayBuffer]);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Parquet export failed';
+    parentPort?.postMessage({ id, type: 'parquetBuffer', buffer: null, error });
   }
 }

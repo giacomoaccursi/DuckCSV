@@ -23,6 +23,7 @@ export class DuckDbEngine implements vscode.Disposable, IQueryEngine {
   private initPromise: Promise<void> | null = null;
   private nextId = 1;
   private pending = new Map<number, { resolve: (r: QueryResponse) => void; reject: (e: Error) => void }>();
+  private parquetPending = new Map<number, { resolve: (b: Uint8Array) => void; reject: (e: Error) => void }>();
 
   dispose(): void {
     this.terminate();
@@ -67,6 +68,19 @@ export class DuckDbEngine implements vscode.Disposable, IQueryEngine {
     this.terminate();
   }
 
+  /**
+   * Export a table to Parquet format. Returns the raw Parquet file bytes.
+   */
+  async exportParquet(tableName: string, compression: 'ZSTD' | 'SNAPPY' = 'ZSTD'): Promise<Uint8Array> {
+    await this.ensureReady();
+
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const id = this.nextId++;
+      this.parquetPending.set(id, { resolve, reject });
+      this.worker!.postMessage({ type: 'exportParquet', id, tableName, compression });
+    });
+  }
+
   // ─── Internal ──────────────────────────────────────────────────────────────
 
   private ensureReady(): Promise<void> {
@@ -97,6 +111,18 @@ export class DuckDbEngine implements vscode.Disposable, IQueryEngine {
               pending.reject(new Error(msg.error));
             } else {
               pending.resolve(msg);
+            }
+          }
+        }
+
+        if (msg.type === 'parquetBuffer') {
+          const pending = this.parquetPending.get(msg.id);
+          if (pending) {
+            this.parquetPending.delete(msg.id);
+            if (msg.error) {
+              pending.reject(new Error(msg.error));
+            } else {
+              pending.resolve(msg.buffer);
             }
           }
         }
@@ -137,5 +163,9 @@ export class DuckDbEngine implements vscode.Disposable, IQueryEngine {
       pending.reject(err);
     }
     this.pending.clear();
+    for (const [, pending] of this.parquetPending) {
+      pending.reject(err);
+    }
+    this.parquetPending.clear();
   }
 }
