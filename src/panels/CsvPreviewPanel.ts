@@ -5,11 +5,8 @@
 
 import * as vscode from 'vscode';
 import { basename } from 'path';
-import { TableManager } from '../services/TableManager';
-import { QueryExecutor } from '../services/QueryExecutor';
 import { TableExporter } from '../services/TableExporter';
-import { ConfigService } from '../services/ConfigService';
-import { QueryHistoryService } from '../services/QueryHistoryService';
+import { Services } from '../services/Services';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
 import { BasePanel } from './BasePanel';
@@ -32,13 +29,9 @@ export class CsvPreviewPanel extends BasePanel {
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    tableManager: TableManager,
-    queryExecutor: QueryExecutor,
-    tableExporter: TableExporter,
-    config: ConfigService,
+    services: Services,
     uri: vscode.Uri,
-    viewColumn: vscode.ViewColumn | undefined,
-    historyService?: QueryHistoryService
+    viewColumn: vscode.ViewColumn | undefined
   ): void {
     const column = viewColumn || vscode.ViewColumn.Beside;
     const key = uri.toString();
@@ -61,7 +54,7 @@ export class CsvPreviewPanel extends BasePanel {
       }
     );
 
-    const instance = new CsvPreviewPanel(panel, extensionUri, tableManager, queryExecutor, tableExporter, config, uri, historyService);
+    const instance = new CsvPreviewPanel(panel, extensionUri, services, uri);
     CsvPreviewPanel.panels.set(key, instance);
   }
 
@@ -70,17 +63,13 @@ export class CsvPreviewPanel extends BasePanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    tableManager: TableManager,
-    queryExecutor: QueryExecutor,
-    tableExporter: TableExporter,
-    config: ConfigService,
-    uri: vscode.Uri,
-    historyService?: QueryHistoryService
+    services: Services,
+    uri: vscode.Uri
   ) {
-    super(panel, extensionUri, tableManager, queryExecutor, config, buildPreviewHtml(panel.webview, extensionUri));
-    this.tableExporter = tableExporter;
+    super(panel, extensionUri, services.tableManager, services.queryExecutor, services.config, buildPreviewHtml(panel.webview, extensionUri));
+    this.tableExporter = services.tableExporter;
     this.currentUri = uri;
-    this.historyService = historyService;
+    this.historyService = services.queryHistory;
     this.historyKey = uri.fsPath;
   }
 

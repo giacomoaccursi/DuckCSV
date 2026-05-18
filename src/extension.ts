@@ -12,19 +12,22 @@ import { TableManager } from './services/TableManager';
 import { QueryExecutor } from './services/QueryExecutor';
 import { TableExporter } from './services/TableExporter';
 import { QueryHistoryService } from './services/QueryHistoryService';
+import { Services } from './services/Services';
 import { registerPreviewCommands } from './commands/previewCommand';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const configService = new ConfigService();
+  const config = new ConfigService();
   const engine = new DuckDbEngine();
   const tableManager = new TableManager(engine);
   const queryExecutor = new QueryExecutor(engine);
   const tableExporter = new TableExporter(engine, tableManager);
   const queryHistory = new QueryHistoryService(context.globalState);
 
-  context.subscriptions.push(configService, engine);
+  const services: Services = { engine, tableManager, queryExecutor, tableExporter, config, queryHistory };
 
-  registerPreviewCommands(context, engine, tableManager, queryExecutor, tableExporter, configService, queryHistory);
+  context.subscriptions.push(config, engine);
+
+  registerPreviewCommands(context, services);
 }
 
 export function deactivate(): void {

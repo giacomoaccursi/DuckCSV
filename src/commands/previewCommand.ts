@@ -6,12 +6,7 @@ import * as vscode from 'vscode';
 import { extname, basename } from 'path';
 import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
 import { CsvWorkspacePanel } from '../panels/CsvWorkspacePanel';
-import { DuckDbEngine } from '../services/DuckDbEngine';
-import { TableManager } from '../services/TableManager';
-import { QueryExecutor } from '../services/QueryExecutor';
-import { TableExporter } from '../services/TableExporter';
-import { ConfigService } from '../services/ConfigService';
-import { QueryHistoryService } from '../services/QueryHistoryService';
+import { Services } from '../services/Services';
 
 const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
 
@@ -20,34 +15,25 @@ const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
  */
 export function registerPreviewCommands(
   context: vscode.ExtensionContext,
-  engine: DuckDbEngine,
-  tableManager: TableManager,
-  queryExecutor: QueryExecutor,
-  tableExporter: TableExporter,
-  configService: ConfigService,
-  queryHistory: QueryHistoryService
+  services: Services
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'duckcsv.preview',
-      (uri?: vscode.Uri) => openPreview(context, tableManager, queryExecutor, tableExporter, configService, uri, vscode.ViewColumn.Active, queryHistory)
+      (uri?: vscode.Uri) => openPreview(context, services, uri, vscode.ViewColumn.Active)
     ),
     vscode.commands.registerCommand(
       'duckcsv.workspace',
-      (uri?: vscode.Uri) => openWorkspace(context, engine, queryExecutor, configService, uri)
+      (uri?: vscode.Uri) => openWorkspace(context, services, uri)
     )
   );
 }
 
 async function openPreview(
   context: vscode.ExtensionContext,
-  tableManager: TableManager,
-  queryExecutor: QueryExecutor,
-  tableExporter: TableExporter,
-  configService: ConfigService,
+  services: Services,
   uri: vscode.Uri | undefined,
-  viewColumn: vscode.ViewColumn,
-  queryHistory: QueryHistoryService
+  viewColumn: vscode.ViewColumn
 ): Promise<void> {
   let resolvedUri = uri ?? vscode.window.activeTextEditor?.document.uri;
 
@@ -69,14 +55,12 @@ async function openPreview(
     return;
   }
 
-  CsvPreviewPanel.createOrShow(context.extensionUri, tableManager, queryExecutor, tableExporter, configService, resolvedUri, viewColumn, queryHistory);
+  CsvPreviewPanel.createOrShow(context.extensionUri, services, resolvedUri, viewColumn);
 }
 
 async function openWorkspace(
   context: vscode.ExtensionContext,
-  engine: DuckDbEngine,
-  queryExecutor: QueryExecutor,
-  configService: ConfigService,
+  services: Services,
   uri?: vscode.Uri
 ): Promise<void> {
   let initialUri: vscode.Uri | undefined;
@@ -95,5 +79,5 @@ async function openWorkspace(
     }
   }
 
-  CsvWorkspacePanel.createOrShow(context.extensionUri, engine, queryExecutor, configService, initialUri);
+  CsvWorkspacePanel.createOrShow(context.extensionUri, services, initialUri);
 }
