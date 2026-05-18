@@ -12,6 +12,7 @@
  */
 
 import { IQueryEngine } from './IQueryEngine';
+import { SqlBuilder } from './SqlBuilder';
 import { SortState, ColumnFilters } from '../types';
 import * as vscode from 'vscode';
 import { basename, extname } from 'path';
@@ -147,8 +148,8 @@ export class TableManager {
   ): Promise<DataPage> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
-    const whereStr = this.buildWhereStr(params.filters, params.searchTerm, headers);
-    const orderClause = this.buildOrderClause(params.sort, headers);
+    const whereStr = SqlBuilder.buildWhere(params.filters, params.searchTerm, headers);
+    const orderClause = SqlBuilder.buildOrderBy(params.sort, headers);
 
     const { viewName, totalRows } = await this.ensureView(tableName, headers, whereStr, orderClause);
     const columns = headers.map(h => this.q(h)).join(', ');
@@ -181,7 +182,7 @@ export class TableManager {
       const colIdx = parseInt(idx, 10);
       if (colIdx !== columnIndex) { otherFilters[colIdx] = values; }
     }
-    const baseWhere = this.buildWhereStr(otherFilters, searchTerm, headers);
+    const baseWhere = SqlBuilder.buildWhere(otherFilters, searchTerm, headers);
     const notNull = `${colName} IS NOT NULL`;
     const whereStr = baseWhere ? `${baseWhere} AND ${notNull}` : `WHERE ${notNull}`;
 
@@ -485,34 +486,7 @@ export class TableManager {
 
   /** Quote a SQL identifier. */
   private q(name: string): string {
-    return `"${name.replace(/"/g, '""')}"`;
-  }
-
-  private buildWhereStr(filters: ColumnFilters, searchTerm: string, headers: string[]): string {
-    const clauses: string[] = [];
-
-    for (const [colIdx, values] of Object.entries(filters)) {
-      if (values.length === 0) { continue; }
-      const colName = this.q(headers[parseInt(colIdx, 10)]);
-      const escaped = values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
-      clauses.push(`${colName} IN (${escaped})`);
-    }
-
-    if (searchTerm) {
-      const escaped = searchTerm.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
-      const searchClauses = headers.map(h => `CAST(${this.q(h)} AS VARCHAR) ILIKE '%${escaped}%' ESCAPE '\\'`);
-      clauses.push(`(${searchClauses.join(' OR ')})`);
-    }
-
-    return clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-  }
-
-  private buildOrderClause(sort: SortState, headers: string[]): string {
-    if (sort.direction === 'none' || sort.columnIndex < 0 || sort.columnIndex >= headers.length) {
-      return '';
-    }
-    const dir = sort.direction === 'asc' ? 'ASC' : 'DESC';
-    return `ORDER BY ${this.q(headers[sort.columnIndex])} ${dir} NULLS LAST`;
+    return SqlBuilder.quote(name);
   }
 
   private deriveTableName(uri: vscode.Uri): string {
