@@ -377,10 +377,9 @@ export class TableManager {
 
   /** Update a single cell in the view (for updateCell). */
   private async updateViewCell(columnIndex: number, rowid: number, value: string, meta: TableMeta | undefined): Promise<void> {
-    if (!this.viewTable || !this.viewFingerprint) { return; }
+    if (!this.viewTable || !this.viewFingerprint || !meta) { return; }
 
-    const headers = meta ? meta.headers : await this.getHeaders('');
-    const colName = this.q(headers[columnIndex]);
+    const colName = this.q(meta.headers[columnIndex]);
     const escapedVal = value.replace(/'/g, "''");
 
     try {

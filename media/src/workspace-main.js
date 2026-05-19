@@ -18,7 +18,7 @@ import { addToHistory as addToHistoryWs, openHistoryDropdown, closeHistoryDropdo
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll } from './selection.js';
 import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { applyDataPage, onPageDataReceived } from './data-page.js';
 import { bindSqlHighlight } from './sql-highlight.js';
 
@@ -36,7 +36,7 @@ function handleExtensionMessage(message) {
       if (message.loading) { showLoading(message.message); setSystemLoading(true); }
       else { hideLoading(); setSystemLoading(false); }
       break;
-    case 'error': showError(message.message); break;
+    case 'error': showError(message.message); clearSortingLock(); break;
     case 'queryError': setQueryRunning(false); showQueryError(message.message); break;
     case 'queryHistory': initHistory(message.history); break;
   }

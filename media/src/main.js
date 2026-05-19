@@ -19,7 +19,7 @@ import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js
 import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
 import { initHistory, addToHistory, openHistoryDropdown, closeHistoryDropdown } from './query-history.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, selectCell } from './selection.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { buildContextMenuItems } from './context-menu.js';
 import { bindSqlHighlight } from './sql-highlight.js';
 
@@ -43,7 +43,7 @@ function handleExtensionMessage(message) {
     case 'saved':
       hideLoading();
       break;
-    case 'error': showError(message.message); break;
+    case 'error': showError(message.message); clearSortingLock(); break;
     case 'queryError':
       setQueryRunning(false);
       showQueryError(message.message);
