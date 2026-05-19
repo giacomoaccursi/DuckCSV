@@ -32,4 +32,5 @@ export function insertAtCursor(input, text) {
   const newPos = start + needsSpace.length + text.length + 1;
   input.setSelectionRange(newPos, newPos);
   input.focus();
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }

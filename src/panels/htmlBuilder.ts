@@ -38,7 +38,10 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
       <button id="queryHistoryBtn" class="btn btn-small" data-tooltip="Query history">
         <svg width="10" height="10" viewBox="0 0 10 10"><path fill="currentColor" d="M1 3l4 4 4-4z"/></svg>
       </button>
-      <input type="text" id="queryInput" class="query-input" placeholder="SELECT * FROM tablename WHERE ... ORDER BY ... LIMIT 100" />
+      <div class="query-input-wrapper">
+        <div id="queryHighlight" class="query-highlight" aria-hidden="true"></div>
+        <input type="text" id="queryInput" class="query-input" placeholder="SELECT * FROM tablename WHERE ... ORDER BY ... LIMIT 100" spellcheck="false" autocomplete="off" />
+      </div>
       <button id="queryRunBtn" class="btn" data-tooltip="Run query inline (replaces current view)">
         <svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M4 2l10 6-10 6V2z"/></svg>
       </button>

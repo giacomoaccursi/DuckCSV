@@ -20,6 +20,7 @@ import { renderTablesBar } from './tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 import { applyDataPage, onPageDataReceived } from './data-page.js';
+import { bindSqlHighlight } from './sql-highlight.js';
 
 let activeTableName = '';
 
@@ -110,6 +111,7 @@ function bindEvents() {
       openHistoryDropdown(historyBtn, (sql) => {
         wsQueryInput.value = sql;
         wsQueryInput.focus();
+        wsQueryInput.dispatchEvent(new Event('input', { bubbles: true }));
       });
     });
   }
@@ -130,4 +132,5 @@ function bindEvents() {
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
+bindSqlHighlight(document.getElementById('queryInput'), document.getElementById('queryHighlight'));
 sendMessage({ type: 'ready' });

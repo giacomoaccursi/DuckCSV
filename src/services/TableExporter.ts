@@ -6,7 +6,7 @@
 
 import { DuckDbEngine } from './DuckDbEngine';
 import { TableManager } from './TableManager';
-import { createWriteStream } from 'fs';
+import { createWriteStream, writeFileSync } from 'fs';
 import { quoteCsvField } from '../shared/csvUtils';
 import { EXPORT_BATCH_SIZE } from '../shared/constants';
 
@@ -52,5 +52,21 @@ export class TableExporter {
       stream.end(() => resolve());
       stream.on('error', reject);
     });
+  }
+
+  async exportAsParquet(tableName: string, outputPath: string): Promise<void> {
+    const meta = this.tableManager.getTableMeta(tableName);
+    if (!meta) { throw new Error(`Table "${tableName}" not found`); }
+
+    const buffer = await this.engine.exportParquet(tableName, 'ZSTD');
+    writeFileSync(outputPath, buffer);
+  }
+
+  /** Export a table to the given path, choosing format based on file extension. */
+  async exportAuto(tableName: string, outputPath: string): Promise<void> {
+    if (outputPath.endsWith('.parquet')) {
+      return this.exportAsParquet(tableName, outputPath);
+    }
+    return this.exportTable(tableName, outputPath);
   }
 }

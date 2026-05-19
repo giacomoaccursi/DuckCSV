@@ -15,6 +15,7 @@ import { QueryExecutor } from '../services/QueryExecutor';
 import { InlineQueryManager } from '../services/InlineQueryManager';
 import { ViewState } from '../shared/ViewState';
 import { BLOCK_SIZE } from '../shared/constants';
+import { pickFormatAndSave } from '../shared/formatPicker';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
 import { QueryHistoryService } from '../services/QueryHistoryService';
@@ -209,15 +210,16 @@ export abstract class BasePanel {
     if (inlineTable) {
       const meta = this.tableManager.getTableMeta(this.getActiveTableName());
       const baseName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
-      const uri = await vscode.window.showSaveDialog({
-        defaultUri: vscode.Uri.file(`${baseName}_query_result.csv`),
-        filters: { 'CSV Files': ['csv'], 'All Files': ['*'] },
-        title: 'Export Query Result',
-      });
+      const uri = await pickFormatAndSave({ defaultName: `${baseName}_query_result` });
       if (!uri) { return; }
-      const { TableExporter } = await import('../services/TableExporter');
-      const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
-      await exporter.exportTable(inlineTable, uri.fsPath);
+      try {
+        const { TableExporter } = await import('../services/TableExporter');
+        const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+        await exporter.exportAuto(inlineTable, uri.fsPath);
+        vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
+      } catch (error: unknown) {
+        this.postError(error);
+      }
       return;
     }
     await exportQueryResultToFile(_headers, _rows);

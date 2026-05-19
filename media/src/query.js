@@ -226,6 +226,7 @@ function acceptCompletion(inputEl, item, currentWord) {
   const newPos = before.length + item.length + needsSpace.length;
   inputEl.setSelectionRange(newPos, newPos);
   inputEl.focus();
+  inputEl.dispatchEvent(new Event('input', { bubbles: true }));
 
   closeAutocomplete();
 }
