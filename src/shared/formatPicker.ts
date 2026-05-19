@@ -29,14 +29,20 @@ export async function pickFormatAndSave(options: FormatPickerOptions): Promise<v
 
   const format = picked.detail as ExportFormat;
   const ext = format === 'parquet' ? 'parquet' : (options.defaultExtension || 'csv');
-  const defaultName = options.defaultName.replace(/\.[^.]+$/, '') + '.' + ext;
+  const baseName = options.defaultName.replace(/\.[^.]+$/, '') + '.' + ext;
+
+  // Ensure we have an absolute path for the default URI
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || require('os').homedir();
+  const defaultPath = baseName.includes('/') || baseName.includes('\\')
+    ? baseName
+    : require('path').join(workspaceFolder, baseName);
 
   const filters: { [name: string]: string[] } = format === 'parquet'
     ? { 'Parquet Files': ['parquet'], 'All Files': ['*'] }
     : { 'CSV Files': ['csv', 'tsv'], 'All Files': ['*'] };
 
   return vscode.window.showSaveDialog({
-    defaultUri: vscode.Uri.file(defaultName),
+    defaultUri: vscode.Uri.file(defaultPath),
     filters,
     title: `Save as ${format.toUpperCase()}`,
   });

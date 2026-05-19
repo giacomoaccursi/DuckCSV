@@ -212,9 +212,14 @@ export abstract class BasePanel {
       const baseName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       const uri = await pickFormatAndSave({ defaultName: `${baseName}_query_result` });
       if (!uri) { return; }
-      const { TableExporter } = await import('../services/TableExporter');
-      const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
-      await exporter.exportAuto(inlineTable, uri.fsPath);
+      try {
+        const { TableExporter } = await import('../services/TableExporter');
+        const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+        await exporter.exportAuto(inlineTable, uri.fsPath);
+        vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
+      } catch (error: unknown) {
+        this.postError(error);
+      }
       return;
     }
     await exportQueryResultToFile(_headers, _rows);
