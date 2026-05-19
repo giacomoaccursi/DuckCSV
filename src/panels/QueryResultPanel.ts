@@ -142,10 +142,14 @@ export class QueryResultPanel extends BasePanel {
     });
     if (!uri) { return; }
 
-    const { TableExporter } = await import('../services/TableExporter');
-    const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
-    await exporter.exportAuto(this.tableName, uri.fsPath);
-    vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
+    try {
+      const { TableExporter } = await import('../services/TableExporter');
+      const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+      await exporter.exportAuto(this.tableName, uri.fsPath);
+      vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
+    } catch (error: unknown) {
+      this.postError(error);
+    }
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
