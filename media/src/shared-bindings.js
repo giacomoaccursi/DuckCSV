@@ -5,8 +5,12 @@
 
 const DEBOUNCE_MS = 300;
 let isSorting = false;
+let sortingTimeout = null;
 
-export function clearSortingLock() { isSorting = false; }
+export function clearSortingLock() {
+  isSorting = false;
+  if (sortingTimeout) { clearTimeout(sortingTimeout); sortingTimeout = null; }
+}
 
 /**
  * Bind the search input with debounced messaging.
@@ -132,6 +136,7 @@ export function bindHeaderInteractions(
     }
 
     isSorting = true;
+    sortingTimeout = setTimeout(() => { isSorting = false; sortingTimeout = null; }, 10000);
     sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
   });
 
