@@ -305,20 +305,49 @@ body {
     flex-shrink: 0;
 }
 
-.query-input {
+.query-input-wrapper {
     flex: 1;
-    padding: 6px 10px;
+    position: relative;
     background-color: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
     border: 1px solid var(--vscode-input-border, transparent);
     border-radius: 2px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 12px;
-    outline: none;
 }
 
-.query-input:focus {
+.query-input-wrapper:focus-within {
     border-color: var(--accent-color);
+}
+
+.query-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 6px 10px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 12px;
+    line-height: normal;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.query-highlight .sql-keyword { color: #c586c0; }
+.query-highlight .sql-string { color: #6a9955; }
+.query-highlight .sql-number { color: #569cd6; }
+
+.query-input {
+    width: 100%;
+    padding: 6px 10px;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--vscode-input-foreground);
+    border: none;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 12px;
+    line-height: normal;
+    outline: none;
+    position: relative;
 }
 
 .query-input::placeholder {

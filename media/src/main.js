@@ -21,6 +21,7 @@ import { initHistory, addToHistory, openHistoryDropdown, closeHistoryDropdown } 
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, selectCell } from './selection.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip } from './shared-bindings.js';
 import { buildContextMenuItems } from './context-menu.js';
+import { bindSqlHighlight } from './sql-highlight.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ function bindEvents() {
       openHistoryDropdown(historyBtn, (sql) => {
         queryInputEl.value = sql;
         queryInputEl.focus();
+        queryInputEl.dispatchEvent(new Event('input', { bubbles: true }));
       });
     });
   }
@@ -173,6 +175,7 @@ function bindEvents() {
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
+bindSqlHighlight(document.getElementById('queryInput'), document.getElementById('queryHighlight'));
 setAfterCommit((row, col) => selectCell(row, col));
 showLoading();
 sendMessage({ type: 'ready' });
