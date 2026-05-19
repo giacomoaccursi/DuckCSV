@@ -12,6 +12,9 @@ export function clearSortingLock() {
   if (sortingTimeout) { clearTimeout(sortingTimeout); sortingTimeout = null; }
 }
 
+/** Exposed for testing only. */
+export function isSortingLocked() { return isSorting; }
+
 /**
  * Bind the search input with debounced messaging.
  */
