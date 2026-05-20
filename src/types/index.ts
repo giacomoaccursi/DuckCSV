@@ -47,6 +47,7 @@ export interface ColumnValuesPayload {
   columnIndex: number;
   values: string[];
   totalCount: number;
+  offset?: number;
 }
 
 export interface QueryResultPayload {
@@ -94,7 +95,7 @@ export type WebviewMessage =
   | { type: 'refresh' }
   | { type: 'sort'; columnIndex: number; direction: SortDirection }
   | { type: 'search'; term: string }
-  | { type: 'getColumnValues'; columnIndex: number }
+  | { type: 'getColumnValues'; columnIndex: number; offset?: number }
   | { type: 'searchColumnValues'; columnIndex: number; term: string }
   | { type: 'setFilters'; filters: ColumnFilters }
   | { type: 'editCell'; rowid: number; columnIndex: number; value: string }

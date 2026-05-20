@@ -12,14 +12,20 @@ let activeDropdown = null;
 let activeColumnIndex = -1;
 let selectionSet = new Set();
 let allLoadedValues = [];
+let currentOffset = 0;
+let isLoadingMore = false;
+let hasMore = true;
 
 export function openFilterDropdown(columnIndex, anchorEl) {
   closeFilterDropdown();
 
   activeColumnIndex = columnIndex;
   selectionSet = new Set(state.filters[columnIndex] || []);
+  currentOffset = 0;
+  isLoadingMore = false;
+  hasMore = true;
 
-  sendMessage({ type: 'getColumnValues', columnIndex });
+  sendMessage({ type: 'getColumnValues', columnIndex, offset: 0 });
 
   const dropdown = document.createElement('div');
   dropdown.className = 'filter-dropdown';
@@ -42,15 +48,29 @@ export function onColumnValuesReceived(data) {
   if (!activeDropdown) { return; }
   if (activeColumnIndex !== data.columnIndex) { return; }
 
+  isLoadingMore = false;
+  const isAppend = (data.offset || 0) > 0;
+
+  if (data.values.length < 100) { hasMore = false; }
+
+  if (isAppend) {
+    // Append to existing list
+    allLoadedValues = allLoadedValues.concat(data.values);
+    const list = activeDropdown.querySelector('.filter-values-list');
+    if (list) { appendToList(list, data.values); }
+    return;
+  }
+
   // If the dropdown is already rendered (search response), just update the list
   const existingList = activeDropdown.querySelector('.filter-values-list');
-  if (existingList) {
+  if (existingList && allLoadedValues.length > 0) {
     updateList(existingList, data.values);
     return;
   }
 
   // First load: render the full content
   allLoadedValues = data.values;
+  currentOffset = data.values.length;
   renderContent(data.columnIndex, data.values);
 }
 
@@ -77,27 +97,39 @@ function updateList(list, values) {
     return;
   }
   values.forEach(value => {
-    const item = document.createElement('label');
-    item.className = 'filter-value-item';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = value;
-    checkbox.checked = selectionSet.has(value);
-    checkbox.addEventListener('change', () => {
-      if (checkbox.checked) { selectionSet.add(value); }
-      else { selectionSet.delete(value); }
-    });
-
-    const text = document.createElement('span');
-    text.className = 'filter-value-text';
-    text.textContent = value;
-    text.title = value;
-
-    item.appendChild(checkbox);
-    item.appendChild(text);
+    const item = createValueItem(value);
     list.appendChild(item);
   });
+}
+
+function appendToList(list, values) {
+  values.forEach(value => {
+    const item = createValueItem(value);
+    list.appendChild(item);
+  });
+}
+
+function createValueItem(value) {
+  const item = document.createElement('label');
+  item.className = 'filter-value-item';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.value = value;
+  checkbox.checked = selectionSet.has(value);
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) { selectionSet.add(value); }
+    else { selectionSet.delete(value); }
+  });
+
+  const text = document.createElement('span');
+  text.className = 'filter-value-text';
+  text.textContent = value;
+  text.title = value;
+
+  item.appendChild(checkbox);
+  item.appendChild(text);
+  return item;
 }
 
 function renderContent(columnIndex, values) {
@@ -145,6 +177,16 @@ function renderContent(columnIndex, values) {
   }
 
   renderList(values);
+
+  // Lazy load on scroll
+  list.addEventListener('scroll', () => {
+    if (isLoadingMore || !hasMore) { return; }
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 20) {
+      isLoadingMore = true;
+      currentOffset += 100;
+      sendMessage({ type: 'getColumnValues', columnIndex, offset: currentOffset });
+    }
+  });
 
   // Search with backend debounce
   let searchTimeout = null;

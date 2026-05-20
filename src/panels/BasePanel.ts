@@ -91,7 +91,7 @@ export abstract class BasePanel {
         return this.sendCurrentPage();
 
       case 'getColumnValues':
-        return this.handleGetColumnValues(message.columnIndex);
+        return this.handleGetColumnValues(message.columnIndex, message.offset);
 
       case 'searchColumnValues':
         return this.handleSearchColumnValues(message.columnIndex, message.term);
@@ -166,17 +166,17 @@ export abstract class BasePanel {
 
   // ─── Common Handlers ─────────────────────────────────────────────────────
 
-  protected async handleGetColumnValues(columnIndex: number): Promise<void> {
+  protected async handleGetColumnValues(columnIndex: number, offset?: number): Promise<void> {
     const tableName = this.getEffectiveTable();
     if (!tableName) { return; }
 
     try {
       const values = await this.tableManager.getUniqueValues(
-        tableName, columnIndex, this.viewState.filters, this.viewState.searchTerm
+        tableName, columnIndex, this.viewState.filters, this.viewState.searchTerm, offset || 0
       );
       this.postMessage({
         type: 'columnValues',
-        data: { columnIndex, values, totalCount: values.length },
+        data: { columnIndex, values, totalCount: values.length, offset: offset || 0 },
       });
     } catch (error: unknown) {
       this.postError(error);
