@@ -1,5 +1,6 @@
 /**
  * Shared constants — centralizes magic numbers used across the codebase.
+ * IMPORTANT: Frontend constants in media/src/constants.js must stay in sync.
  */
 
 /** Number of rows per block for lazy loading (frontend DataWindow + backend first page). */

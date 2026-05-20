@@ -1,5 +1,6 @@
 /**
  * Shared constants for the frontend webview.
+ * IMPORTANT: Keep in sync with src/shared/constants.ts
  */
 
 /** Number of rows per block for lazy loading. */
