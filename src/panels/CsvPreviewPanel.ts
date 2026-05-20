@@ -159,7 +159,7 @@ export class CsvPreviewPanel extends BasePanel {
     }
 
     if (this.tableName) {
-      this.tableManager.dropTable(this.tableName).catch(() => {});
+      this.tableManager.dropTable(this.tableName).catch(() => { /* best-effort cleanup on dispose */ });
     }
   }
 

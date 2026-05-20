@@ -131,7 +131,7 @@ export class QueryResultPanel extends BasePanel {
   }
 
   protected onDispose(): void {
-    this.tableManager.dropTable(this.tableName).catch(() => {});
+    this.tableManager.dropTable(this.tableName).catch(() => { /* best-effort cleanup on dispose */ });
   }
 
   private async handleExport(): Promise<void> {

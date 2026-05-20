@@ -128,7 +128,7 @@ export class CsvWorkspacePanel extends BasePanel {
   }
 
   protected onDispose(): void {
-    this.tableManager.dropAllTables().catch(() => {});
+    this.tableManager.dropAllTables().catch(() => { /* best-effort cleanup on dispose */ });
   }
 
   // ─── Workspace-specific Logic ────────────────────────────────────────────
