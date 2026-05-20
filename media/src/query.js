@@ -6,74 +6,40 @@ import { dom } from './dom.js';
 import { state, SQL_KEYWORDS } from './state.js';
 import { sendMessage } from './messaging.js';
 import { toggle } from './utils.js';
+import {
+  isQueryActive as _isQueryActive,
+  isQueryRunning as _isQueryRunning,
+  isSystemLoading as _isSystemLoading,
+  setQueryActive as _setQueryActive,
+  setQueryRunning as _setQueryRunning,
+  setSystemLoading as _setSystemLoading,
+  resetToReady,
+} from './app-state.js';
 
-// ─── Query State ─────────────────────────────────────────────────────────────
+// ─── Query State (delegated to app-state machine) ────────────────────────────
 
-let queryActive = false;
-let queryRunning = false;
+export function isQueryActive() { return _isQueryActive(); }
+export function isQueryRunning() { return _isQueryRunning(); }
+export function isSystemLoading() { return _isSystemLoading(); }
 
-export function isQueryActive() { return queryActive; }
-export function isQueryRunning() { return queryRunning; }
 export function setQueryActive(active) {
-  queryActive = active;
-  toggle(dom.queryClearBtn, active);
-  toggle(document.getElementById('queryExportBtn'), active);
+  _setQueryActive(active);
+  document.body.dataset.queryActive = active ? 'true' : '';
+  if (!active) { delete document.body.dataset.queryActive; }
 }
 
-let systemLoading = false;
-
-export function isSystemLoading() { return systemLoading; }
-
-/**
- * Block/unblock the entire query bar during system operations (loading tables, etc.)
- * When loading, nothing is clickable or typeable.
- */
 export function setSystemLoading(loading) {
-  systemLoading = loading;
-  const runBtn = document.getElementById('queryRunBtn');
-  const sideBtn = document.getElementById('querySideBtn');
-  const clearBtn = document.getElementById('queryClearBtn');
-  const queryInput = document.getElementById('queryInput');
-
-  if (loading) {
-    if (runBtn) { runBtn.disabled = true; }
-    if (sideBtn) { sideBtn.disabled = true; }
-    if (clearBtn) { clearBtn.disabled = true; }
-    if (queryInput) { queryInput.disabled = true; }
-  } else {
-    if (runBtn) { runBtn.disabled = false; }
-    if (sideBtn) { sideBtn.disabled = false; }
-    if (clearBtn) { clearBtn.disabled = false; }
-    if (queryInput) { queryInput.disabled = false; }
-  }
+  _setSystemLoading(loading);
 }
 
 export function setQueryRunning(running) {
-  queryRunning = running;
-  const runBtn = document.getElementById('queryRunBtn');
-  const queryInput = document.getElementById('queryInput');
-
-  if (running) {
-    hideQueryError();
-    if (runBtn) {
-      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" class="spinner-stop"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="20 20" class="spinner-ring"/><rect fill="currentColor" x="5.5" y="5.5" width="5" height="5"/></svg>';
-      runBtn.title = 'Stop query';
-      runBtn.disabled = false;
-    }
-    if (queryInput) { queryInput.disabled = true; }
-  } else {
-    if (runBtn) {
-      runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M4 2l10 6-10 6V2z"/></svg>';
-      runBtn.title = 'Run query inline';
-    }
-    if (queryInput) { queryInput.disabled = false; }
-  }
+  if (running) { hideQueryError(); }
+  _setQueryRunning(running);
 }
 
 export function clearQuery() {
-  queryActive = false;
-  toggle(dom.queryClearBtn, false);
-  toggle(document.getElementById('queryExportBtn'), false);
+  _setQueryActive(false);
+  delete document.body.dataset.queryActive;
   hideQueryError();
   if (dom.queryInput) {
     dom.queryInput.value = '';
@@ -83,10 +49,8 @@ export function clearQuery() {
 }
 
 export function resetQueryState() {
-  queryActive = false;
-  setQueryRunning(false);
-  toggle(dom.queryClearBtn, false);
-  toggle(document.getElementById('queryExportBtn'), false);
+  resetToReady();
+  delete document.body.dataset.queryActive;
   hideQueryError();
 }
 
