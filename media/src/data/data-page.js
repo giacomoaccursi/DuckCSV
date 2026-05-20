@@ -8,7 +8,7 @@ import { state } from '../core/state.js';
 import { emit } from '../core/event-bus.js';
 import { updateStats, showTable } from '../ui/ui.js';
 import { resetQueryState, setQueryActive } from '../query/query.js';
-import { clearSortingLock } from '../shared/shared-bindings.js';
+import { clearSortingLock } from '../shared/bind-header.js';
 import { createDataWindow } from './data-window.js';
 import { isRowDataSource } from './row-data-source.js';
 import { sendMessage } from '../core/messaging.js';

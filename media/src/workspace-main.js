@@ -18,7 +18,10 @@ import { addToHistory as addToHistoryWs, openHistoryDropdown, initHistory } from
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, handleSelectAll } from './ui/selection.js';
 import { renderTablesBar } from './ui/tables-bar.js';
 import { updateTableDropdown, bindTableDropdown } from './ui/table-dropdown.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared/shared-bindings.js';
+import { bindSearchInput } from './shared/bind-search.js';
+import { bindQueryBar } from './shared/bind-query-bar.js';
+import { bindHeaderInteractions, clearSortingLock } from './shared/bind-header.js';
+import { bindSelectionAndTooltip } from './shared/bind-selection.js';
 import { applyDataPage, onPageDataReceived } from './data/data-page.js';
 import { bindSqlHighlight } from './query/sql-highlight.js';
 import { bindAutoPairs } from './query/auto-pairs.js';

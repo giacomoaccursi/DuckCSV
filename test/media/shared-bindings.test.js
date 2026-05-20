@@ -16,7 +16,7 @@ describe('Sorting lock', () => {
     global.setTimeout = dom.window.setTimeout;
     global.clearTimeout = dom.window.clearTimeout;
 
-    const mod = await import('../../media/src/shared/shared-bindings.js');
+    const mod = await import('../../media/src/shared/bind-header.js');
     clearSortingLock = mod.clearSortingLock;
     isSortingLocked = mod.isSortingLocked;
     bindHeaderInteractions = mod.bindHeaderInteractions;

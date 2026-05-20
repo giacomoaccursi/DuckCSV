@@ -19,7 +19,10 @@ import { openFilterDropdown, onColumnValuesReceived } from './ui/filter-dropdown
 import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query/query.js';
 import { initHistory, addToHistory, openHistoryDropdown } from './query/query-history.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, selectCell } from './ui/selection.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared/shared-bindings.js';
+import { bindSearchInput } from './shared/bind-search.js';
+import { bindQueryBar } from './shared/bind-query-bar.js';
+import { bindHeaderInteractions, clearSortingLock } from './shared/bind-header.js';
+import { bindSelectionAndTooltip } from './shared/bind-selection.js';
 import { buildContextMenuItems } from './ui/context-menu.js';
 import { bindSqlHighlight } from './query/sql-highlight.js';
 import { bindAutoPairs } from './query/auto-pairs.js';
