@@ -22,6 +22,7 @@ import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, h
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { buildContextMenuItems } from './context-menu.js';
 import { bindSqlHighlight } from './sql-highlight.js';
+import { bindAutoPairs } from './auto-pairs.js';
 import { on } from './event-bus.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
@@ -193,6 +194,7 @@ on('data:ready', () => { const s = getScroller(); if (s) { s.softRefresh(); } })
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
 bindSqlHighlight(document.getElementById('queryInput'), document.getElementById('queryHighlight'));
+bindAutoPairs(document.getElementById('queryInput'));
 setAfterCommit((row, col) => selectCell(row, col));
 showLoading();
 sendMessage({ type: 'ready' });

@@ -21,6 +21,7 @@ import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { applyDataPage, onPageDataReceived } from './data-page.js';
 import { bindSqlHighlight } from './sql-highlight.js';
+import { bindAutoPairs } from './auto-pairs.js';
 import { on } from './event-bus.js';
 import { renderHeader, renderRows, getScroller } from './renderer.js';
 
@@ -143,4 +144,5 @@ on('data:ready', () => { const s = getScroller(); if (s) { s.softRefresh(); } })
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
 bindSqlHighlight(document.getElementById('queryInput'), document.getElementById('queryHighlight'));
+bindAutoPairs(document.getElementById('queryInput'));
 sendMessage({ type: 'ready' });
