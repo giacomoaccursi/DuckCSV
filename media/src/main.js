@@ -102,7 +102,7 @@ function bindEvents() {
   if (saveBtn) { saveBtn.addEventListener('click', () => sendMessage({ type: 'save' })); }
   if (saveAsBtn) { saveAsBtn.addEventListener('click', () => sendMessage({ type: 'saveAs' })); }
 
-  // Cmd+S / Ctrl+S to save
+  // Cmd+S / Ctrl+S to save, Cmd+Z / Cmd+Shift+Z for undo/redo
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
@@ -110,6 +110,14 @@ function bindEvents() {
         sendMessage({ type: 'saveAs' });
       } else {
         sendMessage({ type: 'save' });
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        sendMessage({ type: 'redo' });
+      } else {
+        sendMessage({ type: 'undo' });
       }
     }
   });

@@ -110,6 +110,8 @@ export type WebviewMessage =
   | { type: 'openWorkspace' }
   | { type: 'save' }
   | { type: 'saveAs' }
+  | { type: 'undo' }
+  | { type: 'redo' }
   | { type: 'addTable'; filePath: string }
   | { type: 'removeTable'; tableName: string }
   | { type: 'switchTable'; tableName: string }

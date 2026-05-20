@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { basename } from 'path';
 import { TableExporter } from '../services/TableExporter';
 import { Services } from '../services/Services';
+import { CommandHistory, EditCellCommand, InsertRowCommand, DeleteRowCommand } from '../services/CommandHistory';
 import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { buildPreviewHtml } from './buildPreviewHtml';
@@ -17,6 +18,7 @@ export class CsvPreviewPanel extends BasePanel {
   private static panels = new Map<string, CsvPreviewPanel>();
 
   private readonly tableExporter: TableExporter;
+  private readonly commandHistory = new CommandHistory();
 
   private currentUri: vscode.Uri;
   private tableName: string = '';
@@ -134,6 +136,12 @@ export class CsvPreviewPanel extends BasePanel {
         this.clearInlineQuery();
         await this.loadDocument();
         return true;
+      case 'undo':
+        await this.handleUndo();
+        return true;
+      case 'redo':
+        await this.handleRedo();
+        return true;
       case 'openWorkspace':
         await vscode.commands.executeCommand('duckcsv.workspace', this.currentUri);
         return true;
@@ -219,10 +227,16 @@ export class CsvPreviewPanel extends BasePanel {
 
   private async handleEditCell(rowid: number, columnIndex: number, value: string): Promise<void> {
     try {
-      await this.tableManager.updateCell(this.tableName, rowid, columnIndex, value);
-      this.markDirty();
       const meta = this.tableManager.getTableMeta(this.tableName);
-      this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value, columnTypes: meta?.columnTypes } });
+      const previousValue = meta ? await this.getCellValue(rowid, columnIndex) : '';
+
+      const cmd = new EditCellCommand(this.tableManager, this.tableName, rowid, columnIndex, value);
+      cmd.setPreviousValue(previousValue);
+      await this.commandHistory.execute(cmd);
+
+      this.markDirty();
+      const updatedMeta = this.tableManager.getTableMeta(this.tableName);
+      this.postMessage({ type: 'cellEditConfirm', data: { rowid, columnIndex, value, columnTypes: updatedMeta?.columnTypes } });
     } catch (error: unknown) {
       this.postError(error);
     }
@@ -230,7 +244,8 @@ export class CsvPreviewPanel extends BasePanel {
 
   private async handleAddRow(): Promise<void> {
     try {
-      await this.tableManager.addRow(this.tableName);
+      const cmd = new InsertRowCommand(this.tableManager, this.tableName);
+      await this.commandHistory.execute(cmd);
       this.totalRows++;
       this.markDirty();
       this.viewState.applyFilters({});
@@ -254,7 +269,8 @@ export class CsvPreviewPanel extends BasePanel {
 
   private async handleDeleteRow(rowid: number): Promise<void> {
     try {
-      await this.tableManager.deleteRow(this.tableName, rowid);
+      const cmd = new DeleteRowCommand(this.tableManager, this.queryExecutor.getEngine(), this.tableName, rowid);
+      await this.commandHistory.execute(cmd);
       this.totalRows--;
       this.markDirty();
       this.postMessage({ type: 'rowMutation', data: { totalRows: this.totalRows, filteredRows: this.totalRows } });
@@ -279,6 +295,41 @@ export class CsvPreviewPanel extends BasePanel {
   private markDirty(): void {
     this.isDirty = true;
     this.panel.title = `● ${this.fileName}`;
+  }
+
+  private async handleUndo(): Promise<void> {
+    if (!this.commandHistory.canUndo()) { return; }
+    try {
+      await this.commandHistory.undo();
+      this.markDirty();
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      this.postError(error);
+    }
+  }
+
+  private async handleRedo(): Promise<void> {
+    if (!this.commandHistory.canRedo()) { return; }
+    try {
+      await this.commandHistory.redo();
+      this.markDirty();
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      this.postError(error);
+    }
+  }
+
+  private async getCellValue(rowid: number, columnIndex: number): Promise<string> {
+    try {
+      const meta = this.tableManager.getTableMeta(this.tableName);
+      if (!meta) { return ''; }
+      const colName = `"${meta.headers[columnIndex].replace(/"/g, '""')}"`;
+      const tableName = `"${this.tableName.replace(/"/g, '""')}"`;
+      const result = await this.queryExecutor.getEngine().query(
+        `SELECT CAST(${colName} AS VARCHAR) FROM ${tableName} WHERE rowid = ${rowid}`
+      );
+      return result.rows[0]?.[0] || '';
+    } catch { return ''; }
   }
 
   private async reloadIfChanged(): Promise<void> {
