@@ -12,7 +12,9 @@
 import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
 import { DuckDbEngine } from '../services/DuckDbEngine';
+import { TableExporter } from '../services/TableExporter';
 import { InlineQueryManager } from '../services/InlineQueryManager';
+import { QueryResultPanel } from './QueryResultPanel';
 import { ViewState } from '../shared/ViewState';
 import { BLOCK_SIZE } from '../shared/constants';
 import { pickFormatAndSave } from '../shared/formatPicker';
@@ -204,7 +206,6 @@ export abstract class BasePanel {
     const tableName = this.getActiveTableName();
 
     if (mode === 'side') {
-      const { QueryResultPanel } = await import('./QueryResultPanel');
       const meta = this.tableManager.getTableMeta(tableName || '');
       const sourceFileName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       await QueryResultPanel.open(
@@ -233,7 +234,6 @@ export abstract class BasePanel {
       const uri = await pickFormatAndSave({ defaultName: `${baseName}_query_result` });
       if (!uri) { return; }
       try {
-        const { TableExporter } = await import('../services/TableExporter');
         const exporter = new TableExporter(this.engine, this.tableManager);
         await exporter.exportAuto(inlineTable, uri.fsPath);
         vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);

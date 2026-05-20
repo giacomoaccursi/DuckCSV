@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
+import { TableExporter } from '../services/TableExporter';
 import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { BasePanel } from './BasePanel';
@@ -141,7 +142,6 @@ export class QueryResultPanel extends BasePanel {
     if (!uri) { return; }
 
     try {
-      const { TableExporter } = await import('../services/TableExporter');
       const exporter = new TableExporter(this.engine, this.tableManager);
       await exporter.exportAuto(this.tableName, uri.fsPath);
       vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
