@@ -95,6 +95,7 @@ export type WebviewMessage =
   | { type: 'sort'; columnIndex: number; direction: SortDirection }
   | { type: 'search'; term: string }
   | { type: 'getColumnValues'; columnIndex: number }
+  | { type: 'searchColumnValues'; columnIndex: number; term: string }
   | { type: 'setFilters'; filters: ColumnFilters }
   | { type: 'editCell'; rowid: number; columnIndex: number; value: string }
   | { type: 'addRow' }

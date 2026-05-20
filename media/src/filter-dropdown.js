@@ -1,17 +1,25 @@
 /**
  * Column filter dropdown: shows unique values with checkboxes.
+ * Search queries the backend with debounce for large datasets.
  */
 
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 let activeDropdown = null;
+let activeColumnIndex = -1;
+let selectionSet = new Set();
+let allLoadedValues = [];
 
 export function openFilterDropdown(columnIndex, anchorEl) {
   closeFilterDropdown();
 
+  activeColumnIndex = columnIndex;
+  selectionSet = new Set(state.filters[columnIndex] || []);
+
   sendMessage({ type: 'getColumnValues', columnIndex });
-  state.columnValues = { columnIndex, values: null };
 
   const dropdown = document.createElement('div');
   dropdown.className = 'filter-dropdown';
@@ -31,9 +39,9 @@ export function openFilterDropdown(columnIndex, anchorEl) {
 }
 
 export function onColumnValuesReceived(data) {
-  if (!activeDropdown || !state.columnValues) { return; }
-  if (state.columnValues.columnIndex !== data.columnIndex) { return; }
-  state.columnValues.values = data.values;
+  if (!activeDropdown) { return; }
+  if (activeColumnIndex !== data.columnIndex) { return; }
+  allLoadedValues = data.values;
   renderContent(data.columnIndex, data.values);
 }
 
@@ -42,7 +50,8 @@ export function closeFilterDropdown() {
     activeDropdown.remove();
     activeDropdown = null;
   }
-  state.columnValues = null;
+  activeColumnIndex = -1;
+  allLoadedValues = [];
   document.removeEventListener('mousedown', handleOutsideClick);
 }
 
@@ -54,9 +63,6 @@ function handleOutsideClick(e) {
 
 function renderContent(columnIndex, values) {
   if (!activeDropdown) { return; }
-
-  const currentSelection = state.filters[columnIndex] || [];
-  const selectionSet = new Set(currentSelection);
 
   activeDropdown.innerHTML = '';
 
@@ -86,14 +92,18 @@ function renderContent(columnIndex, values) {
   // Values list
   const list = document.createElement('div');
   list.className = 'filter-values-list';
+  activeDropdown.appendChild(list);
 
-  function renderList(filter) {
+  // Apply button
+  const applyBtn = document.createElement('button');
+  applyBtn.className = 'btn btn-primary btn-sm filter-apply-btn';
+  applyBtn.textContent = 'Apply';
+  activeDropdown.appendChild(applyBtn);
+
+  // Render the list of values
+  function renderList(vals) {
     list.innerHTML = '';
-    const filtered = filter
-      ? values.filter(v => v.toLowerCase().includes(filter.toLowerCase()))
-      : values;
-
-    filtered.forEach(value => {
+    vals.forEach(value => {
       const item = document.createElement('label');
       item.className = 'filter-value-item';
 
@@ -115,25 +125,46 @@ function renderContent(columnIndex, values) {
       item.appendChild(text);
       list.appendChild(item);
     });
+
+    if (vals.length === 0) {
+      list.innerHTML = '<div class="filter-no-results">No matching values</div>';
+    }
   }
 
-  renderList('');
-  activeDropdown.appendChild(list);
+  renderList(values);
 
-  // Apply button
-  const applyBtn = document.createElement('button');
-  applyBtn.className = 'btn btn-primary btn-sm filter-apply-btn';
-  applyBtn.textContent = 'Apply';
-  activeDropdown.appendChild(applyBtn);
+  // Search with backend debounce
+  let searchTimeout = null;
+  searchBox.addEventListener('input', () => {
+    const term = searchBox.value.trim();
+    if (searchTimeout) { clearTimeout(searchTimeout); }
 
-  // Events
-  searchBox.addEventListener('input', () => renderList(searchBox.value.trim()));
-  selectAllBtn.addEventListener('click', () => { values.forEach(v => selectionSet.add(v)); renderList(searchBox.value.trim()); });
-  clearBtn.addEventListener('click', () => { selectionSet.clear(); renderList(searchBox.value.trim()); });
+    if (!term) {
+      // Empty search: show the initial values
+      renderList(allLoadedValues);
+      return;
+    }
+
+    searchTimeout = setTimeout(() => {
+      // Query backend for matching values
+      sendMessage({ type: 'searchColumnValues', columnIndex, term });
+    }, SEARCH_DEBOUNCE_MS);
+  });
+
+  // Select All / Clear operate on currently visible values
+  selectAllBtn.addEventListener('click', () => {
+    const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => { cb.checked = true; selectionSet.add(cb.value); });
+  });
+  clearBtn.addEventListener('click', () => {
+    selectionSet.clear();
+    const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => { cb.checked = false; });
+  });
 
   applyBtn.addEventListener('click', () => {
     const newFilters = { ...state.filters };
-    if (selectionSet.size === 0 || selectionSet.size === values.length) {
+    if (selectionSet.size === 0) {
       delete newFilters[columnIndex];
     } else {
       newFilters[columnIndex] = Array.from(selectionSet);
