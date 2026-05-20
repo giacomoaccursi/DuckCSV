@@ -75,7 +75,10 @@ export function clearQuery() {
   toggle(dom.queryClearBtn, false);
   toggle(document.getElementById('queryExportBtn'), false);
   hideQueryError();
-  if (dom.queryInput) { dom.queryInput.value = ''; }
+  if (dom.queryInput) {
+    dom.queryInput.value = '';
+    dom.queryInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   sendMessage({ type: 'clearQuery' });
 }
 
