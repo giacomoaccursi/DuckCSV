@@ -17,7 +17,7 @@ import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './e
 import { initResize } from './resize.js';
 import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
 import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
-import { initHistory, addToHistory, openHistoryDropdown, closeHistoryDropdown } from './query-history.js';
+import { initHistory, addToHistory, openHistoryDropdown } from './query-history.js';
 import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, selectCell } from './selection.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { buildContextMenuItems } from './context-menu.js';

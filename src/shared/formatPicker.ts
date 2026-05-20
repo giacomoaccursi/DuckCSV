@@ -4,6 +4,8 @@
  */
 
 import * as vscode from 'vscode';
+import { homedir } from 'os';
+import { join } from 'path';
 
 export type ExportFormat = 'csv' | 'parquet';
 
@@ -32,10 +34,10 @@ export async function pickFormatAndSave(options: FormatPickerOptions): Promise<v
   const baseName = options.defaultName.replace(/\.[^.]+$/, '') + '.' + ext;
 
   // Ensure we have an absolute path for the default URI
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || require('os').homedir();
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || homedir();
   const defaultPath = baseName.includes('/') || baseName.includes('\\')
     ? baseName
-    : require('path').join(workspaceFolder, baseName);
+    : join(workspaceFolder, baseName);
 
   const filters: { [name: string]: string[] } = format === 'parquet'
     ? { 'Parquet Files': ['parquet'], 'All Files': ['*'] }
