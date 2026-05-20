@@ -185,6 +185,13 @@ export class CsvPreviewPanel extends BasePanel {
       await this.tableExporter.exportAuto(this.tableName, outputPath);
       this.isDirty = false;
       this.panel.title = this.fileName;
+
+      // Update lastMtime so reloadIfChanged doesn't trigger unnecessarily
+      try {
+        const stat = await vscode.workspace.fs.stat(this.currentUri);
+        this.lastMtime = stat.mtime;
+      } catch { /* ignore */ }
+
       this.postMessage({ type: 'saved' });
       await this.sendCurrentPage();
     } catch (error: unknown) {
