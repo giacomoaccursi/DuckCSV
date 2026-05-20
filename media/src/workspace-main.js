@@ -8,7 +8,7 @@
 import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
-import { toggle } from './utils.js';
+import { toggle, insertAtCursor } from './utils.js';
 import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { isEditing } from './editing.js';
 import { initResize } from './resize.js';
@@ -93,6 +93,23 @@ function bindEvents() {
   bindHeaderInteractions(dom.tableHeader, {
     state, sendMessage, initResize, handleSelectAll, handleHeaderClickForSelection, openFilterDropdown,
   });
+
+  // Header dblclick to insert column name into query
+  if (dom.tableHeader) {
+    dom.tableHeader.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.filter-btn') || e.target.closest('.resize-handle')) { return; }
+      const th = e.target.closest('th.sortable-header');
+      const queryInput = document.getElementById('queryInput');
+      if (!th || !queryInput) { return; }
+
+      const colIdx = parseInt(th.dataset.columnIndex, 10);
+      if (isNaN(colIdx)) { return; }
+
+      const colName = state.headers[colIdx] || '';
+      const quoted = /[^a-zA-Z0-9_]/.test(colName) ? `"${colName}"` : colName;
+      insertAtCursor(queryInput, quoted);
+    });
+  }
 
   bindSelectionAndTooltip({ handleCellClick, handleRowNumberClick, handleCopyShortcut, handleArrowNavigation, isEditing, showTooltip, hideTooltip });
 
