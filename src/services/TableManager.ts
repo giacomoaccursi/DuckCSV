@@ -16,6 +16,7 @@ import { SqlBuilder } from './SqlBuilder';
 import { SortState, ColumnFilters } from '../types';
 import * as vscode from 'vscode';
 import { basename, extname } from 'path';
+import { openSync, readSync, closeSync } from 'fs';
 
 export interface TableMeta {
   name: string;
@@ -66,17 +67,28 @@ export class TableManager {
       `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`
     );
 
-    const sniffResult = await this.engine.query(`SELECT Delimiter FROM sniff_csv('${filePath}')`);
-    const detectedDelimiter = sniffResult.rows[0]?.[0] || ',';
-    const { name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter);
-
+    // Get schema + row count + delimiter in minimal queries (no redundant sniff_csv)
     const escaped = tableName.replace(/'/g, "''");
     const schemaResult = await this.engine.query(
       `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
     );
     const headers = schemaResult.rows.map(row => row[0]);
     const columnTypes = schemaResult.rows.map(row => row[1]);
-    const rowCount = await this.getRowCount(tableName);
+
+    // Get row count from DuckDB table statistics (avoids full scan)
+    const countResult = await this.engine.query(
+      `SELECT estimated_size FROM duckdb_tables() WHERE table_name = '${escaped}'`
+    );
+    let rowCount: number;
+    if (countResult.rows.length > 0 && countResult.rows[0][0]) {
+      rowCount = Number(countResult.rows[0][0]);
+    } else {
+      rowCount = await this.getRowCount(tableName);
+    }
+
+    // Detect delimiter from file content (fast: reads only first 8KB via Node fs)
+    const detectedDelimiter = await this.detectDelimiterFast(uri.fsPath);
+    const { name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter);
 
     const meta: TableMeta = {
       name: tableName, filePath: uri.fsPath,
@@ -150,6 +162,25 @@ export class TableManager {
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const whereStr = SqlBuilder.buildWhere(params.filters, params.searchTerm, headers);
     const orderClause = SqlBuilder.buildOrderBy(params.sort, headers);
+
+    // Fast path: no sort/filter/search → read directly from table (skip view creation)
+    if (!whereStr && !orderClause) {
+      const columns = headers.map(h => this.q(h)).join(', ');
+      const ridSource = meta?.useOrigRid ? '"__orig_rid"' : 'rowid';
+      const result = await this.engine.query(
+        `SELECT ${ridSource} as __rid, ${columns} FROM ${this.q(tableName)} LIMIT ${params.limit} OFFSET ${params.offset}`
+      );
+      const totalRows = meta ? meta.rowCount : await this.getRowCount(tableName);
+
+      if (result.rows.length === 0) {
+        return { rows: [], rowids: [], filteredCount: totalRows };
+      }
+      return {
+        rows: result.rows.map(row => row.slice(1)),
+        rowids: result.rows.map(row => parseInt(row[0], 10)),
+        filteredCount: totalRows,
+      };
+    }
 
     const { viewName, totalRows } = await this.ensureView(tableName, headers, whereStr, orderClause);
     const columns = headers.map(h => this.q(h)).join(', ');
@@ -497,6 +528,38 @@ export class TableManager {
     let counter = 2;
     while (this.tables.has(`${name}_${counter}`)) { counter++; }
     return `${name}_${counter}`;
+  }
+
+  /**
+   * Fast delimiter detection by reading the first 8KB of the file.
+   * Counts occurrences of common delimiters in the first line and picks the most frequent.
+   */
+  private async detectDelimiterFast(filePath: string): Promise<string> {
+    try {
+      const fd = openSync(filePath, 'r');
+      const buf = Buffer.alloc(8192);
+      const bytesRead = readSync(fd, buf, 0, 8192, 0);
+      closeSync(fd);
+
+      const sample = buf.toString('utf8', 0, bytesRead);
+      const firstLine = sample.split('\n')[0] || '';
+
+      // Count delimiter candidates in the first line
+      const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0, '|': 0 };
+      for (const ch of firstLine) {
+        if (ch in counts) { counts[ch]++; }
+      }
+
+      // Pick the delimiter with the highest count (must appear at least once)
+      let best = ',';
+      let bestCount = 0;
+      for (const [delim, count] of Object.entries(counts)) {
+        if (count > bestCount) { best = delim; bestCount = count; }
+      }
+      return best;
+    } catch {
+      return ','; // fallback
+    }
   }
 
   private delimiterInfo(char: string): { name: string; char: string } {
