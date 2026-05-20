@@ -5,11 +5,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock sendMessage before importing
-vi.mock('../../media/src/messaging.js', () => ({
+vi.mock('../../media/src/core/messaging.js', () => ({
   sendMessage: vi.fn(),
 }));
 
-import { initHistory, addToHistory, getHistory } from '../../media/src/query-history.js';
+import { initHistory, addToHistory, getHistory } from '../../media/src/query/query-history.js';
 
 describe('QueryHistory', () => {
   beforeEach(() => {

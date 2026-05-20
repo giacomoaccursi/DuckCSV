@@ -27,7 +27,7 @@ describe('VirtualScroller', () => {
     global.window = dom.window;
 
     // Dynamic import after setting up globals
-    const mod = await import('../../media/src/virtual-scroll.js');
+    const mod = await import('../../media/src/ui/virtual-scroll.js');
     createVirtualScroller = mod.createVirtualScroller;
   });
 

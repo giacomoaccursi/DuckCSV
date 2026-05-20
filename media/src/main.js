@@ -6,24 +6,24 @@
  * (cell editing, context menu, refresh, openAsText, color toggle, header dblclick).
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
-import { sendMessage } from './messaging.js';
-import { insertAtCursor } from './utils.js';
-import { renderHeader, renderRows, getScroller } from './renderer.js';
-import { applyDataPage, onPageDataReceived, onRowMutation } from './data-page.js';
-import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
-import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
-import { initResize } from './resize.js';
-import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
-import { initHistory, addToHistory, openHistoryDropdown } from './query-history.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, selectCell } from './selection.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
-import { buildContextMenuItems } from './context-menu.js';
-import { bindSqlHighlight } from './sql-highlight.js';
-import { bindAutoPairs } from './auto-pairs.js';
-import { on } from './event-bus.js';
+import { dom } from './core/dom.js';
+import { state } from './core/state.js';
+import { sendMessage } from './core/messaging.js';
+import { insertAtCursor } from './core/utils.js';
+import { renderHeader, renderRows, getScroller } from './ui/renderer.js';
+import { applyDataPage, onPageDataReceived, onRowMutation } from './data/data-page.js';
+import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui/ui.js';
+import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './ui/editing.js';
+import { initResize } from './ui/resize.js';
+import { openFilterDropdown, onColumnValuesReceived } from './ui/filter-dropdown.js';
+import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query/query.js';
+import { initHistory, addToHistory, openHistoryDropdown } from './query/query-history.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, clearSelection, handleSelectAll, getSelection, selectCell } from './ui/selection.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared/shared-bindings.js';
+import { buildContextMenuItems } from './ui/context-menu.js';
+import { bindSqlHighlight } from './query/sql-highlight.js';
+import { bindAutoPairs } from './query/auto-pairs.js';
+import { on } from './core/event-bus.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 

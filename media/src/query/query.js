@@ -2,9 +2,9 @@
  * SQL query bar: execution, results display, and autocomplete.
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
-import { sendMessage } from './messaging.js';
+import { dom } from '../core/dom.js';
+import { state } from '../core/state.js';
+import { sendMessage } from '../core/messaging.js';
 import { getCompletions as getCompletionsEngine, buildSchema } from './sql-autocomplete.js';
 import {
   isQueryActive as _isQueryActive,
@@ -14,7 +14,7 @@ import {
   setQueryRunning as _setQueryRunning,
   setSystemLoading as _setSystemLoading,
   resetToReady,
-} from './app-state.js';
+} from '../core/app-state.js';
 
 // ─── Query State (delegated to app-state machine) ────────────────────────────
 

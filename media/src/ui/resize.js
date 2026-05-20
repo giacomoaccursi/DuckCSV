@@ -2,8 +2,8 @@
  * Column resize via drag on header border.
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
+import { dom } from '../core/dom.js';
+import { state } from '../core/state.js';
 
 let resizeState = null;
 

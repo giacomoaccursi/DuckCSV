@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { createDataWindow } from '../../media/src/data-window.js';
+import { createDataWindow } from '../../media/src/data/data-window.js';
 
 describe('DataWindow', () => {
   function makeDW(opts = {}) {

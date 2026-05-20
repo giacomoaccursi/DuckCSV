@@ -3,16 +3,16 @@
  * Manages the DataWindow for lazy-loaded row access.
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
-import { emit } from './event-bus.js';
-import { updateStats, showTable } from './ui.js';
-import { resetQueryState, setQueryActive } from './query.js';
-import { clearSortingLock } from './shared-bindings.js';
+import { dom } from '../core/dom.js';
+import { state } from '../core/state.js';
+import { emit } from '../core/event-bus.js';
+import { updateStats, showTable } from '../ui/ui.js';
+import { resetQueryState, setQueryActive } from '../query/query.js';
+import { clearSortingLock } from '../shared/shared-bindings.js';
 import { createDataWindow } from './data-window.js';
 import { isRowDataSource } from './row-data-source.js';
-import { sendMessage } from './messaging.js';
-import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from './constants.js';
+import { sendMessage } from '../core/messaging.js';
+import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from '../core/constants.js';
 
 /** @type {import('./row-data-source.js').IRowDataSource|null} */
 let dataWindow = null;

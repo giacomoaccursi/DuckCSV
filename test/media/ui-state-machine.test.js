@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createStateMachine } from '../../media/src/ui-state-machine.js';
+import { createStateMachine } from '../../media/src/shared/ui-state-machine.js';
 
 describe('UI State Machine', () => {
   let machine;

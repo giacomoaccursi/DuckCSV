@@ -5,25 +5,25 @@
  * adds workspace-specific bindings (add-table, table dropdown, tables bar, empty state).
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
-import { sendMessage } from './messaging.js';
-import { toggle, insertAtCursor } from './utils.js';
-import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
-import { isEditing } from './editing.js';
-import { initResize } from './resize.js';
-import { openFilterDropdown, onColumnValuesReceived } from './filter-dropdown.js';
-import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query.js';
-import { addToHistory as addToHistoryWs, openHistoryDropdown, initHistory } from './query-history.js';
-import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, handleSelectAll } from './selection.js';
-import { renderTablesBar } from './tables-bar.js';
-import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
-import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
-import { applyDataPage, onPageDataReceived } from './data-page.js';
-import { bindSqlHighlight } from './sql-highlight.js';
-import { bindAutoPairs } from './auto-pairs.js';
-import { on } from './event-bus.js';
-import { renderHeader, renderRows, getScroller } from './renderer.js';
+import { dom } from './core/dom.js';
+import { state } from './core/state.js';
+import { sendMessage } from './core/messaging.js';
+import { toggle, insertAtCursor } from './core/utils.js';
+import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui/ui.js';
+import { isEditing } from './ui/editing.js';
+import { initResize } from './ui/resize.js';
+import { openFilterDropdown, onColumnValuesReceived } from './ui/filter-dropdown.js';
+import { clearQuery, isQueryActive, isQueryRunning, setQueryRunning, setSystemLoading, showAutocomplete, closeAutocomplete, handleAutocompleteKeydown, showQueryError } from './query/query.js';
+import { addToHistory as addToHistoryWs, openHistoryDropdown, initHistory } from './query/query-history.js';
+import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, handleCopyShortcut, handleArrowNavigation, handleSelectAll } from './ui/selection.js';
+import { renderTablesBar } from './ui/tables-bar.js';
+import { updateTableDropdown, bindTableDropdown } from './ui/table-dropdown.js';
+import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared/shared-bindings.js';
+import { applyDataPage, onPageDataReceived } from './data/data-page.js';
+import { bindSqlHighlight } from './query/sql-highlight.js';
+import { bindAutoPairs } from './query/auto-pairs.js';
+import { on } from './core/event-bus.js';
+import { renderHeader, renderRows, getScroller } from './ui/renderer.js';
 
 let activeTableName = '';
 

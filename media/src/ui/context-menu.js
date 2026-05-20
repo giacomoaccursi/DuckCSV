@@ -3,9 +3,9 @@
  * Replaces the 3-branch if/else in main.js with a single function.
  */
 
-import { sendMessage } from './messaging.js';
+import { sendMessage } from '../core/messaging.js';
 import { getSelection, getSelectionMode } from './selection.js';
-import { getDataWindow } from './data-page.js';
+import { getDataWindow } from '../data/data-page.js';
 
 /**
  * Build context menu items for a right-click event.

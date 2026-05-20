@@ -3,12 +3,12 @@
  * Uses virtual scrolling — only visible rows + buffer are in the DOM.
  */
 
-import { dom } from './dom.js';
-import { state, COLUMN_COLORS } from './state.js';
-import { escapeHtml, escapeRegex } from './utils.js';
+import { dom } from '../core/dom.js';
+import { state, COLUMN_COLORS } from '../core/state.js';
+import { escapeHtml, escapeRegex } from '../core/utils.js';
 import { createVirtualScroller } from './virtual-scroll.js';
 import { isInSelection } from './selection.js';
-import { getDataWindow } from './data-page.js';
+import { getDataWindow } from '../data/data-page.js';
 
 let scroller = null;
 

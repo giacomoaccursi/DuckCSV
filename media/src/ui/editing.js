@@ -2,11 +2,11 @@
  * Inline cell editing: double-click to edit, Enter/Escape/blur to commit/cancel.
  */
 
-import { state } from './state.js';
-import { sendMessage } from './messaging.js';
+import { state } from '../core/state.js';
+import { sendMessage } from '../core/messaging.js';
 import { updateStats } from './ui.js';
 import { getScroller, renderHeader } from './renderer.js';
-import { getDataWindow } from './data-page.js';
+import { getDataWindow } from '../data/data-page.js';
 
 let editingCell = null;
 let afterCommitFn = null;
