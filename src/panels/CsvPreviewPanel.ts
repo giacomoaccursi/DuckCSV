@@ -301,6 +301,7 @@ export class CsvPreviewPanel extends BasePanel {
     if (!this.commandHistory.canUndo()) { return; }
     try {
       await this.commandHistory.undo();
+      this.tableManager.invalidateView();
       this.markDirty();
       await this.sendCurrentPage();
     } catch (error: unknown) {
@@ -312,6 +313,7 @@ export class CsvPreviewPanel extends BasePanel {
     if (!this.commandHistory.canRedo()) { return; }
     try {
       await this.commandHistory.redo();
+      this.tableManager.invalidateView();
       this.markDirty();
       await this.sendCurrentPage();
     } catch (error: unknown) {
