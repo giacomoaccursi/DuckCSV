@@ -16,7 +16,7 @@ import { SqlBuilder } from './SqlBuilder';
 import { SortState, ColumnFilters } from '../types';
 import * as vscode from 'vscode';
 import { basename, extname } from 'path';
-import { openSync, readSync, closeSync } from 'fs';
+import { open } from 'fs/promises';
 
 export interface TableMeta {
   name: string;
@@ -574,10 +574,10 @@ export class TableManager {
    */
   private async detectDelimiterFast(filePath: string): Promise<string> {
     try {
-      const fd = openSync(filePath, 'r');
+      const fh = await open(filePath, 'r');
       const buf = Buffer.alloc(8192);
-      const bytesRead = readSync(fd, buf, 0, 8192, 0);
-      closeSync(fd);
+      const { bytesRead } = await fh.read(buf, 0, 8192, 0);
+      await fh.close();
 
       const sample = buf.toString('utf8', 0, bytesRead);
       const firstLine = sample.split('\n')[0] || '';
