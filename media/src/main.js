@@ -112,7 +112,7 @@ function bindEvents() {
         sendMessage({ type: 'save' });
       }
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       if (e.shiftKey) {
         sendMessage({ type: 'redo' });
