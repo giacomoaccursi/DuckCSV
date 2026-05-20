@@ -217,10 +217,10 @@ export class TableManager {
     const notNull = `${colName} IS NOT NULL`;
     const conditions = [notNull];
 
-    // Cursor-based pagination: fetch values after the last loaded value
+    // Cursor-based pagination: compare on native column type (DuckDB auto-casts the string)
     if (afterValue !== undefined) {
       const escaped = afterValue.replace(/'/g, "''");
-      conditions.push(`CAST(${colName} AS VARCHAR) > '${escaped}'`);
+      conditions.push(`${colName} > '${escaped}'`);
     }
 
     const whereStr = baseWhere
@@ -228,7 +228,7 @@ export class TableManager {
       : `WHERE ${conditions.join(' AND ')}`;
 
     const result = await this.engine.query(
-      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY val LIMIT 100`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 100`
     );
     return result.rows.map(row => row[0]).filter(v => v !== '');
   }
