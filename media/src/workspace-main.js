@@ -21,6 +21,8 @@ import { updateTableDropdown, bindTableDropdown } from './table-dropdown.js';
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { applyDataPage, onPageDataReceived } from './data-page.js';
 import { bindSqlHighlight } from './sql-highlight.js';
+import { on } from './event-bus.js';
+import { renderHeader, renderRows, getScroller } from './renderer.js';
 
 let activeTableName = '';
 
@@ -129,6 +131,14 @@ function bindEvents() {
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+
+// Event bus: react to data-page events
+on('data:pageApplied', () => { renderHeader(); renderRows(); });
+on('data:mutated', ({ filteredRows }) => {
+  const scroller = getScroller();
+  if (scroller) { scroller.update(filteredRows); } else { renderRows(); }
+});
+on('data:ready', () => { const s = getScroller(); if (s) { s.softRefresh(); } });
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();

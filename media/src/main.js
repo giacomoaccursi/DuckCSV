@@ -10,7 +10,7 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
-import { renderHeader, renderRows } from './renderer.js';
+import { renderHeader, renderRows, getScroller } from './renderer.js';
 import { applyDataPage, onPageDataReceived, onRowMutation } from './data-page.js';
 import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
@@ -22,6 +22,7 @@ import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, h
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { buildContextMenuItems } from './context-menu.js';
 import { bindSqlHighlight } from './sql-highlight.js';
+import { on } from './event-bus.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -172,6 +173,14 @@ function bindEvents() {
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+
+// Event bus: react to data-page events (breaks circular dependency)
+on('data:pageApplied', () => { renderHeader(); renderRows(); });
+on('data:mutated', ({ filteredRows }) => {
+  const scroller = getScroller();
+  if (scroller) { scroller.update(filteredRows); } else { renderRows(); }
+});
+on('data:ready', () => { const s = getScroller(); if (s) { s.softRefresh(); } });
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();

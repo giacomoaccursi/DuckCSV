@@ -5,7 +5,7 @@
 
 import { dom } from './dom.js';
 import { state } from './state.js';
-import { renderHeader, renderRows, getScroller } from './renderer.js';
+import { emit } from './event-bus.js';
 import { updateStats, showTable } from './ui.js';
 import { resetQueryState, setQueryActive } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
@@ -85,9 +85,8 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
       sendMessage({ type: 'fetchPage', requestId: Date.now(), offset, limit });
     },
     onDataReady: () => {
-      // Refresh visible rows when new data arrives (without full rebuild)
-      const s = getScroller();
-      if (s) { s.softRefresh(); }
+      // Notify that new data arrived (renderer will softRefresh)
+      emit('data:ready');
     },
   });
 
@@ -104,10 +103,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   const qInput = document.getElementById('queryInput');
   const restoreQueryFocus = data.isQueryResult && qInput;
 
-  renderHeader();
+  emit('data:pageApplied');
   updateStats();
   showTable();
-  renderRows();
 
   if (restoreQueryFocus) { qInput.focus(); }
 }
@@ -139,10 +137,5 @@ export function onRowMutation(data) {
   }
 
   updateStats();
-  const scroller = getScroller();
-  if (scroller) {
-    scroller.update(data.filteredRows);
-  } else {
-    renderRows();
-  }
+  emit('data:mutated', { filteredRows: data.filteredRows });
 }
