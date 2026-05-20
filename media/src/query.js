@@ -106,7 +106,7 @@ let acItems = [];
 let acSelectedIndex = -1;
 
 export function showAutocomplete(inputEl) {
-  const { word, items } = getCompletions(inputEl);
+  const { items } = getCompletions(inputEl);
 
   if (items.length === 0) { closeAutocomplete(); return; }
 

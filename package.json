@@ -32,10 +32,7 @@
         "color": "#4CAF50",
         "theme": "dark"
     },
-    "activationEvents": [
-        "onCommand:duckcsv.preview",
-        "onCommand:duckcsv.workspace"
-    ],
+    "activationEvents": [],
     "main": "./dist/extension.js",
     "contributes": {
         "commands": [
@@ -113,63 +110,7 @@
         ],
         "configuration": {
             "title": "DuckCSV",
-            "properties": {
-                "csv.previewRowCount": {
-                    "type": "number",
-                    "default": 10000,
-                    "description": "Number of rows to load initially",
-                    "minimum": 100,
-                    "maximum": 100000
-                },
-                "csv.columnWidth.max": {
-                    "type": "number",
-                    "default": 400,
-                    "description": "Maximum column width in pixels",
-                    "minimum": 100,
-                    "maximum": 1000
-                },
-                "csv.columnWidth.min": {
-                    "type": "number",
-                    "default": 50,
-                    "description": "Minimum column width in pixels",
-                    "minimum": 30,
-                    "maximum": 200
-                },
-                "csv.showRowNumbers": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Show row numbers column"
-                },
-                "csv.delimiter": {
-                    "type": "string",
-                    "default": "auto",
-                    "enum": [
-                        "auto",
-                        ",",
-                        ";",
-                        "\t",
-                        "|"
-                    ],
-                    "enumDescriptions": [
-                        "Automatically detect delimiter",
-                        "Comma (,)",
-                        "Semicolon (;)",
-                        "Tab",
-                        "Pipe (|)"
-                    ],
-                    "description": "CSV delimiter to use"
-                },
-                "csv.enableSearch": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Show search box"
-                },
-                "csv.alternatingRowColors": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Use alternating row colors"
-                }
-            }
+            "properties": {}
         }
     },
     "scripts": {
@@ -182,7 +123,7 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@duckdb/duckdb-wasm": "^1.33.1-dev45.0"
+        "@duckdb/duckdb-wasm": "1.33.1-dev45.0"
     },
     "devDependencies": {
         "@types/jsdom": "28.0.3",
