@@ -93,6 +93,9 @@ export abstract class BasePanel {
       case 'getColumnValues':
         return this.handleGetColumnValues(message.columnIndex);
 
+      case 'searchColumnValues':
+        return this.handleSearchColumnValues(message.columnIndex, message.term);
+
       case 'setFilters':
         this.viewState.applyFilters(message.filters);
         return this.sendCurrentPage();
@@ -170,6 +173,23 @@ export abstract class BasePanel {
     try {
       const values = await this.tableManager.getUniqueValues(
         tableName, columnIndex, this.viewState.filters, this.viewState.searchTerm
+      );
+      this.postMessage({
+        type: 'columnValues',
+        data: { columnIndex, values, totalCount: values.length },
+      });
+    } catch (error: unknown) {
+      this.postError(error);
+    }
+  }
+
+  protected async handleSearchColumnValues(columnIndex: number, term: string): Promise<void> {
+    const tableName = this.getEffectiveTable();
+    if (!tableName) { return; }
+
+    try {
+      const values = await this.tableManager.searchUniqueValues(
+        tableName, columnIndex, term, this.viewState.filters, this.viewState.searchTerm
       );
       this.postMessage({
         type: 'columnValues',

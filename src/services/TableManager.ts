@@ -218,7 +218,35 @@ export class TableManager {
     const whereStr = baseWhere ? `${baseWhere} AND ${notNull}` : `WHERE ${notNull}`;
 
     const result = await this.engine.query(
-      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 1000`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 100`
+    );
+    return result.rows.map(row => row[0]).filter(v => v !== '');
+  }
+
+  /** Search unique values in a column matching a search term. Used by filter dropdown search. */
+  async searchUniqueValues(tableName: string, columnIndex: number, valueTerm: string, filters: ColumnFilters = {}, searchTerm: string = ''): Promise<string[]> {
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    if (columnIndex < 0 || columnIndex >= headers.length) { return []; }
+
+    const colName = this.q(headers[columnIndex]);
+    const escapedTerm = valueTerm.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
+
+    const otherFilters: ColumnFilters = {};
+    for (const [idx, values] of Object.entries(filters)) {
+      const colIdx = parseInt(idx, 10);
+      if (colIdx !== columnIndex) { otherFilters[colIdx] = values; }
+    }
+    const baseWhere = SqlBuilder.buildWhere(otherFilters, searchTerm, headers);
+    const notNull = `${colName} IS NOT NULL`;
+    const ilike = `CAST(${colName} AS VARCHAR) ILIKE '%${escapedTerm}%' ESCAPE '\\'`;
+    const conditions = [notNull, ilike];
+    const whereStr = baseWhere
+      ? `${baseWhere} AND ${conditions.join(' AND ')}`
+      : `WHERE ${conditions.join(' AND ')}`;
+
+    const result = await this.engine.query(
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 100`
     );
     return result.rows.map(row => row[0]).filter(v => v !== '');
   }
