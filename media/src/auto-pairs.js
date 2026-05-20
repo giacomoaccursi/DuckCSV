@@ -13,6 +13,8 @@ const PAIRS = {
   '(': ')',
 };
 
+const CLOSE_CHARS = new Set(Object.values(PAIRS));
+
 /**
  * Bind auto-pairing behavior to an input element.
  * @param {HTMLInputElement} input
@@ -21,6 +23,22 @@ export function bindAutoPairs(input) {
   if (!input) { return; }
 
   input.addEventListener('keydown', (e) => {
+    // Auto-delete pair: if cursor is between matching pair and Backspace pressed
+    if (e.key === 'Backspace') {
+      const { selectionStart, selectionEnd, value } = input;
+      if (selectionStart === selectionEnd && selectionStart > 0) {
+        const charBefore = value[selectionStart - 1];
+        const charAfter = value[selectionStart];
+        if (PAIRS[charBefore] && PAIRS[charBefore] === charAfter) {
+          e.preventDefault();
+          input.value = value.slice(0, selectionStart - 1) + value.slice(selectionStart + 1);
+          input.setSelectionRange(selectionStart - 1, selectionStart - 1);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          return;
+        }
+      }
+    }
+
     const close = PAIRS[e.key];
     if (!close) { return; }
 
