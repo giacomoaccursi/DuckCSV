@@ -46,10 +46,14 @@ export function createVirtualScroller(options) {
   spacerBottom.appendChild(spacerBottomTd);
 
   let pool = [];
+  let cachedHeaderHeight = 0;
 
   function getHeaderHeight() {
-    const thead = scrollContainer.querySelector('thead');
-    return thead ? thead.offsetHeight : 0;
+    if (!cachedHeaderHeight) {
+      const thead = scrollContainer.querySelector('thead');
+      cachedHeaderHeight = thead ? thead.offsetHeight : 0;
+    }
+    return cachedHeaderHeight;
   }
 
   function computeRange() {
@@ -156,6 +160,7 @@ export function createVirtualScroller(options) {
   }
 
   function refresh() {
+    cachedHeaderHeight = 0;
     currentStart = -1;
     currentEnd = -1;
     onScroll();
