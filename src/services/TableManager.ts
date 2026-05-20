@@ -54,6 +54,7 @@ export class TableManager {
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
     const tableName = customName ?? this.deriveTableName(uri);
     const filePath = uri.fsPath.replace(/'/g, "''");
+    const isParquet = uri.fsPath.toLowerCase().endsWith('.parquet');
 
     if (this.tables.has(tableName)) {
       this.engine.cancel(); // Restart worker to clear DuckDB file cache
@@ -63,11 +64,18 @@ export class TableManager {
     }
 
     await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
-    await this.engine.query(
-      `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`
-    );
 
-    // Get schema + row count + delimiter in minimal queries (no redundant sniff_csv)
+    if (isParquet) {
+      await this.engine.query(
+        `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_parquet('${filePath}')`
+      );
+    } else {
+      await this.engine.query(
+        `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`
+      );
+    }
+
+    // Get schema + row count in minimal queries
     const escaped = tableName.replace(/'/g, "''");
     const schemaResult = await this.engine.query(
       `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escaped}' ORDER BY ordinal_position`
@@ -86,9 +94,13 @@ export class TableManager {
       rowCount = await this.getRowCount(tableName);
     }
 
-    // Detect delimiter from file content (fast: reads only first 8KB via Node fs)
-    const detectedDelimiter = await this.detectDelimiterFast(uri.fsPath);
-    const { name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter);
+    // Detect delimiter (only for CSV/TSV — Parquet uses Comma as default for export)
+    let delimiterName = 'Comma';
+    let delimiterChar = ',';
+    if (!isParquet) {
+      const detectedDelimiter = await this.detectDelimiterFast(uri.fsPath);
+      ({ name: delimiterName, char: delimiterChar } = this.delimiterInfo(detectedDelimiter));
+    }
 
     const meta: TableMeta = {
       name: tableName, filePath: uri.fsPath,

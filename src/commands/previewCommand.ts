@@ -8,7 +8,7 @@ import { CsvPreviewPanel } from '../panels/CsvPreviewPanel';
 import { CsvWorkspacePanel } from '../panels/CsvWorkspacePanel';
 import { Services } from '../services/Services';
 
-const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv']);
+const SUPPORTED_EXTENSIONS = new Set(['.csv', '.tsv', '.parquet']);
 
 /**
  * Register all commands.
@@ -40,8 +40,8 @@ async function openPreview(
   if (!resolvedUri) {
     const picked = await vscode.window.showOpenDialog({
       canSelectMany: false,
-      filters: { 'CSV Files': ['csv', 'tsv'] },
-      title: 'Select a CSV file to preview',
+      filters: { 'Data Files': ['csv', 'tsv', 'parquet'] },
+      title: 'Select a file to preview',
     });
     if (!picked || picked.length === 0) { return; }
     resolvedUri = picked[0];
@@ -50,7 +50,7 @@ async function openPreview(
   const ext = extname(resolvedUri.fsPath).toLowerCase();
   if (!SUPPORTED_EXTENSIONS.has(ext)) {
     vscode.window.showWarningMessage(
-      `File "${basename(resolvedUri.fsPath)}" is not a CSV or TSV file.`
+      `File "${basename(resolvedUri.fsPath)}" is not a supported file (CSV, TSV, or Parquet).`
     );
     return;
   }
