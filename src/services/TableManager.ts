@@ -56,8 +56,10 @@ export class TableManager {
     const filePath = uri.fsPath.replace(/'/g, "''");
     const isParquet = uri.fsPath.toLowerCase().endsWith('.parquet');
 
-    // Always restart worker to ensure fresh file read (no DuckDB file cache)
-    this.engine.cancel();
+    // Only restart worker if reloading the same table (to clear DuckDB file cache)
+    if (this.tables.has(tableName)) {
+      this.engine.cancel();
+    }
     this.viewTable = null;
     this.viewFingerprint = '';
     this.viewTotalRows = 0;
