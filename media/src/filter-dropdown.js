@@ -41,6 +41,15 @@ export function openFilterDropdown(columnIndex, anchorEl) {
 export function onColumnValuesReceived(data) {
   if (!activeDropdown) { return; }
   if (activeColumnIndex !== data.columnIndex) { return; }
+
+  // If the dropdown is already rendered (search response), just update the list
+  const existingList = activeDropdown.querySelector('.filter-values-list');
+  if (existingList) {
+    updateList(existingList, data.values);
+    return;
+  }
+
+  // First load: render the full content
   allLoadedValues = data.values;
   renderContent(data.columnIndex, data.values);
 }
@@ -59,6 +68,36 @@ function handleOutsideClick(e) {
   if (activeDropdown && !activeDropdown.contains(e.target) && !e.target.closest('.filter-btn')) {
     closeFilterDropdown();
   }
+}
+
+function updateList(list, values) {
+  list.innerHTML = '';
+  if (values.length === 0) {
+    list.innerHTML = '<div class="filter-no-results">No matching values</div>';
+    return;
+  }
+  values.forEach(value => {
+    const item = document.createElement('label');
+    item.className = 'filter-value-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = value;
+    checkbox.checked = selectionSet.has(value);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) { selectionSet.add(value); }
+      else { selectionSet.delete(value); }
+    });
+
+    const text = document.createElement('span');
+    text.className = 'filter-value-text';
+    text.textContent = value;
+    text.title = value;
+
+    item.appendChild(checkbox);
+    item.appendChild(text);
+    list.appendChild(item);
+  });
 }
 
 function renderContent(columnIndex, values) {
@@ -102,33 +141,7 @@ function renderContent(columnIndex, values) {
 
   // Render the list of values
   function renderList(vals) {
-    list.innerHTML = '';
-    vals.forEach(value => {
-      const item = document.createElement('label');
-      item.className = 'filter-value-item';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.value = value;
-      checkbox.checked = selectionSet.has(value);
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) { selectionSet.add(value); }
-        else { selectionSet.delete(value); }
-      });
-
-      const text = document.createElement('span');
-      text.className = 'filter-value-text';
-      text.textContent = value;
-      text.title = value;
-
-      item.appendChild(checkbox);
-      item.appendChild(text);
-      list.appendChild(item);
-    });
-
-    if (vals.length === 0) {
-      list.innerHTML = '<div class="filter-no-results">No matching values</div>';
-    }
+    updateList(list, vals);
   }
 
   renderList(values);
