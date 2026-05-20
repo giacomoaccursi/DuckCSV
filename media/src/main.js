@@ -10,7 +10,7 @@ import { dom } from './dom.js';
 import { state } from './state.js';
 import { sendMessage } from './messaging.js';
 import { insertAtCursor } from './utils.js';
-import { renderHeader, renderRows } from './renderer.js';
+import { renderHeader, renderRows, getScroller } from './renderer.js';
 import { applyDataPage, onPageDataReceived, onRowMutation } from './data-page.js';
 import { showLoading, hideLoading, showError, showTooltip, hideTooltip, showContextMenu } from './ui.js';
 import { startCellEdit, isEditing, onCellEditConfirm, setAfterCommit } from './editing.js';
@@ -22,19 +22,21 @@ import { handleCellClick, handleRowNumberClick, handleHeaderClickForSelection, h
 import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAndTooltip, clearSortingLock } from './shared-bindings.js';
 import { buildContextMenuItems } from './context-menu.js';
 import { bindSqlHighlight } from './sql-highlight.js';
+import { on } from './event-bus.js';
+import { transitionTo, resetUIState } from './app-state.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
 function handleExtensionMessage(message) {
   switch (message.type) {
-    case 'dataPage': onDataPageReceived(message.data); break;
+    case 'dataPage': onDataPageReceived(message.data); transitionTo('READY'); break;
     case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(message.data); break;
     case 'rowMutation': onRowMutation(message.data); break;
     case 'loading':
-      if (message.loading) { showLoading(message.message); setSystemLoading(true); }
-      else { hideLoading(); setSystemLoading(false); }
+      if (message.loading) { showLoading(message.message); setSystemLoading(true); transitionTo('LOADING'); }
+      else { hideLoading(); setSystemLoading(false); transitionTo('READY'); }
       break;
     case 'saving':
       if (message.saving) { showLoading('Saving...'); }
@@ -100,7 +102,7 @@ function bindEvents() {
   if (saveBtn) { saveBtn.addEventListener('click', () => sendMessage({ type: 'save' })); }
   if (saveAsBtn) { saveAsBtn.addEventListener('click', () => sendMessage({ type: 'saveAs' })); }
 
-  // Cmd+S / Ctrl+S to save
+  // Cmd+S / Ctrl+S to save, Cmd+Z / Cmd+Shift+Z for undo/redo
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
@@ -108,6 +110,14 @@ function bindEvents() {
         sendMessage({ type: 'saveAs' });
       } else {
         sendMessage({ type: 'save' });
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        sendMessage({ type: 'redo' });
+      } else {
+        sendMessage({ type: 'undo' });
       }
     }
   });
@@ -172,6 +182,14 @@ function bindEvents() {
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+
+// Event bus: react to data-page events (breaks circular dependency)
+on('data:pageApplied', () => { renderHeader(); renderRows(); });
+on('data:mutated', ({ filteredRows }) => {
+  const scroller = getScroller();
+  if (scroller) { scroller.update(filteredRows); } else { renderRows(); }
+});
+on('data:ready', () => { const s = getScroller(); if (s) { s.softRefresh(); } });
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();

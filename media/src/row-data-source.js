@@ -24,9 +24,9 @@
  * @returns {boolean}
  */
 export function isRowDataSource(obj) {
-  return obj &&
+  return !!(obj &&
     typeof obj.getRow === 'function' &&
     typeof obj.getRowid === 'function' &&
     typeof obj.getTotalRows === 'function' &&
-    typeof obj.isLoaded === 'function';
+    typeof obj.isLoaded === 'function');
 }

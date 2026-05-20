@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import { buildHtmlShell } from './htmlBuilder';
+import { HtmlShellBuilder } from './HtmlShellBuilder';
 
 export function buildWorkspaceHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const toolbarHtml = /* html */ `
@@ -34,12 +34,12 @@ export function buildWorkspaceHtml(webview: vscode.Webview, extensionUri: vscode
     </div>
 `;
 
-  return buildHtmlShell({
-    webview,
-    extensionUri,
-    title: 'CSV Workspace',
-    scriptPath: 'workspace.js',
-    toolbarHtml,
-    extraSectionsHtml,
-  });
+  return new HtmlShellBuilder(webview, extensionUri)
+    .title('CSV Workspace')
+    .script('workspace.js')
+    .toolbar(toolbarHtml)
+    .extraSections(extraSectionsHtml)
+    .queryBar()
+    .loading()
+    .build();
 }

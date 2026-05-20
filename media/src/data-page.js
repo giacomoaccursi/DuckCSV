@@ -5,14 +5,16 @@
 
 import { dom } from './dom.js';
 import { state } from './state.js';
-import { renderHeader, renderRows, getScroller } from './renderer.js';
+import { emit } from './event-bus.js';
 import { updateStats, showTable } from './ui.js';
 import { resetQueryState, setQueryActive } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
 import { createDataWindow } from './data-window.js';
+import { isRowDataSource } from './row-data-source.js';
 import { sendMessage } from './messaging.js';
 import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from './constants.js';
 
+/** @type {import('./row-data-source.js').IRowDataSource|null} */
 let dataWindow = null;
 
 export function getDataWindow() { return dataWindow; }
@@ -85,11 +87,15 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
       sendMessage({ type: 'fetchPage', requestId: Date.now(), offset, limit });
     },
     onDataReady: () => {
-      // Refresh visible rows when new data arrives (without full rebuild)
-      const s = getScroller();
-      if (s) { s.softRefresh(); }
+      // Notify that new data arrived (renderer will softRefresh)
+      emit('data:ready');
     },
   });
+
+  // Validate DataWindow implements IRowDataSource contract
+  if (!isRowDataSource(dataWindow)) {
+    throw new Error('DataWindow does not implement IRowDataSource');
+  }
 
   // Seed with the initial rows from the dataPage
   if (data.rows && data.rows.length > 0) {
@@ -104,10 +110,9 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
   const qInput = document.getElementById('queryInput');
   const restoreQueryFocus = data.isQueryResult && qInput;
 
-  renderHeader();
+  emit('data:pageApplied');
   updateStats();
   showTable();
-  renderRows();
 
   if (restoreQueryFocus) { qInput.focus(); }
 }
@@ -139,10 +144,5 @@ export function onRowMutation(data) {
   }
 
   updateStats();
-  const scroller = getScroller();
-  if (scroller) {
-    scroller.update(data.filteredRows);
-  } else {
-    renderRows();
-  }
+  emit('data:mutated', { filteredRows: data.filteredRows });
 }
