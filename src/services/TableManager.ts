@@ -56,12 +56,12 @@ export class TableManager {
     const filePath = uri.fsPath.replace(/'/g, "''");
     const isParquet = uri.fsPath.toLowerCase().endsWith('.parquet');
 
-    if (this.tables.has(tableName)) {
-      this.engine.cancel(); // Restart worker to clear DuckDB file cache
-      this.viewTable = null;
-      this.viewFingerprint = '';
-      this.viewTotalRows = 0;
-    }
+    // Always restart worker to ensure fresh file read (no DuckDB file cache)
+    this.engine.cancel();
+    this.viewTable = null;
+    this.viewFingerprint = '';
+    this.viewTotalRows = 0;
+    this.tables.delete(tableName);
 
     await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
 
