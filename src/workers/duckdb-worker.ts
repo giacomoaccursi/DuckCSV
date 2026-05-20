@@ -188,7 +188,17 @@ function exportParquet(msg: ExportParquetRequest): void {
   const quoted = `"${tableName.replace(/"/g, '""')}"`;
 
   try {
-    conn.query(`COPY ${quoted} TO '${vfsPath}' (FORMAT PARQUET, COMPRESSION ${compression})`);
+    // Exclude internal __orig_rid column if present
+    const schemaResult = conn.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName.replace(/'/g, "''")}' AND column_name != '__orig_rid' ORDER BY ordinal_position`
+    );
+    const columns: string[] = [];
+    for (let i = 0; i < schemaResult.numRows; i++) {
+      columns.push(`"${schemaResult.getChildAt(0)?.get(i)}"`);
+    }
+    const selectCols = columns.length > 0 ? columns.join(', ') : '*';
+
+    conn.query(`COPY (SELECT ${selectCols} FROM ${quoted}) TO '${vfsPath}' (FORMAT PARQUET, COMPRESSION ${compression})`);
     const buffer: Uint8Array = db.copyFileToBuffer(vfsPath);
     db.dropFile(vfsPath);
     parentPort?.postMessage({ id, type: 'parquetBuffer', buffer }, [buffer.buffer as ArrayBuffer]);
