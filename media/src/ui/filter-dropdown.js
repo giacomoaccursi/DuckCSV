@@ -3,8 +3,8 @@
  * Search queries the backend with debounce for large datasets.
  */
 
-import { state } from './state.js';
-import { sendMessage } from './messaging.js';
+import { state } from '../core/state.js';
+import { sendMessage } from '../core/messaging.js';
 
 const SEARCH_DEBOUNCE_MS = 300;
 

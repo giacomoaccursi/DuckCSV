@@ -2,7 +2,7 @@
  * Table dropdown — switch active table in workspace.
  */
 
-import { sendMessage } from './messaging.js';
+import { sendMessage } from '../core/messaging.js';
 
 export function updateTableDropdown(tables, activeTable) {
   const dropdown = document.getElementById('tableDropdown');

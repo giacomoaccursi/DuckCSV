@@ -18,13 +18,13 @@ describe('Event Bus + Data Flow Integration', () => {
     global.window = dom.window;
 
     // Clear module cache for fresh imports
-    const busMod = await import('../../media/src/event-bus.js');
+    const busMod = await import('../../media/src/core/event-bus.js');
     on = busMod.on;
     emit = busMod.emit;
     clear = busMod.clear;
     clear();
 
-    const dwMod = await import('../../media/src/data-window.js');
+    const dwMod = await import('../../media/src/data/data-window.js');
     createDataWindow = dwMod.createDataWindow;
   });
 

@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from '../../src/shared/constants';
 
 // Import frontend constants (plain JS, works with vitest)
-import { BLOCK_SIZE as FE_BLOCK_SIZE, MAX_BLOCKS as FE_MAX_BLOCKS, PREFETCH_THRESHOLD as FE_PREFETCH_THRESHOLD } from '../../media/src/constants.js';
+import { BLOCK_SIZE as FE_BLOCK_SIZE, MAX_BLOCKS as FE_MAX_BLOCKS, PREFETCH_THRESHOLD as FE_PREFETCH_THRESHOLD } from '../../media/src/core/constants.js';
 
 describe('Constants sync (backend ↔ frontend)', () => {
   it('BLOCK_SIZE matches', () => {

@@ -2,7 +2,7 @@
  * Tables bar — shows loaded tables with remove buttons.
  */
 
-import { sendMessage } from './messaging.js';
+import { sendMessage } from '../core/messaging.js';
 
 const dom = {
   tablesBar: () => document.getElementById('tablesBar'),

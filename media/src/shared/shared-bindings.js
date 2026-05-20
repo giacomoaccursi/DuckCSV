@@ -6,7 +6,7 @@
 const DEBOUNCE_MS = 300;
 let sortingTimeout = null;
 
-import { isSortingActive, setSorting } from './app-state.js';
+import { isSortingActive, setSorting } from '../core/app-state.js';
 
 export function clearSortingLock() {
   setSorting(false);

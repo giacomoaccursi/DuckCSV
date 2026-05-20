@@ -8,11 +8,11 @@
  * - Cmd+C / Ctrl+C: copy selection as tab-separated text
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
-import { sendMessage } from './messaging.js';
+import { dom } from '../core/dom.js';
+import { state } from '../core/state.js';
+import { sendMessage } from '../core/messaging.js';
 import { getScroller } from './renderer.js';
-import { getDataWindow } from './data-page.js';
+import { getDataWindow } from '../data/data-page.js';
 
 // Selection state: { startRow, startCol, endRow, endCol } or null
 let selection = null;

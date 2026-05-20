@@ -2,9 +2,9 @@
  * UI state management: loading, error, stats, tooltip, context menu.
  */
 
-import { dom } from './dom.js';
-import { state } from './state.js';
-import { toggle, formatFileSize } from './utils.js';
+import { dom } from '../core/dom.js';
+import { state } from '../core/state.js';
+import { toggle, formatFileSize } from '../core/utils.js';
 
 // ─── Loading / Error / Table visibility ──────────────────────────────────────
 

@@ -7,7 +7,7 @@
  * States: IDLE | LOADING | READY | EDITING | QUERY_RUNNING | QUERY_ACTIVE | SORTING
  */
 
-import { createStateMachine } from './ui-state-machine.js';
+import { createStateMachine } from '../shared/ui-state-machine.js';
 import { dom } from './dom.js';
 import { toggle } from './utils.js';
 

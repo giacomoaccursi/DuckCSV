@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { on, off, emit, clear } from '../../media/src/event-bus.js';
+import { on, off, emit, clear } from '../../media/src/core/event-bus.js';
 
 describe('Event Bus', () => {
   beforeEach(() => {

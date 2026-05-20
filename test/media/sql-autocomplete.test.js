@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getCompletions, buildSchema } from '../../media/src/sql-autocomplete.js';
+import { getCompletions, buildSchema } from '../../media/src/query/sql-autocomplete.js';
 
 // ─── Test Schema ─────────────────────────────────────────────────────────────
 

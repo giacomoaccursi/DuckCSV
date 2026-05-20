@@ -2,7 +2,7 @@
  * Query History — dropdown with scrollable list, delete per item, clear all.
  */
 
-import { sendMessage } from './messaging.js';
+import { sendMessage } from '../core/messaging.js';
 
 let history = [];
 let dropdown = null;

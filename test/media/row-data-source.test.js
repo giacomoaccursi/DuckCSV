@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isRowDataSource } from '../../media/src/row-data-source.js';
+import { isRowDataSource } from '../../media/src/data/row-data-source.js';
 
 describe('isRowDataSource', () => {
   it('returns true for valid implementation', () => {
