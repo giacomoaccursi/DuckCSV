@@ -160,8 +160,8 @@ export class CsvWorkspacePanel extends BasePanel {
 
     const uris = await vscode.window.showOpenDialog({
       canSelectMany: true,
-      filters: { 'CSV Files': ['csv', 'tsv'] },
-      title: 'Add CSV tables to workspace',
+      filters: { 'Data Files': ['csv', 'tsv', 'parquet'] },
+      title: 'Add tables to workspace',
     });
     if (!uris || uris.length === 0) { return; }
 

@@ -51,28 +51,28 @@
             "editor/title": [
                 {
                     "command": "duckcsv.preview",
-                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceExtname == .parquet || resourceLangId == csv",
                     "group": "navigation"
                 }
             ],
             "editor/title/context": [
                 {
                     "command": "duckcsv.preview",
-                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceExtname == .parquet || resourceLangId == csv",
                     "group": "1_open"
                 }
             ],
             "explorer/context": [
                 {
                     "command": "duckcsv.preview",
-                    "when": "resourceExtname == .csv || resourceExtname == .tsv",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceExtname == .parquet",
                     "group": "navigation"
                 }
             ],
             "editor/context": [
                 {
                     "command": "duckcsv.preview",
-                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceLangId == csv",
+                    "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceExtname == .parquet || resourceLangId == csv",
                     "group": "1_open"
                 }
             ],
@@ -92,7 +92,7 @@
                 "command": "duckcsv.preview",
                 "key": "cmd+k v",
                 "mac": "cmd+k v",
-                "when": "resourceExtname == .csv || resourceExtname == .tsv"
+                "when": "resourceExtname == .csv || resourceExtname == .tsv || resourceExtname == .parquet"
             }
         ],
         "languages": [
