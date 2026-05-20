@@ -5,14 +5,12 @@
 
 import { DuckDbEngine } from './DuckDbEngine';
 import { TableManager } from './TableManager';
-import { QueryExecutor } from './QueryExecutor';
 import { TableExporter } from './TableExporter';
 import { QueryHistoryService } from './QueryHistoryService';
 
 export interface Services {
   engine: DuckDbEngine;
   tableManager: TableManager;
-  queryExecutor: QueryExecutor;
   tableExporter: TableExporter;
   queryHistory: QueryHistoryService;
 }

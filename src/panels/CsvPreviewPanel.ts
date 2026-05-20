@@ -69,7 +69,7 @@ export class CsvPreviewPanel extends BasePanel {
     services: Services,
     uri: vscode.Uri
   ) {
-    super(panel, extensionUri, services.tableManager, services.queryExecutor, buildPreviewHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, services.tableManager, services.engine, buildPreviewHtml(panel.webview, extensionUri));
     this.tableExporter = services.tableExporter;
     this.currentUri = uri;
     this.historyService = services.queryHistory;
@@ -132,7 +132,7 @@ export class CsvPreviewPanel extends BasePanel {
         await this.handleSaveAs();
         return true;
       case 'cancelQuery':
-        this.queryExecutor.cancel();
+        this.engine.cancel();
         this.clearInlineQuery();
         await this.loadDocument();
         return true;
@@ -159,7 +159,7 @@ export class CsvPreviewPanel extends BasePanel {
     }
 
     if (this.tableName) {
-      this.tableManager.dropTable(this.tableName).catch(() => {});
+      this.tableManager.dropTable(this.tableName).catch(() => { /* best-effort cleanup on dispose */ });
     }
   }
 
@@ -269,7 +269,7 @@ export class CsvPreviewPanel extends BasePanel {
 
   private async handleDeleteRow(rowid: number): Promise<void> {
     try {
-      const cmd = new DeleteRowCommand(this.tableManager, this.queryExecutor.getEngine(), this.tableName, rowid);
+      const cmd = new DeleteRowCommand(this.tableManager, this.engine, this.tableName, rowid);
       await this.commandHistory.execute(cmd);
       this.totalRows--;
       this.markDirty();
@@ -325,7 +325,7 @@ export class CsvPreviewPanel extends BasePanel {
       if (!meta) { return ''; }
       const colName = `"${meta.headers[columnIndex].replace(/"/g, '""')}"`;
       const tableName = `"${this.tableName.replace(/"/g, '""')}"`;
-      const result = await this.queryExecutor.getEngine().query(
+      const result = await this.engine.query(
         `SELECT CAST(${colName} AS VARCHAR) FROM ${tableName} WHERE rowid = ${rowid}`
       );
       return result.rows[0]?.[0] || '';
