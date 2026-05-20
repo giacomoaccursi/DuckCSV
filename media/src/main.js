@@ -23,19 +23,20 @@ import { bindSearchInput, bindQueryBar, bindHeaderInteractions, bindSelectionAnd
 import { buildContextMenuItems } from './context-menu.js';
 import { bindSqlHighlight } from './sql-highlight.js';
 import { on } from './event-bus.js';
+import { transitionTo, resetUIState } from './app-state.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
 function handleExtensionMessage(message) {
   switch (message.type) {
-    case 'dataPage': onDataPageReceived(message.data); break;
+    case 'dataPage': onDataPageReceived(message.data); transitionTo('READY'); break;
     case 'pageData': onPageDataReceived(message); break;
     case 'columnValues': onColumnValuesReceived(message.data); break;
     case 'cellEditConfirm': onCellEditConfirm(message.data); break;
     case 'rowMutation': onRowMutation(message.data); break;
     case 'loading':
-      if (message.loading) { showLoading(message.message); setSystemLoading(true); }
-      else { hideLoading(); setSystemLoading(false); }
+      if (message.loading) { showLoading(message.message); setSystemLoading(true); transitionTo('LOADING'); }
+      else { hideLoading(); setSystemLoading(false); transitionTo('READY'); }
       break;
     case 'saving':
       if (message.saving) { showLoading('Saving...'); }
