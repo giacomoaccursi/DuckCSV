@@ -199,6 +199,7 @@ export class CsvPreviewPanel extends BasePanel {
 
   private async loadDocument(): Promise<void> {
     this.postMessage({ type: 'loading', loading: true });
+    const t0 = performance.now();
 
     try {
       const stat = await vscode.workspace.fs.stat(this.currentUri);
@@ -210,12 +211,20 @@ export class CsvPreviewPanel extends BasePanel {
 
       let tableName = this.fileName.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '_');
       if (/^\d/.test(tableName)) { tableName = '_' + tableName; }
+
+      const tLoad = performance.now();
       const meta = await this.tableManager.loadTable(this.currentUri, tableName);
+      const tLoaded = performance.now();
+
       this.tableName = meta.name;
       this.totalRows = meta.rowCount;
 
       this.panel.title = `${this.fileName}`;
       await this.sendCurrentPage();
+      const tDone = performance.now();
+
+      console.log(`[DuckCSV perf] ${this.fileName} (${this.formatSize(this.fileSize)}, ${meta.rowCount} rows): loadTable=${(tLoaded - tLoad).toFixed(0)}ms, sendPage=${(tDone - tLoaded).toFixed(0)}ms, total=${(tDone - t0).toFixed(0)}ms`);
+      vscode.window.showInformationMessage(`⏱ ${this.fileName}: load=${(tLoaded - tLoad).toFixed(0)}ms, render=${(tDone - tLoaded).toFixed(0)}ms, total=${(tDone - t0).toFixed(0)}ms (${meta.rowCount.toLocaleString()} rows)`);
     } catch (error: unknown) {
       this.postError(error);
     } finally {
