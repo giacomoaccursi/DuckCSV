@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { buildHtmlShell } from './htmlBuilder';
+import { HtmlShellBuilder } from './HtmlShellBuilder';
 
 export function buildQueryResultHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const toolbarHtml = /* html */ `
@@ -23,14 +23,10 @@ export function buildQueryResultHtml(webview: vscode.Webview, extensionUri: vsco
     </div>
     <div id="queryLabel" class="query-label"></div>`;
 
-  return buildHtmlShell({
-    webview,
-    extensionUri,
-    title: 'Query Result',
-    scriptPath: 'script.js',
-    toolbarHtml,
-    showQueryBar: false,
-    showLoading: false,
-    readonly: true,
-  });
+  return new HtmlShellBuilder(webview, extensionUri)
+    .title('Query Result')
+    .script('script.js')
+    .toolbar(toolbarHtml)
+    .readonly()
+    .build();
 }

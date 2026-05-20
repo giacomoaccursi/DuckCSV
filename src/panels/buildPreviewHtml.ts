@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { buildHtmlShell } from './htmlBuilder';
+import { HtmlShellBuilder } from './HtmlShellBuilder';
 
 export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const toolbarHtml = /* html */ `
@@ -41,11 +41,11 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
       </div>
     </div>`;
 
-  return buildHtmlShell({
-    webview,
-    extensionUri,
-    title: 'CSV Preview',
-    scriptPath: 'script.js',
-    toolbarHtml,
-  });
+  return new HtmlShellBuilder(webview, extensionUri)
+    .title('CSV Preview')
+    .script('script.js')
+    .toolbar(toolbarHtml)
+    .queryBar()
+    .loading()
+    .build();
 }
