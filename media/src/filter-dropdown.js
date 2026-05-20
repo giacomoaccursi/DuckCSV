@@ -12,7 +12,6 @@ let activeDropdown = null;
 let activeColumnIndex = -1;
 let selectionSet = new Set();
 let allLoadedValues = [];
-let currentOffset = 0;
 let isLoadingMore = false;
 let hasMore = true;
 
@@ -21,11 +20,10 @@ export function openFilterDropdown(columnIndex, anchorEl) {
 
   activeColumnIndex = columnIndex;
   selectionSet = new Set(state.filters[columnIndex] || []);
-  currentOffset = 0;
   isLoadingMore = false;
   hasMore = true;
 
-  sendMessage({ type: 'getColumnValues', columnIndex, offset: 0 });
+  sendMessage({ type: 'getColumnValues', columnIndex });
 
   const dropdown = document.createElement('div');
   dropdown.className = 'filter-dropdown';
@@ -49,11 +47,10 @@ export function onColumnValuesReceived(data) {
   if (activeColumnIndex !== data.columnIndex) { return; }
 
   isLoadingMore = false;
-  const isAppend = (data.offset || 0) > 0;
 
   if (data.values.length < 100) { hasMore = false; }
 
-  if (isAppend) {
+  if (data.isAppend) {
     // Append to existing list
     allLoadedValues = allLoadedValues.concat(data.values);
     const list = activeDropdown.querySelector('.filter-values-list');
@@ -70,7 +67,6 @@ export function onColumnValuesReceived(data) {
 
   // First load: render the full content
   allLoadedValues = data.values;
-  currentOffset = data.values.length;
   renderContent(data.columnIndex, data.values);
 }
 
@@ -178,13 +174,15 @@ function renderContent(columnIndex, values) {
 
   renderList(values);
 
-  // Lazy load on scroll
+  // Lazy load on scroll (cursor-based: uses last value instead of offset)
   list.addEventListener('scroll', () => {
     if (isLoadingMore || !hasMore) { return; }
     if (list.scrollTop + list.clientHeight >= list.scrollHeight - 20) {
       isLoadingMore = true;
-      currentOffset += 100;
-      sendMessage({ type: 'getColumnValues', columnIndex, offset: currentOffset });
+      const lastValue = allLoadedValues[allLoadedValues.length - 1];
+      if (lastValue !== undefined) {
+        sendMessage({ type: 'getColumnValues', columnIndex, afterValue: lastValue });
+      }
     }
   });
 

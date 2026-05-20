@@ -200,7 +200,7 @@ export class TableManager {
     };
   }
 
-  async getUniqueValues(tableName: string, columnIndex: number, filters: ColumnFilters = {}, searchTerm: string = '', offset: number = 0): Promise<string[]> {
+  async getUniqueValues(tableName: string, columnIndex: number, filters: ColumnFilters = {}, searchTerm: string = '', afterValue?: string): Promise<string[]> {
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     if (columnIndex < 0 || columnIndex >= headers.length) { return []; }
@@ -215,10 +215,20 @@ export class TableManager {
     }
     const baseWhere = SqlBuilder.buildWhere(otherFilters, searchTerm, headers);
     const notNull = `${colName} IS NOT NULL`;
-    const whereStr = baseWhere ? `${baseWhere} AND ${notNull}` : `WHERE ${notNull}`;
+    const conditions = [notNull];
+
+    // Cursor-based pagination: fetch values after the last loaded value
+    if (afterValue !== undefined) {
+      const escaped = afterValue.replace(/'/g, "''");
+      conditions.push(`CAST(${colName} AS VARCHAR) > '${escaped}'`);
+    }
+
+    const whereStr = baseWhere
+      ? `${baseWhere} AND ${conditions.join(' AND ')}`
+      : `WHERE ${conditions.join(' AND ')}`;
 
     const result = await this.engine.query(
-      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 100 OFFSET ${offset}`
+      `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY val LIMIT 100`
     );
     return result.rows.map(row => row[0]).filter(v => v !== '');
   }
