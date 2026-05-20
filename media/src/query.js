@@ -3,9 +3,9 @@
  */
 
 import { dom } from './dom.js';
-import { state, SQL_KEYWORDS } from './state.js';
+import { state } from './state.js';
 import { sendMessage } from './messaging.js';
-import { toggle } from './utils.js';
+import { getCompletions as getCompletionsEngine, buildSchema } from './sql-autocomplete.js';
 import {
   isQueryActive as _isQueryActive,
   isQueryRunning as _isQueryRunning,
@@ -129,63 +129,8 @@ export function handleAutocompleteKeydown(e) {
 }
 
 function getCompletions(inputEl) {
-  const value = inputEl.value;
-  const cursorPos = inputEl.selectionStart;
-  const textBeforeCursor = value.slice(0, cursorPos);
-
-  const wordMatch = textBeforeCursor.match(/[\w.]+$/);
-  if (!wordMatch) { return { word: '', items: [] }; }
-
-  const word = wordMatch[0];
-  if (word.length < 1) { return { word: '', items: [] }; }
-
-  const lower = word.toLowerCase();
-
-  // Detect context: what keyword precedes the current word?
-  const beforeWord = textBeforeCursor.slice(0, textBeforeCursor.length - word.length).trimEnd().toUpperCase();
-  const isAfterFrom = /\b(FROM|JOIN|INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|CROSS\s+JOIN)\s*$/i.test(beforeWord);
-
-  const tableNames = state.tableNames || [];
-  const columnNames = state.originalHeaders
-    .filter(h => h && !tableNames.includes(h))
-    .map(h => /[^a-zA-Z0-9_.]/.test(h) ? `"${h}"` : h);
-
-  // If word contains a dot → suggest columns for that table
-  if (word.includes('.')) {
-    const prefix = word.split('.')[0].toLowerCase();
-    const matchedTable = tableNames.find(t => t.toLowerCase() === prefix)
-      || tableNames.find(t => t.toLowerCase().startsWith(prefix));
-    if (matchedTable) {
-      const tableColumns = state.originalHeaders
-        .filter(h => h && h.startsWith(matchedTable + '.'))
-        .map(h => {
-          const col = h.slice(matchedTable.length + 1);
-          const userPrefix = word.split('.')[0];
-          const qualified = `${userPrefix}.${col}`;
-          return /[^a-zA-Z0-9_.]/.test(col) ? `${userPrefix}."${col}"` : qualified;
-        });
-      const dotMatches = tableColumns.filter(item =>
-        item.toLowerCase().startsWith(lower) && item.toLowerCase() !== lower
-      );
-      return { word, items: [...new Set(dotMatches)].slice(0, 10) };
-    }
-  }
-
-  // After FROM/JOIN → suggest only table names
-  if (isAfterFrom) {
-    const tableMatches = tableNames
-      .map(t => /[^a-zA-Z0-9_]/.test(t) ? `"${t}"` : t)
-      .filter(t => t.toLowerCase().startsWith(lower) && t.toLowerCase() !== lower);
-    return { word, items: [...new Set(tableMatches)].slice(0, 10) };
-  }
-
-  // Default: keywords + columns + table names
-  const allItems = SQL_KEYWORDS.concat(columnNames).concat(tableNames);
-  const matches = allItems.filter(item =>
-    item.toLowerCase().startsWith(lower) && item.toLowerCase() !== lower
-  );
-
-  return { word, items: [...new Set(matches)].slice(0, 10) };
+  const schema = buildSchema(state);
+  return getCompletionsEngine(inputEl.value, inputEl.selectionStart, schema);
 }
 
 function renderItems() {
