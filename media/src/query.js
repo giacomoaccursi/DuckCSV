@@ -141,43 +141,51 @@ function getCompletions(inputEl) {
 
   const lower = word.toLowerCase();
 
+  // Detect context: what keyword precedes the current word?
+  const beforeWord = textBeforeCursor.slice(0, textBeforeCursor.length - word.length).trimEnd().toUpperCase();
+  const isAfterFrom = /\b(FROM|JOIN|INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|CROSS\s+JOIN)\s*$/i.test(beforeWord);
+
+  const tableNames = state.tableNames || [];
   const columnNames = state.originalHeaders
-    .filter(h => h)
+    .filter(h => h && !tableNames.includes(h))
     .map(h => /[^a-zA-Z0-9_.]/.test(h) ? `"${h}"` : h);
 
-  // If word contains a dot, also try matching table.column patterns
-  // and suggest columns for that table prefix
-  let dotCompletions = [];
+  // If word contains a dot → suggest columns for that table
   if (word.includes('.')) {
     const prefix = word.split('.')[0].toLowerCase();
-    const tableNames = state.tableNames || [];
-    // Find table matching the prefix (exact or starts with)
     const matchedTable = tableNames.find(t => t.toLowerCase() === prefix)
       || tableNames.find(t => t.toLowerCase().startsWith(prefix));
     if (matchedTable) {
-      // Get columns for this table from originalHeaders
       const tableColumns = state.originalHeaders
         .filter(h => h && h.startsWith(matchedTable + '.'))
         .map(h => {
           const col = h.slice(matchedTable.length + 1);
-          // Use the user's prefix (might be alias) instead of full table name
           const userPrefix = word.split('.')[0];
           const qualified = `${userPrefix}.${col}`;
           return /[^a-zA-Z0-9_.]/.test(col) ? `${userPrefix}."${col}"` : qualified;
         });
-      dotCompletions = tableColumns.filter(item =>
+      const dotMatches = tableColumns.filter(item =>
         item.toLowerCase().startsWith(lower) && item.toLowerCase() !== lower
       );
+      return { word, items: [...new Set(dotMatches)].slice(0, 10) };
     }
   }
 
-  const allItems = SQL_KEYWORDS.concat(columnNames);
+  // After FROM/JOIN → suggest only table names
+  if (isAfterFrom) {
+    const tableMatches = tableNames
+      .map(t => /[^a-zA-Z0-9_]/.test(t) ? `"${t}"` : t)
+      .filter(t => t.toLowerCase().startsWith(lower) && t.toLowerCase() !== lower);
+    return { word, items: [...new Set(tableMatches)].slice(0, 10) };
+  }
+
+  // Default: keywords + columns + table names
+  const allItems = SQL_KEYWORDS.concat(columnNames).concat(tableNames);
   const matches = allItems.filter(item =>
     item.toLowerCase().startsWith(lower) && item.toLowerCase() !== lower
   );
 
-  const combined = dotCompletions.length > 0 ? dotCompletions : matches;
-  return { word, items: [...new Set(combined)].slice(0, 10) };
+  return { word, items: [...new Set(matches)].slice(0, 10) };
 }
 
 function renderItems() {
