@@ -11,7 +11,7 @@
 
 import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
-import { QueryExecutor } from '../services/QueryExecutor';
+import { DuckDbEngine } from '../services/DuckDbEngine';
 import { InlineQueryManager } from '../services/InlineQueryManager';
 import { ViewState } from '../shared/ViewState';
 import { BLOCK_SIZE } from '../shared/constants';
@@ -24,7 +24,7 @@ export abstract class BasePanel {
   protected readonly panel: vscode.WebviewPanel;
   protected readonly extensionUri: vscode.Uri;
   protected readonly tableManager: TableManager;
-  protected readonly queryExecutor: QueryExecutor;
+  protected readonly engine: DuckDbEngine;
   protected readonly disposables: vscode.Disposable[] = [];
   protected readonly viewState = new ViewState();
   protected readonly inlineQuery: InlineQueryManager;
@@ -37,14 +37,14 @@ export abstract class BasePanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     tableManager: TableManager,
-    queryExecutor: QueryExecutor,
+    engine: DuckDbEngine,
     html: string
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.tableManager = tableManager;
-    this.queryExecutor = queryExecutor;
-    this.inlineQuery = new InlineQueryManager(queryExecutor.getEngine(), tableManager);
+    this.engine = engine;
+    this.inlineQuery = new InlineQueryManager(engine, tableManager);
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(
@@ -188,7 +188,7 @@ export abstract class BasePanel {
       const meta = this.tableManager.getTableMeta(tableName || '');
       const sourceFileName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
       await QueryResultPanel.open(
-        this.extensionUri, this.queryExecutor.getEngine(), this.queryExecutor, sql, sourceFileName
+        this.extensionUri, this.engine, sql, sourceFileName
       );
       return;
     }
@@ -214,7 +214,7 @@ export abstract class BasePanel {
       if (!uri) { return; }
       try {
         const { TableExporter } = await import('../services/TableExporter');
-        const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+        const exporter = new TableExporter(this.engine, this.tableManager);
         await exporter.exportAuto(inlineTable, uri.fsPath);
         vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
       } catch (error: unknown) {

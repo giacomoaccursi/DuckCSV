@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
-import { QueryExecutor } from '../services/QueryExecutor';
+import { DuckDbEngine } from '../services/DuckDbEngine';
 import { Services } from '../services/Services';
 import { WebviewMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
@@ -37,7 +37,7 @@ export class CsvWorkspacePanel extends BasePanel {
     );
 
     const tableManager = new TableManager(services.engine);
-    new CsvWorkspacePanel(panel, extensionUri, tableManager, services.queryExecutor, initialUri);
+    new CsvWorkspacePanel(panel, extensionUri, tableManager, services.engine, initialUri);
   }
 
   // ─── Constructor ─────────────────────────────────────────────────────────
@@ -46,10 +46,10 @@ export class CsvWorkspacePanel extends BasePanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     tableManager: TableManager,
-    queryExecutor: QueryExecutor,
+    engine: DuckDbEngine,
     initialUri?: vscode.Uri
   ) {
-    super(panel, extensionUri, tableManager, queryExecutor, buildWorkspaceHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, engine, buildWorkspaceHtml(panel.webview, extensionUri));
     if (initialUri) { this.pendingInitialUri = initialUri; }
   }
 
@@ -103,7 +103,7 @@ export class CsvWorkspacePanel extends BasePanel {
         return true;
 
       case 'cancelQuery':
-        this.queryExecutor.cancel();
+        this.engine.cancel();
         this.clearInlineQuery();
         if (this.activeTable) {
           this.postMessage({ type: 'loading', loading: true });

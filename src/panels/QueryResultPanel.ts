@@ -7,7 +7,6 @@
 import * as vscode from 'vscode';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
-import { QueryExecutor } from '../services/QueryExecutor';
 import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { BasePanel } from './BasePanel';
@@ -24,7 +23,6 @@ export class QueryResultPanel extends BasePanel {
   static async open(
     extensionUri: vscode.Uri,
     engine: DuckDbEngine,
-    queryExecutor: QueryExecutor,
     sql: string,
     sourceFileName?: string
   ): Promise<void> {
@@ -73,20 +71,20 @@ export class QueryResultPanel extends BasePanel {
       rowCount: totalRows,
     });
 
-    new QueryResultPanel(panel, extensionUri, tableManager, queryExecutor, tableName, sql, totalRows, sourceFileName || 'query');
+    new QueryResultPanel(panel, extensionUri, tableManager, engine, tableName, sql, totalRows, sourceFileName || 'query');
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     tableManager: TableManager,
-    queryExecutor: QueryExecutor,
+    engine: DuckDbEngine,
     tableName: string,
     sql: string,
     totalRows: number,
     sourceFileName: string
   ) {
-    super(panel, extensionUri, tableManager, queryExecutor, buildQueryResultHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, engine, buildQueryResultHtml(panel.webview, extensionUri));
     this.tableName = tableName;
     this.sql = sql;
     this.totalRows = totalRows;
@@ -144,7 +142,7 @@ export class QueryResultPanel extends BasePanel {
 
     try {
       const { TableExporter } = await import('../services/TableExporter');
-      const exporter = new TableExporter(this.queryExecutor.getEngine(), this.tableManager);
+      const exporter = new TableExporter(this.engine, this.tableManager);
       await exporter.exportAuto(this.tableName, uri.fsPath);
       vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`);
     } catch (error: unknown) {
