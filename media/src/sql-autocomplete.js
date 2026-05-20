@@ -46,30 +46,30 @@ function detectContext(textBefore) {
   const trimmed = textBefore.trimEnd().toUpperCase();
 
   // After AS → user is defining an alias, don't suggest
-  if (/\bAS\s*$/i.test(trimmed)) { return 'none'; }
+  if (/\bAS$/i.test(trimmed)) { return 'none'; }
 
   // After FROM, JOIN variants → suggest tables
-  if (/\b(FROM|JOIN|INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|CROSS\s+JOIN|LEFT\s+OUTER\s+JOIN|RIGHT\s+OUTER\s+JOIN)\s*$/i.test(trimmed)) {
+  if (/\b(FROM|JOIN|INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|CROSS\s+JOIN|LEFT\s+OUTER\s+JOIN|RIGHT\s+OUTER\s+JOIN)$/i.test(trimmed)) {
     return 'tables';
   }
 
   // After ON → suggest qualified columns (table.col)
-  if (/\bON\s*$/i.test(trimmed)) { return 'columns_qualified'; }
+  if (/\bON$/i.test(trimmed)) { return 'columns_qualified'; }
 
   // After WHERE, AND, OR, HAVING → suggest columns
-  if (/\b(WHERE|AND|OR|HAVING|SET)\s*$/i.test(trimmed)) { return 'columns'; }
+  if (/\b(WHERE|AND|OR|HAVING|SET)$/i.test(trimmed)) { return 'columns'; }
 
   // After ORDER BY, GROUP BY → suggest columns
-  if (/\b(ORDER\s+BY|GROUP\s+BY)\s*$/i.test(trimmed)) { return 'columns'; }
+  if (/\b(ORDER\s+BY|GROUP\s+BY)$/i.test(trimmed)) { return 'columns'; }
 
   // After SELECT → suggest columns, *, functions, DISTINCT
-  if (/\bSELECT\s*$/i.test(trimmed) || /,\s*$/i.test(trimmed)) { return 'functions'; }
+  if (/\bSELECT$/i.test(trimmed) || /,$/i.test(trimmed)) { return 'functions'; }
 
   // After comparison operators → suggest values/columns
-  if (/[=<>!]+\s*$/i.test(trimmed)) { return 'columns'; }
+  if (/[=<>!]+$/i.test(trimmed)) { return 'columns'; }
 
   // Empty or start of statement
-  if (!trimmed || /;\s*$/i.test(trimmed)) { return 'keywords_top'; }
+  if (!trimmed || /;$/i.test(trimmed)) { return 'keywords_top'; }
 
   return 'all';
 }
