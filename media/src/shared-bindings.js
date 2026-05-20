@@ -4,16 +4,17 @@
  */
 
 const DEBOUNCE_MS = 300;
-let isSorting = false;
 let sortingTimeout = null;
 
+import { isSortingActive, setSorting } from './app-state.js';
+
 export function clearSortingLock() {
-  isSorting = false;
+  setSorting(false);
   if (sortingTimeout) { clearTimeout(sortingTimeout); sortingTimeout = null; }
 }
 
 /** Exposed for testing only. */
-export function isSortingLocked() { return isSorting; }
+export function isSortingLocked() { return isSortingActive(); }
 
 /**
  * Bind the search input with debounced messaging.
@@ -124,7 +125,7 @@ export function bindHeaderInteractions(
     const sortIndicator = e.target.closest('.sort-indicator');
     if (!sortIndicator) { return; }
 
-    if (isSorting) { return; }
+    if (isSortingActive()) { return; }
 
     const th = e.target.closest('th.sortable-header');
     if (!th) { return; }
@@ -138,8 +139,8 @@ export function bindHeaderInteractions(
       else if (state.sort.direction === 'desc') { newDirection = 'none'; }
     }
 
-    isSorting = true;
-    sortingTimeout = setTimeout(() => { isSorting = false; sortingTimeout = null; }, 10000);
+    setSorting(true);
+    sortingTimeout = setTimeout(() => { setSorting(false); sortingTimeout = null; }, 10000);
     sendMessage({ type: 'sort', columnIndex: colIdx, direction: newDirection });
   });
 
