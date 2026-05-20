@@ -10,9 +10,11 @@ import { updateStats, showTable } from './ui.js';
 import { resetQueryState, setQueryActive } from './query.js';
 import { clearSortingLock } from './shared-bindings.js';
 import { createDataWindow } from './data-window.js';
+import { isRowDataSource } from './row-data-source.js';
 import { sendMessage } from './messaging.js';
 import { BLOCK_SIZE, MAX_BLOCKS, PREFETCH_THRESHOLD } from './constants.js';
 
+/** @type {import('./row-data-source.js').IRowDataSource|null} */
 let dataWindow = null;
 
 export function getDataWindow() { return dataWindow; }
@@ -89,6 +91,11 @@ export function applyDataPage(data, { setOriginalHeaders = false, trackDirty = t
       emit('data:ready');
     },
   });
+
+  // Validate DataWindow implements IRowDataSource contract
+  if (!isRowDataSource(dataWindow)) {
+    throw new Error('DataWindow does not implement IRowDataSource');
+  }
 
   // Seed with the initial rows from the dataPage
   if (data.rows && data.rows.length > 0) {
