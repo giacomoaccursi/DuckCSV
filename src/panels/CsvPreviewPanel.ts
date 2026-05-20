@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { basename } from 'path';
 import { TableExporter } from '../services/TableExporter';
 import { Services } from '../services/Services';
+import { defaultSidePanelOpener } from './SidePanelOpener';
 import { CommandHistory, EditCellCommand, InsertRowCommand, DeleteRowCommand } from '../services/CommandHistory';
 import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
@@ -69,7 +70,7 @@ export class CsvPreviewPanel extends BasePanel {
     services: Services,
     uri: vscode.Uri
   ) {
-    super(panel, extensionUri, services.tableManager, services.engine, buildPreviewHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, services.tableManager, services.engine, defaultSidePanelOpener, buildPreviewHtml(panel.webview, extensionUri));
     this.tableExporter = services.tableExporter;
     this.currentUri = uri;
     this.historyService = services.queryHistory;

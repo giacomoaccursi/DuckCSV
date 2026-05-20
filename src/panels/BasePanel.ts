@@ -14,7 +14,7 @@ import { TableManager } from '../services/TableManager';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableExporter } from '../services/TableExporter';
 import { InlineQueryManager } from '../services/InlineQueryManager';
-import { QueryResultPanel } from './QueryResultPanel';
+import { ISidePanelOpener } from './SidePanelOpener';
 import { ViewState } from '../shared/ViewState';
 import { BLOCK_SIZE } from '../shared/constants';
 import { pickFormatAndSave } from '../shared/formatPicker';
@@ -27,6 +27,7 @@ export abstract class BasePanel {
   protected readonly extensionUri: vscode.Uri;
   protected readonly tableManager: TableManager;
   protected readonly engine: DuckDbEngine;
+  protected readonly sidePanelOpener: ISidePanelOpener;
   protected readonly disposables: vscode.Disposable[] = [];
   protected readonly viewState = new ViewState();
   protected readonly inlineQuery: InlineQueryManager;
@@ -40,12 +41,14 @@ export abstract class BasePanel {
     extensionUri: vscode.Uri,
     tableManager: TableManager,
     engine: DuckDbEngine,
+    sidePanelOpener: ISidePanelOpener,
     html: string
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.tableManager = tableManager;
     this.engine = engine;
+    this.sidePanelOpener = sidePanelOpener;
     this.inlineQuery = new InlineQueryManager(engine, tableManager);
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -208,9 +211,7 @@ export abstract class BasePanel {
     if (mode === 'side') {
       const meta = this.tableManager.getTableMeta(tableName || '');
       const sourceFileName = meta?.filePath ? meta.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : 'query';
-      await QueryResultPanel.open(
-        this.extensionUri, this.engine, sql, sourceFileName
-      );
+      await this.sidePanelOpener.open(this.extensionUri, this.engine, sql, sourceFileName);
       return;
     }
 

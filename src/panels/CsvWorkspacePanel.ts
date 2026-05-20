@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { TableManager } from '../services/TableManager';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { Services } from '../services/Services';
+import { defaultSidePanelOpener } from './SidePanelOpener';
 import { WebviewMessage, DataPagePayload, TableInfo } from '../types';
 import { buildWorkspaceHtml } from './buildWorkspaceHtml';
 import { BasePanel } from './BasePanel';
@@ -49,7 +50,7 @@ export class CsvWorkspacePanel extends BasePanel {
     engine: DuckDbEngine,
     initialUri?: vscode.Uri
   ) {
-    super(panel, extensionUri, tableManager, engine, buildWorkspaceHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, engine, defaultSidePanelOpener, buildWorkspaceHtml(panel.webview, extensionUri));
     if (initialUri) { this.pendingInitialUri = initialUri; }
   }
 

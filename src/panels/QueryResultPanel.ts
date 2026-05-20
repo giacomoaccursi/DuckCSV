@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { DuckDbEngine } from '../services/DuckDbEngine';
 import { TableManager } from '../services/TableManager';
 import { TableExporter } from '../services/TableExporter';
+import { defaultSidePanelOpener } from './SidePanelOpener';
 import { pickFormatAndSave } from '../shared/formatPicker';
 import { WebviewMessage, DataPagePayload } from '../types';
 import { BasePanel } from './BasePanel';
@@ -85,7 +86,7 @@ export class QueryResultPanel extends BasePanel {
     totalRows: number,
     sourceFileName: string
   ) {
-    super(panel, extensionUri, tableManager, engine, buildQueryResultHtml(panel.webview, extensionUri));
+    super(panel, extensionUri, tableManager, engine, defaultSidePanelOpener, buildQueryResultHtml(panel.webview, extensionUri));
     this.tableName = tableName;
     this.sql = sql;
     this.totalRows = totalRows;
