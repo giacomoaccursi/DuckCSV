@@ -86,13 +86,13 @@ export type ExtensionMessage =
   | { type: 'loading'; loading: boolean; message?: string }
   | { type: 'saving'; saving: boolean }
   | { type: 'saved' }
-  | { type: 'tableList'; tables: TableInfo[] };
+  | { type: 'tableList'; tables: TableInfo[] }
+  | { type: 'queryHistory'; history: string[] };
 
 // ─── Messages: Webview → Extension ──────────────────────────────────────────
 
 export type WebviewMessage =
   | { type: 'ready' }
-  | { type: 'refresh' }
   | { type: 'sort'; columnIndex: number; direction: SortDirection }
   | { type: 'search'; term: string }
   | { type: 'getColumnValues'; columnIndex: number; afterValue?: string }
@@ -108,7 +108,6 @@ export type WebviewMessage =
   | { type: 'cancelQuery' }
   | { type: 'clearQuery' }
   | { type: 'copyToClipboard'; text: string }
-  | { type: 'openAsText' }
   | { type: 'openWorkspace' }
   | { type: 'save' }
   | { type: 'saveAs' }

@@ -296,7 +296,7 @@ export abstract class BasePanel {
   protected sendHistory(): void {
     if (this.historyService && this.historyKey) {
       const history = this.historyService.getHistory(this.historyKey);
-      this.postMessage({ type: 'queryHistory', history } as any);
+      this.postMessage({ type: 'queryHistory', history });
     }
   }
 
