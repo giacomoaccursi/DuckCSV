@@ -26,6 +26,7 @@ import { bindSelectionAndTooltip } from './shared/bind-selection.js';
 import { buildContextMenuItems } from './ui/context-menu.js';
 import { bindSqlHighlight } from './query/sql-highlight.js';
 import { bindAutoPairs } from './query/auto-pairs.js';
+import { bindShortcutsButton } from './ui/shortcuts-overlay.js';
 import { on } from './core/event-bus.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
@@ -198,6 +199,7 @@ window.addEventListener('message', (event) => handleExtensionMessage(event.data)
 bindEvents();
 bindSqlHighlight(document.getElementById('queryInput'), document.getElementById('queryHighlight'));
 bindAutoPairs(document.getElementById('queryInput'));
+bindShortcutsButton();
 setAfterCommit((row, col) => selectCell(row, col));
 showLoading();
 sendMessage({ type: 'ready' });

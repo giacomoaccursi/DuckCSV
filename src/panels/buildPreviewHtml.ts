@@ -37,6 +37,9 @@ export function buildPreviewHtml(webview: vscode.Webview, extensionUri: vscode.U
         <button id="openWorkspaceBtn" class="btn btn-text" data-tooltip="Open this file in a multi-table workspace">Workspace</button>
       </div>
       <div class="toolbar-right">
+        <button id="shortcutsBtn" class="btn btn-icon" data-tooltip="Keyboard shortcuts">
+          <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="4" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="6" width="2" height="2" rx="0.3" fill="currentColor"/><rect x="6" y="6" width="2" height="2" rx="0.3" fill="currentColor"/><rect x="9" y="6" width="2" height="2" rx="0.3" fill="currentColor"/><rect x="4" y="9.5" width="7" height="1.5" rx="0.3" fill="currentColor"/></svg>
+        </button>
         <span id="stats" class="stats"></span>
       </div>
     </div>`;

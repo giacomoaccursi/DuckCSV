@@ -1080,3 +1080,62 @@ body.selecting {
     opacity: 0.5;
     font-style: italic;
 }
+
+/* Shortcuts Overlay */
+.shortcuts-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2000;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 20px 24px;
+    min-width: 300px;
+}
+
+.shortcuts-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--fg-primary);
+}
+
+.shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shortcuts-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.shortcuts-keys {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+    background-color: var(--vscode-input-background);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    padding: 2px 6px;
+    white-space: nowrap;
+}
+
+.shortcuts-desc {
+    font-size: 12px;
+    color: var(--fg-secondary);
+}
+
+.btn-icon {
+    padding: 4px 6px;
+    opacity: 0.7;
+}
+
+.btn-icon:hover {
+    opacity: 1;
+}
