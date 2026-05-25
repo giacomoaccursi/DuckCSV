@@ -21,6 +21,7 @@ import { pickFormatAndSave } from '../shared/formatPicker';
 import { exportQueryResultToFile } from '../shared/exportQueryResult';
 import { WebviewMessage, ExtensionMessage, DataPagePayload } from '../types';
 import { QueryHistoryService } from '../services/QueryHistoryService';
+import { ColumnProfilePanel } from './ColumnProfilePanel';
 
 export abstract class BasePanel {
   protected readonly panel: vscode.WebviewPanel;
@@ -126,6 +127,9 @@ export abstract class BasePanel {
 
       case 'fetchPage':
         return this.handleFetchPage(message.requestId, message.offset, message.limit);
+
+      case 'profileColumn':
+        return this.handleProfileColumn(message.columnIndex);
 
       default:
         return;
@@ -276,6 +280,18 @@ export abstract class BasePanel {
         rows: result.rows,
         rowids: result.rowids,
       });
+    } catch (error: unknown) {
+      this.postError(error);
+    }
+  }
+
+  protected async handleProfileColumn(columnIndex: number): Promise<void> {
+    const tableName = this.getEffectiveTable();
+    if (!tableName) { return; }
+
+    try {
+      const profile = await this.tableManager.getColumnProfile(tableName, columnIndex);
+      ColumnProfilePanel.open(this.extensionUri, profile);
     } catch (error: unknown) {
       this.postError(error);
     }
