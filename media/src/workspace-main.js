@@ -27,7 +27,7 @@ import { bindSqlHighlight } from './query/sql-highlight.js';
 import { bindAutoPairs } from './query/auto-pairs.js';
 import { on } from './core/event-bus.js';
 import { renderHeader, renderRows, getScroller } from './ui/renderer.js';
-import { initSelectionStats, updateSelectionStats } from './ui/selection-stats.js';
+import { initSelectionStats, updateSelectionStats, onSelectionStatsResult } from './ui/selection-stats.js';
 
 let activeTableName = '';
 
@@ -46,6 +46,7 @@ function handleExtensionMessage(message) {
     case 'error': showError(message.message); clearSortingLock(); break;
     case 'queryError': setQueryRunning(false); showQueryError(message.message); break;
     case 'queryHistory': initHistory(message.history); break;
+    case 'selectionStatsResult': onSelectionStatsResult(message.data); break;
   }
 }
 

@@ -92,6 +92,15 @@ export interface RowMutationPayload {
   filteredRows: number;
 }
 
+export interface SelectionStatsPayload {
+  count: number;
+  sum?: number;
+  avg?: number;
+  min?: number;
+  max?: number;
+  hasNumeric: boolean;
+}
+
 // ─── Messages: Extension → Webview ──────────────────────────────────────────
 
 export type ExtensionMessage =
@@ -107,7 +116,8 @@ export type ExtensionMessage =
   | { type: 'saving'; saving: boolean }
   | { type: 'saved' }
   | { type: 'tableList'; tables: TableInfo[] }
-  | { type: 'queryHistory'; history: string[] };
+  | { type: 'queryHistory'; history: string[] }
+  | { type: 'selectionStatsResult'; data: SelectionStatsPayload };
 
 // ─── Messages: Webview → Extension ──────────────────────────────────────────
 
@@ -138,4 +148,5 @@ export type WebviewMessage =
   | { type: 'switchTable'; tableName: string }
   | { type: 'fetchPage'; requestId: number; offset: number; limit: number }
   | { type: 'saveHistory'; history: string[] }
-  | { type: 'profileColumn'; columnIndex: number };
+  | { type: 'profileColumn'; columnIndex: number }
+  | { type: 'selectionStats'; columns: number[]; startRow: number; endRow: number };

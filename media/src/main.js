@@ -28,7 +28,7 @@ import { bindSqlHighlight } from './query/sql-highlight.js';
 import { bindAutoPairs } from './query/auto-pairs.js';
 import { bindShortcutsButton } from './ui/shortcuts-overlay.js';
 import { on } from './core/event-bus.js';
-import { initSelectionStats, updateSelectionStats } from './ui/selection-stats.js';
+import { initSelectionStats, updateSelectionStats, onSelectionStatsResult } from './ui/selection-stats.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -58,6 +58,7 @@ function handleExtensionMessage(message) {
       if (qi) { qi.focus(); }
       break;
     case 'queryHistory': initHistory(message.history); break;
+    case 'selectionStatsResult': onSelectionStatsResult(message.data); break;
   }
 }
 

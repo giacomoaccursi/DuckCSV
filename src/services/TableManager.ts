@@ -13,7 +13,7 @@
 
 import { IQueryEngine } from './IQueryEngine';
 import { SqlBuilder } from './SqlBuilder';
-import { SortState, ColumnFilters, ColumnProfile } from '../types';
+import { SortState, ColumnFilters, ColumnProfile, SelectionStatsPayload } from '../types';
 import * as vscode from 'vscode';
 import { basename, extname } from 'path';
 import { open } from 'fs/promises';
@@ -403,6 +403,97 @@ export class TableManager {
   private formatNumber(n: number): string {
     if (Number.isInteger(n)) { return String(n); }
     return n.toFixed(1);
+  }
+
+  // ─── Selection Stats ─────────────────────────────────────────────────────
+
+  async getSelectionStats(
+    tableName: string,
+    columns: number[],
+    startRow: number,
+    endRow: number,
+    filters: ColumnFilters,
+    sort: SortState,
+    searchTerm: string
+  ): Promise<SelectionStatsPayload> {
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
+
+    const rowCount = endRow - startRow + 1;
+    const colCount = columns.length;
+    const count = rowCount * colCount;
+
+    // Find numeric columns in the selection
+    const numericCols = columns.filter(c => c >= 0 && c < types.length && this.isNumericType(types[c]));
+
+    if (numericCols.length === 0) {
+      return { count, hasNumeric: false };
+    }
+
+    // Build a subquery that selects only the rows in the positional range
+    const whereStr = SqlBuilder.buildWhere(filters, searchTerm, headers);
+    const orderClause = SqlBuilder.buildOrderBy(sort, headers);
+
+    // Use a CTE with ROW_NUMBER to get positional access
+    const allCols = numericCols.map(c => this.q(headers[c]));
+    const selectCols = allCols.join(', ');
+
+    // Build aggregate expressions for all numeric columns combined
+    // We compute stats across all selected numeric columns by unpivoting
+    const aggParts: string[] = [];
+    for (const col of numericCols) {
+      const colQ = this.q(headers[col]);
+      aggParts.push(`SUM(${colQ})`);
+      aggParts.push(`MIN(${colQ})`);
+      aggParts.push(`MAX(${colQ})`);
+      aggParts.push(`COUNT(${colQ})`);
+    }
+
+    // Query: get the rows in the positional range, then aggregate
+    const sql = `WITH ranked AS (
+      SELECT ${selectCols}, ROW_NUMBER() OVER(${orderClause || ''}) - 1 as __rn
+      FROM ${this.q(tableName)} ${whereStr}
+    )
+    SELECT ${aggParts.join(', ')}
+    FROM ranked
+    WHERE __rn >= ${startRow} AND __rn <= ${endRow}`;
+
+    const result = await this.engine.query(sql);
+    if (result.rows.length === 0) {
+      return { count, hasNumeric: true };
+    }
+
+    const row = result.rows[0];
+    // Parse results: for each numeric column we have SUM, MIN, MAX, COUNT (4 values)
+    let totalSum = 0;
+    let totalMin = Infinity;
+    let totalMax = -Infinity;
+    let totalNonNull = 0;
+
+    for (let i = 0; i < numericCols.length; i++) {
+      const base = i * 4;
+      const sum = Number(row[base]);
+      const min = Number(row[base + 1]);
+      const max = Number(row[base + 2]);
+      const cnt = Number(row[base + 3]);
+
+      if (!isNaN(sum)) { totalSum += sum; }
+      if (!isNaN(min) && min < totalMin) { totalMin = min; }
+      if (!isNaN(max) && max > totalMax) { totalMax = max; }
+      if (!isNaN(cnt)) { totalNonNull += cnt; }
+    }
+
+    const avg = totalNonNull > 0 ? totalSum / totalNonNull : undefined;
+
+    return {
+      count,
+      sum: isFinite(totalSum) ? totalSum : undefined,
+      avg,
+      min: isFinite(totalMin) ? totalMin : undefined,
+      max: isFinite(totalMax) ? totalMax : undefined,
+      hasNumeric: true,
+    };
   }
 
   // ─── Mutations ───────────────────────────────────────────────────────────

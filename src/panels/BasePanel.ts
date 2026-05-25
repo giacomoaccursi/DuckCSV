@@ -131,6 +131,9 @@ export abstract class BasePanel {
       case 'profileColumn':
         return this.handleProfileColumn(message.columnIndex);
 
+      case 'selectionStats':
+        return this.handleSelectionStats(message.columns, message.startRow, message.endRow);
+
       default:
         return;
     }
@@ -294,6 +297,21 @@ export abstract class BasePanel {
       ColumnProfilePanel.open(this.extensionUri, profile);
     } catch (error: unknown) {
       this.postError(error);
+    }
+  }
+
+  protected async handleSelectionStats(columns: number[], startRow: number, endRow: number): Promise<void> {
+    const tableName = this.getEffectiveTable();
+    if (!tableName) { return; }
+
+    try {
+      const stats = await this.tableManager.getSelectionStats(
+        tableName, columns, startRow, endRow,
+        this.viewState.filters, this.viewState.sort, this.viewState.searchTerm
+      );
+      this.postMessage({ type: 'selectionStatsResult', data: stats });
+    } catch {
+      // Silently ignore — stats bar is non-critical
     }
   }
 

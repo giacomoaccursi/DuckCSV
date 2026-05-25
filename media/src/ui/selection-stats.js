@@ -1,18 +1,14 @@
 /**
  * Selection Stats Bar — shows count, sum, avg, min, max for selected cells.
- * Purely frontend calculation (no backend queries).
- * Only reads rows already in cache — never triggers backend fetches.
- * Debounced to avoid blocking during drag selection.
+ * All calculations are done backend-side via SQL queries.
+ * Debounced to avoid spamming the backend during drag selection.
  */
 
 import { getSelection } from './selection.js';
-import { getDataWindow } from '../data/data-page.js';
+import { sendMessage } from '../core/messaging.js';
 
 let statsBar = null;
 let debounceTimer = null;
-
-/** Max cells to process before bailing (avoids blocking on huge selections). */
-const MAX_CELLS = 50000;
 
 export function initSelectionStats() {
   statsBar = document.getElementById('selectionStats');
@@ -21,12 +17,50 @@ export function initSelectionStats() {
   }
 }
 
+/** Called on selection change — debounces and sends request to backend. */
 export function updateSelectionStats() {
   if (debounceTimer) { clearTimeout(debounceTimer); }
-  debounceTimer = setTimeout(computeStats, 80);
+  debounceTimer = setTimeout(requestStats, 150);
 }
 
-function computeStats() {
+/** Called when the backend responds with stats. */
+export function onSelectionStatsResult(data) {
+  if (!statsBar) { return; }
+
+  if (!data || data.count === 0) {
+    statsBar.classList.add('hidden');
+    return;
+  }
+
+  statsBar.classList.remove('hidden');
+
+  const countEl = statsBar.querySelector('[data-stat="count"]');
+  const sumEl = statsBar.querySelector('[data-stat="sum"]');
+  const avgEl = statsBar.querySelector('[data-stat="avg"]');
+  const minEl = statsBar.querySelector('[data-stat="min"]');
+  const maxEl = statsBar.querySelector('[data-stat="max"]');
+
+  if (countEl) { countEl.textContent = data.count.toLocaleString(); }
+
+  if (data.hasNumeric && data.sum !== undefined) {
+    if (sumEl) { sumEl.textContent = formatNumber(data.sum); }
+    if (avgEl) { avgEl.textContent = formatNumber(data.avg); }
+    if (minEl) { minEl.textContent = formatNumber(data.min); }
+    if (maxEl) { maxEl.textContent = formatNumber(data.max); }
+
+    if (sumEl) { sumEl.parentElement.classList.remove('hidden'); }
+    if (avgEl) { avgEl.parentElement.classList.remove('hidden'); }
+    if (minEl) { minEl.parentElement.classList.remove('hidden'); }
+    if (maxEl) { maxEl.parentElement.classList.remove('hidden'); }
+  } else {
+    if (sumEl) { sumEl.parentElement.classList.add('hidden'); }
+    if (avgEl) { avgEl.parentElement.classList.add('hidden'); }
+    if (minEl) { minEl.parentElement.classList.add('hidden'); }
+    if (maxEl) { maxEl.parentElement.classList.add('hidden'); }
+  }
+}
+
+function requestStats() {
   if (!statsBar) { return; }
 
   const selection = getSelection();
@@ -46,78 +80,13 @@ function computeStats() {
     return;
   }
 
-  const dw = getDataWindow();
-  if (!dw) {
-    statsBar.classList.add('hidden');
-    return;
+  // Build array of column indices
+  const columns = [];
+  for (let c = minCol; c <= maxCol; c++) {
+    columns.push(c);
   }
 
-  // Collect numeric values from selection — only from cached rows
-  const numericValues = [];
-  let totalCount = 0;
-  let cellsProcessed = 0;
-  const colSpan = maxCol - minCol + 1;
-
-  for (let r = minRow; r <= maxRow; r++) {
-    // Only read rows already in cache — don't trigger fetches
-    if (!dw.isLoaded(r)) { continue; }
-    const row = dw.getRow(r);
-    if (!row) { continue; }
-
-    for (let c = minCol; c <= maxCol; c++) {
-      totalCount++;
-      cellsProcessed++;
-      const cell = row[c];
-      if (cell !== null && cell !== undefined && cell !== '') {
-        const num = Number(cell);
-        if (!isNaN(num)) {
-          numericValues.push(num);
-        }
-      }
-    }
-
-    // Bail if we've processed too many cells
-    if (cellsProcessed >= MAX_CELLS) { break; }
-  }
-
-  if (totalCount === 0) {
-    statsBar.classList.add('hidden');
-    return;
-  }
-
-  statsBar.classList.remove('hidden');
-
-  const countEl = statsBar.querySelector('[data-stat="count"]');
-  const sumEl = statsBar.querySelector('[data-stat="sum"]');
-  const avgEl = statsBar.querySelector('[data-stat="avg"]');
-  const minEl = statsBar.querySelector('[data-stat="min"]');
-  const maxEl = statsBar.querySelector('[data-stat="max"]');
-
-  // For count, show the full selection size (not just cached)
-  const fullCount = (maxRow - minRow + 1) * colSpan;
-  if (countEl) { countEl.textContent = fullCount.toLocaleString(); }
-
-  if (numericValues.length > 0) {
-    const sum = numericValues.reduce((a, b) => a + b, 0);
-    const avg = sum / numericValues.length;
-    const min = Math.min(...numericValues);
-    const max = Math.max(...numericValues);
-
-    if (sumEl) { sumEl.textContent = formatNumber(sum); }
-    if (avgEl) { avgEl.textContent = formatNumber(avg); }
-    if (minEl) { minEl.textContent = formatNumber(min); }
-    if (maxEl) { maxEl.textContent = formatNumber(max); }
-
-    if (sumEl) { sumEl.parentElement.classList.remove('hidden'); }
-    if (avgEl) { avgEl.parentElement.classList.remove('hidden'); }
-    if (minEl) { minEl.parentElement.classList.remove('hidden'); }
-    if (maxEl) { maxEl.parentElement.classList.remove('hidden'); }
-  } else {
-    if (sumEl) { sumEl.parentElement.classList.add('hidden'); }
-    if (avgEl) { avgEl.parentElement.classList.add('hidden'); }
-    if (minEl) { minEl.parentElement.classList.add('hidden'); }
-    if (maxEl) { maxEl.parentElement.classList.add('hidden'); }
-  }
+  sendMessage({ type: 'selectionStats', columns, startRow: minRow, endRow: maxRow });
 }
 
 function createStatsBar() {
@@ -143,6 +112,7 @@ function createStatsBar() {
 }
 
 function formatNumber(n) {
+  if (n === undefined || n === null) { return '-'; }
   if (Number.isInteger(n)) { return n.toLocaleString(); }
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
