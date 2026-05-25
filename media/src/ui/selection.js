@@ -11,6 +11,7 @@
 import { dom } from '../core/dom.js';
 import { state } from '../core/state.js';
 import { sendMessage } from '../core/messaging.js';
+import { emit } from '../core/event-bus.js';
 import { getScroller } from './renderer.js';
 import { getDataWindow } from '../data/data-page.js';
 
@@ -71,6 +72,7 @@ export function clearSelection() {
   selection = null;
   selectionMode = 'none';
   removeHighlights();
+  emit('selection:changed');
 }
 
 export function selectCell(row, col) {
@@ -387,6 +389,8 @@ function applyHighlights() {
       if (td) { td.classList.add('selected'); }
     }
   }
+
+  emit('selection:changed');
 }
 
 function removeHighlights() {
