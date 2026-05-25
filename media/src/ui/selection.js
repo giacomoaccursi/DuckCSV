@@ -193,7 +193,6 @@ export function handleHeaderClickForSelection(colIdx, e) {
 
   // Drag to extend column selection
   const onMove = (ev) => {
-    startAutoScroll(ev);
     const selCell = ev.target.closest('.column-select-cell');
     if (!selCell) { return; }
     const newCol = parseInt(selCell.dataset.columnIndex, 10);
@@ -204,7 +203,6 @@ export function handleHeaderClickForSelection(colIdx, e) {
 
   const onUp = () => {
     isDragging = false;
-    stopAutoScroll();
     document.body.classList.remove('selecting');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
