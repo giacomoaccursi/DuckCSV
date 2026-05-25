@@ -74,19 +74,19 @@ function requestStats() {
   const minCol = Math.min(selection.startCol, selection.endCol);
   const maxCol = Math.max(selection.startCol, selection.endCol);
 
-  // Single cell — don't show stats
-  if (minRow === maxRow && minCol === maxCol) {
+  // Only show stats for single-column selections (multiple rows, one column)
+  if (minCol !== maxCol) {
     statsBar.classList.add('hidden');
     return;
   }
 
-  // Build array of column indices
-  const columns = [];
-  for (let c = minCol; c <= maxCol; c++) {
-    columns.push(c);
+  // Single cell — don't show stats
+  if (minRow === maxRow) {
+    statsBar.classList.add('hidden');
+    return;
   }
 
-  sendMessage({ type: 'selectionStats', columns, startRow: minRow, endRow: maxRow });
+  sendMessage({ type: 'selectionStats', columns: [minCol], startRow: minRow, endRow: maxRow });
 }
 
 function createStatsBar() {
