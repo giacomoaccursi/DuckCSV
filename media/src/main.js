@@ -28,6 +28,7 @@ import { bindSqlHighlight } from './query/sql-highlight.js';
 import { bindAutoPairs } from './query/auto-pairs.js';
 import { bindShortcutsButton } from './ui/shortcuts-overlay.js';
 import { on } from './core/event-bus.js';
+import { initSelectionStats, updateSelectionStats } from './ui/selection-stats.js';
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
@@ -176,6 +177,15 @@ function bindEvents() {
     if (td) { clearSelection(); startCellEdit(td); }
   });
 
+  // Profile button click handler
+  document.addEventListener('click', (e) => {
+    const profileBtn = e.target.closest('.profile-btn');
+    if (!profileBtn) { return; }
+    const colIdx = parseInt(profileBtn.dataset.columnIndex, 10);
+    if (isNaN(colIdx)) { return; }
+    sendMessage({ type: 'profileColumn', columnIndex: colIdx });
+  });
+
   // Preview-specific: context menu
   document.addEventListener('contextmenu', (e) => {
     const result = buildContextMenuItems(e);
@@ -194,6 +204,7 @@ on('data:mutated', ({ filteredRows }) => {
   if (scroller) { scroller.update(filteredRows); } else { renderRows(); }
 });
 on('data:ready', () => { const s = getScroller(); if (s) { s.softRefresh(); } });
+on('selection:changed', () => { updateSelectionStats(); });
 
 window.addEventListener('message', (event) => handleExtensionMessage(event.data));
 bindEvents();
@@ -201,5 +212,6 @@ bindSqlHighlight(document.getElementById('queryInput'), document.getElementById(
 bindAutoPairs(document.getElementById('queryInput'));
 bindShortcutsButton();
 setAfterCommit((row, col) => selectCell(row, col));
+initSelectionStats();
 showLoading();
 sendMessage({ type: 'ready' });

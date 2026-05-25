@@ -129,6 +129,13 @@ function createHeaderRow() {
     }
     th.appendChild(filterBtn);
 
+    const profileBtn = document.createElement('button');
+    profileBtn.className = 'profile-btn';
+    profileBtn.dataset.columnIndex = i;
+    profileBtn.title = 'Column profile & chart';
+    profileBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16"><path fill="currentColor" d="M1 14h14v1H1v-1zM3 8h2v6H3V8zm4-4h2v10H7V4zm4-3h2v13h-2V1z"/></svg>';
+    th.appendChild(profileBtn);
+
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
     th.appendChild(resizeHandle);
