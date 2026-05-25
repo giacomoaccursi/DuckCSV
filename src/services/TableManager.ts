@@ -13,7 +13,7 @@
 
 import { IQueryEngine } from './IQueryEngine';
 import { SqlBuilder } from './SqlBuilder';
-import { SortState, ColumnFilters } from '../types';
+import { SortState, ColumnFilters, ColumnProfile } from '../types';
 import * as vscode from 'vscode';
 import { basename, extname } from 'path';
 import { open } from 'fs/promises';
@@ -273,6 +273,136 @@ export class TableManager {
       `SELECT DISTINCT CAST(${colName} AS VARCHAR) as val FROM ${this.q(tableName)} ${whereStr} ORDER BY ${colName} LIMIT 100`
     );
     return result.rows.map(row => row[0]).filter(v => v !== '');
+  }
+
+  // ─── Column Profiling ──────────────────────────────────────────────────────
+
+  async getColumnProfile(tableName: string, columnIndex: number): Promise<ColumnProfile> {
+    const meta = this.tables.get(tableName);
+    const headers = meta ? meta.headers : await this.getHeaders(tableName);
+    const types = meta ? meta.columnTypes : await this.getColumnTypes(tableName);
+    if (columnIndex < 0 || columnIndex >= headers.length) {
+      throw new Error(`Invalid column index: ${columnIndex}`);
+    }
+
+    const colName = this.q(headers[columnIndex]);
+    const quoted = this.q(tableName);
+    const colType = types[columnIndex] || 'VARCHAR';
+    const isNumeric = this.isNumericType(colType);
+    const isDate = this.isDateType(colType);
+
+    // Basic stats
+    const statsResult = await this.engine.query(
+      `SELECT COUNT(*) as total, COUNT(${colName}) as non_null, COUNT(DISTINCT ${colName}) as unique_count FROM ${quoted}`
+    );
+    const totalRows = Number(statsResult.rows[0][0]);
+    const nonNullCount = Number(statsResult.rows[0][1]);
+    const uniqueCount = Number(statsResult.rows[0][2]);
+    const nullPercent = totalRows > 0 ? ((totalRows - nonNullCount) / totalRows) * 100 : 0;
+
+    const profile: ColumnProfile = {
+      columnName: headers[columnIndex],
+      columnType: colType,
+      totalRows,
+      nonNullCount,
+      uniqueCount,
+      nullPercent: Math.round(nullPercent * 100) / 100,
+      distribution: [],
+      chartType: isNumeric ? 'histogram' : isDate ? 'line' : 'bar',
+    };
+
+    // Numeric stats
+    if (isNumeric) {
+      const numResult = await this.engine.query(
+        `SELECT CAST(MIN(${colName}) AS VARCHAR), CAST(MAX(${colName}) AS VARCHAR), ` +
+        `CAST(AVG(${colName}) AS VARCHAR), CAST(MEDIAN(${colName}) AS VARCHAR), ` +
+        `CAST(STDDEV(${colName}) AS VARCHAR) FROM ${quoted} WHERE ${colName} IS NOT NULL`
+      );
+      if (numResult.rows.length > 0) {
+        profile.min = numResult.rows[0][0];
+        profile.max = numResult.rows[0][1];
+        profile.mean = numResult.rows[0][2];
+        profile.median = numResult.rows[0][3];
+        profile.stddev = numResult.rows[0][4];
+      }
+
+      // Histogram distribution (20 buckets)
+      profile.distribution = await this.getNumericDistribution(quoted, colName);
+    } else if (isDate) {
+      // Date distribution
+      profile.distribution = await this.getDateDistribution(quoted, colName);
+    } else {
+      // Categorical distribution (top 20)
+      const catResult = await this.engine.query(
+        `SELECT CAST(${colName} AS VARCHAR) as val, COUNT(*) as cnt FROM ${quoted} ` +
+        `WHERE ${colName} IS NOT NULL GROUP BY ${colName} ORDER BY cnt DESC LIMIT 20`
+      );
+      profile.distribution = catResult.rows.map(r => ({
+        label: r[0] || '(empty)',
+        count: Number(r[1]),
+      }));
+    }
+
+    return profile;
+  }
+
+  private isNumericType(type: string): boolean {
+    const numericTypes = ['BIGINT', 'DOUBLE', 'INTEGER', 'FLOAT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'NUMERIC', 'REAL', 'HUGEINT', 'UBIGINT', 'UINTEGER', 'USMALLINT', 'UTINYINT'];
+    return numericTypes.some(t => type.toUpperCase().startsWith(t));
+  }
+
+  private isDateType(type: string): boolean {
+    const dateTypes = ['DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'TIMESTAMP WITH TIME ZONE'];
+    return dateTypes.some(t => type.toUpperCase().startsWith(t));
+  }
+
+  private async getNumericDistribution(quotedTable: string, colName: string): Promise<{ label: string; count: number }[]> {
+    // Get min/max to compute bucket size
+    const rangeResult = await this.engine.query(
+      `SELECT MIN(${colName}), MAX(${colName}) FROM ${quotedTable} WHERE ${colName} IS NOT NULL`
+    );
+    if (rangeResult.rows.length === 0) { return []; }
+    const min = Number(rangeResult.rows[0][0]);
+    const max = Number(rangeResult.rows[0][1]);
+    if (isNaN(min) || isNaN(max) || min === max) {
+      return [{ label: String(min), count: 1 }];
+    }
+
+    const bucketCount = 20;
+    const bucketSize = (max - min) / bucketCount;
+
+    const histResult = await this.engine.query(
+      `SELECT FLOOR((${colName} - ${min}) / ${bucketSize}) as bucket, COUNT(*) as cnt ` +
+      `FROM ${quotedTable} WHERE ${colName} IS NOT NULL ` +
+      `GROUP BY bucket ORDER BY bucket`
+    );
+
+    return histResult.rows.map(r => {
+      const bucketIdx = Number(r[0]);
+      const bucketStart = min + bucketIdx * bucketSize;
+      const bucketEnd = bucketStart + bucketSize;
+      return {
+        label: `${this.formatNumber(bucketStart)}-${this.formatNumber(bucketEnd)}`,
+        count: Number(r[1]),
+      };
+    });
+  }
+
+  private async getDateDistribution(quotedTable: string, colName: string): Promise<{ label: string; count: number }[]> {
+    const result = await this.engine.query(
+      `SELECT CAST(DATE_TRUNC('month', ${colName}) AS VARCHAR) as period, COUNT(*) as cnt ` +
+      `FROM ${quotedTable} WHERE ${colName} IS NOT NULL ` +
+      `GROUP BY period ORDER BY period LIMIT 30`
+    );
+    return result.rows.map(r => ({
+      label: r[0] || '',
+      count: Number(r[1]),
+    }));
+  }
+
+  private formatNumber(n: number): string {
+    if (Number.isInteger(n)) { return String(n); }
+    return n.toFixed(1);
   }
 
   // ─── Mutations ───────────────────────────────────────────────────────────

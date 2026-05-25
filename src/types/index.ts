@@ -23,6 +23,26 @@ export interface TableInfo {
   filePath: string;
 }
 
+// ─── Column Profile ──────────────────────────────────────────────────────────
+
+export type ChartType = 'histogram' | 'bar' | 'line';
+
+export interface ColumnProfile {
+  columnName: string;
+  columnType: string;
+  totalRows: number;
+  nonNullCount: number;
+  uniqueCount: number;
+  nullPercent: number;
+  min?: string;
+  max?: string;
+  mean?: string;
+  median?: string;
+  stddev?: string;
+  distribution: { label: string; count: number }[];
+  chartType: ChartType;
+}
+
 // ─── Webview Payloads ────────────────────────────────────────────────────────
 
 export interface DataPagePayload {
@@ -117,4 +137,5 @@ export type WebviewMessage =
   | { type: 'removeTable'; tableName: string }
   | { type: 'switchTable'; tableName: string }
   | { type: 'fetchPage'; requestId: number; offset: number; limit: number }
-  | { type: 'saveHistory'; history: string[] };
+  | { type: 'saveHistory'; history: string[] }
+  | { type: 'profileColumn'; columnIndex: number };
