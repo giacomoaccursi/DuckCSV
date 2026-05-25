@@ -291,9 +291,12 @@ export class TableManager {
     const isNumeric = this.isNumericType(colType);
     const isDate = this.isDateType(colType);
 
-    // Basic stats
+    // Basic stats — treat empty strings as NULL for profiling purposes
     const statsResult = await this.engine.query(
-      `SELECT COUNT(*) as total, COUNT(${colName}) as non_null, COUNT(DISTINCT ${colName}) as unique_count FROM ${quoted}`
+      `SELECT COUNT(*) as total, ` +
+      `COUNT(CASE WHEN ${colName} IS NOT NULL AND CAST(${colName} AS VARCHAR) != '' THEN 1 END) as non_null, ` +
+      `COUNT(DISTINCT CASE WHEN ${colName} IS NOT NULL AND CAST(${colName} AS VARCHAR) != '' THEN ${colName} END) as unique_count ` +
+      `FROM ${quoted}`
     );
     const totalRows = Number(statsResult.rows[0][0]);
     const nonNullCount = Number(statsResult.rows[0][1]);

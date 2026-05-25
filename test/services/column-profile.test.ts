@@ -101,20 +101,20 @@ describe('getColumnProfile', () => {
   });
 
   it('computes null% after editing a cell to empty', async () => {
-    writeFileSync(csvPath, 'name,value\nA,10\nB,20\nC,30\n');
+    writeFileSync(csvPath, 'name,value\nAlice,10\nBob,20\nCharlie,30\n');
     const uri = { fsPath: csvPath } as any;
     await tm.loadTable(uri, 'test');
 
     // Before edit: 0% null
-    let profile = await tm.getColumnProfile('test', 1);
+    let profile = await tm.getColumnProfile('test', 0); // name column (VARCHAR)
     expect(profile.nullPercent).toBe(0);
     expect(profile.nonNullCount).toBe(3);
 
-    // Edit cell to empty → should become NULL
-    await tm.updateCell('test', 1, 1, '');
+    // Edit cell to empty string (this is what the UI does)
+    await tm.updateCell('test', 0, 0, '');
 
-    // After edit: 1/3 = 33.33% null
-    profile = await tm.getColumnProfile('test', 1);
+    // After edit: empty string should count as null → 1/3 = 33.33%
+    profile = await tm.getColumnProfile('test', 0);
     expect(profile.nonNullCount).toBe(2);
     expect(profile.nullPercent).toBeCloseTo(33.33, 1);
   });
