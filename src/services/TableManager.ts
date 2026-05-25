@@ -439,8 +439,7 @@ export class TableManager {
     const allCols = numericCols.map(c => this.q(headers[c]));
     const selectCols = allCols.join(', ');
 
-    // Build aggregate expressions for all numeric columns combined
-    // We compute stats across all selected numeric columns by unpivoting
+    // Build aggregate expressions
     const aggParts: string[] = [];
     for (const col of numericCols) {
       const colQ = this.q(headers[col]);
