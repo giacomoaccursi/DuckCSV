@@ -201,14 +201,23 @@ function buildStatsRows(profile: ColumnProfile, isNumeric: boolean): string {
 }
 
 function formatInt(n: number): string {
-  return n.toLocaleString('en-US');
+  return formatCompact(n);
 }
 
 function formatStat(val: string): string {
   const n = Number(val);
   if (isNaN(n)) { return val; }
-  if (Number.isInteger(n)) { return n.toLocaleString('en-US'); }
-  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return formatCompact(n);
+}
+
+function formatCompact(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1e9) { return sign + (abs / 1e9).toFixed(2) + 'B'; }
+  if (abs >= 1e6) { return sign + (abs / 1e6).toFixed(2) + 'M'; }
+  if (abs >= 1e4) { return sign + (abs / 1e3).toFixed(1) + 'K'; }
+  if (Number.isInteger(n)) { return String(n); }
+  return n.toFixed(2);
 }
 
 function escapeHtml(text: string): string {
