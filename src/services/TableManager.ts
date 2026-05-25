@@ -309,7 +309,7 @@ export class TableManager {
       totalRows,
       nonNullCount,
       uniqueCount,
-      nullPercent: Math.round(nullPercent * 100) / 100,
+      nullPercent,
       distribution: [],
       chartType: isNumeric ? 'histogram' : isDate ? 'line' : 'bar',
     };

@@ -182,7 +182,7 @@ function buildStatsRows(profile: ColumnProfile, isNumeric: boolean): string {
     { label: 'Total Rows', value: formatInt(profile.totalRows) },
     { label: 'Non-Null', value: formatInt(profile.nonNullCount) },
     { label: 'Unique', value: formatInt(profile.uniqueCount) },
-    { label: 'Null %', value: `${profile.nullPercent}%` },
+    { label: 'Null %', value: formatPercent(profile.nullPercent) },
   ];
 
   if (isNumeric) {
@@ -218,6 +218,13 @@ function formatCompact(n: number): string {
   if (abs >= 1e4) { return sign + (abs / 1e3).toFixed(1) + 'K'; }
   if (Number.isInteger(n)) { return String(n); }
   return n.toFixed(2);
+}
+
+function formatPercent(n: number): string {
+  if (n === 0) { return '0%'; }
+  if (n >= 1) { return n.toFixed(2) + '%'; }
+  // For very small percentages, show enough precision
+  return n.toPrecision(2) + '%';
 }
 
 function escapeHtml(text: string): string {
