@@ -201,29 +201,19 @@ function buildStatsRows(profile: ColumnProfile, isNumeric: boolean): string {
 }
 
 function formatInt(n: number): string {
-  return formatCompact(n);
+  return n.toLocaleString();
 }
 
 function formatStat(val: string): string {
   const n = Number(val);
   if (isNaN(n)) { return val; }
-  return formatCompact(n);
-}
-
-function formatCompact(n: number): string {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  if (abs >= 1e9) { return sign + (abs / 1e9).toFixed(2) + 'B'; }
-  if (abs >= 1e6) { return sign + (abs / 1e6).toFixed(2) + 'M'; }
-  if (abs >= 1e4) { return sign + (abs / 1e3).toFixed(1) + 'K'; }
-  if (Number.isInteger(n)) { return String(n); }
-  return n.toFixed(2);
+  if (Number.isInteger(n)) { return n.toLocaleString(); }
+  return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
 function formatPercent(n: number): string {
   if (n === 0) { return '0%'; }
   if (n >= 1) { return n.toFixed(2) + '%'; }
-  // For very small percentages, show enough precision
   return n.toPrecision(2) + '%';
 }
 
