@@ -123,7 +123,8 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@duckdb/duckdb-wasm": "1.33.1-dev45.0"
+        "@duckdb/duckdb-wasm": "1.33.1-dev45.0",
+        "chart.js": "^4.5.1"
     },
     "devDependencies": {
         "@types/jsdom": "28.0.3",
