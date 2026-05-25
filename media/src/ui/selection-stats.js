@@ -1,12 +1,18 @@
 /**
  * Selection Stats Bar — shows count, sum, avg, min, max for selected cells.
  * Purely frontend calculation (no backend queries).
+ * Only reads rows already in cache — never triggers backend fetches.
+ * Debounced to avoid blocking during drag selection.
  */
 
 import { getSelection } from './selection.js';
 import { getDataWindow } from '../data/data-page.js';
 
 let statsBar = null;
+let debounceTimer = null;
+
+/** Max cells to process before bailing (avoids blocking on huge selections). */
+const MAX_CELLS = 50000;
 
 export function initSelectionStats() {
   statsBar = document.getElementById('selectionStats');
@@ -16,6 +22,11 @@ export function initSelectionStats() {
 }
 
 export function updateSelectionStats() {
+  if (debounceTimer) { clearTimeout(debounceTimer); }
+  debounceTimer = setTimeout(computeStats, 80);
+}
+
+function computeStats() {
   if (!statsBar) { return; }
 
   const selection = getSelection();
@@ -41,22 +52,32 @@ export function updateSelectionStats() {
     return;
   }
 
-  // Collect numeric values from selection
-  const values = [];
+  // Collect numeric values from selection — only from cached rows
+  const numericValues = [];
   let totalCount = 0;
+  let cellsProcessed = 0;
+  const colSpan = maxCol - minCol + 1;
 
   for (let r = minRow; r <= maxRow; r++) {
+    // Only read rows already in cache — don't trigger fetches
+    if (!dw.isLoaded(r)) { continue; }
     const row = dw.getRow(r);
     if (!row) { continue; }
+
     for (let c = minCol; c <= maxCol; c++) {
-      const cell = row[c];
       totalCount++;
-      if (cell === null || cell === undefined || cell === '') { continue; }
-      const num = Number(cell);
-      if (!isNaN(num)) {
-        values.push(num);
+      cellsProcessed++;
+      const cell = row[c];
+      if (cell !== null && cell !== undefined && cell !== '') {
+        const num = Number(cell);
+        if (!isNaN(num)) {
+          numericValues.push(num);
+        }
       }
     }
+
+    // Bail if we've processed too many cells
+    if (cellsProcessed >= MAX_CELLS) { break; }
   }
 
   if (totalCount === 0) {
@@ -72,26 +93,26 @@ export function updateSelectionStats() {
   const minEl = statsBar.querySelector('[data-stat="min"]');
   const maxEl = statsBar.querySelector('[data-stat="max"]');
 
-  if (countEl) { countEl.textContent = totalCount.toLocaleString(); }
+  // For count, show the full selection size (not just cached)
+  const fullCount = (maxRow - minRow + 1) * colSpan;
+  if (countEl) { countEl.textContent = fullCount.toLocaleString(); }
 
-  if (values.length > 0) {
-    const sum = values.reduce((a, b) => a + b, 0);
-    const avg = sum / values.length;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+  if (numericValues.length > 0) {
+    const sum = numericValues.reduce((a, b) => a + b, 0);
+    const avg = sum / numericValues.length;
+    const min = Math.min(...numericValues);
+    const max = Math.max(...numericValues);
 
     if (sumEl) { sumEl.textContent = formatNumber(sum); }
     if (avgEl) { avgEl.textContent = formatNumber(avg); }
     if (minEl) { minEl.textContent = formatNumber(min); }
     if (maxEl) { maxEl.textContent = formatNumber(max); }
 
-    // Show numeric stats
     if (sumEl) { sumEl.parentElement.classList.remove('hidden'); }
     if (avgEl) { avgEl.parentElement.classList.remove('hidden'); }
     if (minEl) { minEl.parentElement.classList.remove('hidden'); }
     if (maxEl) { maxEl.parentElement.classList.remove('hidden'); }
   } else {
-    // Only show count for non-numeric selections
     if (sumEl) { sumEl.parentElement.classList.add('hidden'); }
     if (avgEl) { avgEl.parentElement.classList.add('hidden'); }
     if (minEl) { minEl.parentElement.classList.add('hidden'); }
