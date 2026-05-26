@@ -53,7 +53,7 @@ export class TableManager {
 
   async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
     const tableName = customName ?? this.deriveTableName(uri);
-    const filePath = uri.fsPath.replace(/'/g, "''");
+    const filePath = uri.fsPath.replace(/\\/g, '/').replace(/'/g, "''");
     const isParquet = uri.fsPath.toLowerCase().endsWith('.parquet');
 
     // Only restart worker if reloading the same table (to clear DuckDB file cache)
