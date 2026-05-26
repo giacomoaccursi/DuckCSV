@@ -6,23 +6,9 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  release-please:
-    runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-    steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          release-type: node
-
   publish:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,15 +29,10 @@ jobs:
       - name: Package VSIX
         run: npx @vscode/vsce package -o duckcsv.vsix
 
-      - name: Publish to Marketplace
+      - name: Publish to VS Code Marketplace
         run: npx @vscode/vsce publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX
         run: npx ovsx publish duckcsv.vsix -p ${{ secrets.OVSX_TOKEN }}
-
-      - name: Upload VSIX to GitHub Release
-        run: gh release upload ${{ needs.release-please.outputs.tag_name }} duckcsv.vsix
-        env:
-          GH_TOKEN: ${{ github.token }}
