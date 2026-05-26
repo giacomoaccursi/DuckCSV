@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/giacomoaccursi/DuckCSV/compare/v1.0.0...v1.0.1) (2026-05-26)
+
+
+### Bug Fixes
+
+* exclude webview sources and dev files from extension package ([066b085](https://github.com/giacomoaccursi/DuckCSV/commit/066b085db3e4f96b29166c33a4d04700fce6eb44))
+
 ## 1.0.0 (2026-05-26)
 
 
