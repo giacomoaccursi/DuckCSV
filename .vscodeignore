@@ -7,6 +7,9 @@ tsconfig.json
 webpack.config.js
 eslint.config.mjs
 
+# Webview source (bundled into media/script.js and media/workspace.js)
+media/src/**
+
 # Tests
 test/**
 .vscode-test/**
@@ -21,10 +24,20 @@ node_modules/**
 # Keep only compiled JavaScript
 !dist/**
 
-# Documentation (keep essential ones)
+# Documentation (keep only README and LICENSE)
 vsc-extension-quickstart.md
+ARCHITECTURE.md
+REFACTORING.md
 .gitignore
 .editorconfig
+
+# Kiro config
+.kiro/**
+
+# Release config
+.release-please-manifest.json
+release-please-config.json
+CHANGELOG.md
 
 # Test data
 test-data/**
@@ -62,3 +75,4 @@ yarn.lock
 # Misc
 .eslintcache
 *.tsbuildinfo
+.npmrc
