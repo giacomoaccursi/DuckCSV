@@ -130,10 +130,6 @@ describe('getColumnProfile', () => {
     expect(profile.uniqueCount).toBe(2);
     expect(profile.nullPercent).toBe(0);
     expect(profile.chartType).toBe('bar');
-    expect(profile.distribution.length).toBeGreaterThan(0);
-    // Rome appears twice, Milan once
-    const rome = profile.distribution.find(d => d.label === 'Rome');
-    expect(rome?.count).toBe(2);
   });
 
   it('handles all-NULL numeric column', async () => {

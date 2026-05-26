@@ -1,22 +1,16 @@
 /**
  * HTML template for the Column Profile panel.
- * Renders stats grid + Chart.js chart for column distribution.
+ * Renders a stats grid with column statistics.
  */
 
 import * as vscode from 'vscode';
 import { ColumnProfile } from '../types';
-import { getNonce } from '../utils/nonce';
 
 export function buildProfileHtml(webview: vscode.Webview, extensionUri: vscode.Uri, profile: ColumnProfile): string {
   const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'styles.css'));
-  const chartUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'node_modules', 'chart.js', 'dist', 'chart.umd.js'));
-  const nonce = getNonce();
 
   const isNumeric = profile.chartType === 'histogram';
-
   const statsRows = buildStatsRows(profile, isNumeric);
-  const distributionJson = JSON.stringify(profile.distribution);
-  const chartType = profile.chartType === 'histogram' ? 'bar' : profile.chartType;
 
   return /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -24,10 +18,10 @@ export function buildProfileHtml(webview: vscode.Webview, extensionUri: vscode.U
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline';">
   <link href="${styleUri}" rel="stylesheet">
   <title>Column Profile</title>
-  <style nonce="${nonce}">
+  <style>
     .profile-container {
       padding: 16px;
       overflow-y: auto;
@@ -56,7 +50,6 @@ export function buildProfileHtml(webview: vscode.Webview, extensionUri: vscode.U
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      margin-bottom: 24px;
     }
     .stat-card {
       padding: 10px 12px;
@@ -77,20 +70,6 @@ export function buildProfileHtml(webview: vscode.Webview, extensionUri: vscode.U
       color: var(--fg-primary);
       font-family: var(--vscode-editor-font-family, monospace);
     }
-    .chart-section {
-      margin-top: 16px;
-    }
-    .chart-section h3 {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--fg-primary);
-      margin-bottom: 12px;
-    }
-    .chart-wrapper {
-      position: relative;
-      width: 100%;
-      max-height: 300px;
-    }
   </style>
 </head>
 <body>
@@ -103,76 +82,7 @@ export function buildProfileHtml(webview: vscode.Webview, extensionUri: vscode.U
     <div class="stats-grid">
       ${statsRows}
     </div>
-
-    <div class="chart-section">
-      <h3>Distribution</h3>
-      <div class="chart-wrapper">
-        <canvas id="profileChart"></canvas>
-      </div>
-    </div>
   </div>
-
-  <script nonce="${nonce}" src="${chartUri}"></script>
-  <script nonce="${nonce}">
-    (function() {
-      const distribution = ${distributionJson};
-      const chartType = '${chartType}';
-      const labels = distribution.map(d => d.label);
-      const data = distribution.map(d => d.count);
-
-      const ctx = document.getElementById('profileChart').getContext('2d');
-
-      const style = getComputedStyle(document.body);
-      const accentColor = style.getPropertyValue('--accent-color').trim() || '#4fc3f7';
-      const fgSecondary = style.getPropertyValue('--fg-secondary').trim() || '#999';
-      const borderColor = style.getPropertyValue('--border-color').trim() || '#333';
-
-      new Chart(ctx, {
-        type: chartType,
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Count',
-            data: data,
-            backgroundColor: accentColor + '80',
-            borderColor: accentColor,
-            borderWidth: 1,
-            tension: 0.3,
-            fill: chartType === 'line',
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: 'rgba(30,30,30,0.95)',
-              titleColor: '#fff',
-              bodyColor: '#ccc',
-              borderColor: borderColor,
-              borderWidth: 1,
-            }
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: fgSecondary,
-                maxRotation: 45,
-                font: { size: 10 },
-              },
-              grid: { color: borderColor + '40' },
-            },
-            y: {
-              ticks: { color: fgSecondary, font: { size: 10 } },
-              grid: { color: borderColor + '40' },
-              beginAtZero: true,
-            }
-          }
-        }
-      });
-    })();
-  </script>
 </body>
 </html>`;
 }

@@ -26,9 +26,9 @@ export class ColumnProfilePanel {
       `📊 ${profile.columnName}`,
       vscode.ViewColumn.Beside,
       {
-        enableScripts: true,
+        enableScripts: false,
         retainContextWhenHidden: false,
-        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media'), vscode.Uri.joinPath(extensionUri, 'node_modules')],
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')],
       }
     );
 

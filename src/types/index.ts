@@ -39,7 +39,6 @@ export interface ColumnProfile {
   mean?: string;
   median?: string;
   stddev?: string;
-  distribution: { label: string; count: number }[];
   chartType: ChartType;
 }
 

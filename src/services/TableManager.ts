@@ -310,7 +310,6 @@ export class TableManager {
       nonNullCount,
       uniqueCount,
       nullPercent,
-      distribution: [],
       chartType: isNumeric ? 'histogram' : isDate ? 'line' : 'bar',
     };
 
@@ -328,22 +327,6 @@ export class TableManager {
         profile.median = numResult.rows[0][3];
         profile.stddev = numResult.rows[0][4];
       }
-
-      // Histogram distribution (20 buckets)
-      profile.distribution = await this.getNumericDistribution(quoted, colName);
-    } else if (isDate) {
-      // Date distribution
-      profile.distribution = await this.getDateDistribution(quoted, colName);
-    } else {
-      // Categorical distribution (top 20)
-      const catResult = await this.engine.query(
-        `SELECT CAST(${colName} AS VARCHAR) as val, COUNT(*) as cnt FROM ${quoted} ` +
-        `WHERE ${colName} IS NOT NULL GROUP BY ${colName} ORDER BY cnt DESC LIMIT 20`
-      );
-      profile.distribution = catResult.rows.map(r => ({
-        label: r[0] || '(empty)',
-        count: Number(r[1]),
-      }));
     }
 
     return profile;
@@ -357,55 +340,6 @@ export class TableManager {
   private isDateType(type: string): boolean {
     const dateTypes = ['DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'TIMESTAMP WITH TIME ZONE'];
     return dateTypes.some(t => type.toUpperCase().startsWith(t));
-  }
-
-  private async getNumericDistribution(quotedTable: string, colName: string): Promise<{ label: string; count: number }[]> {
-    // Get min/max to compute bucket size
-    const rangeResult = await this.engine.query(
-      `SELECT MIN(${colName}), MAX(${colName}) FROM ${quotedTable} WHERE ${colName} IS NOT NULL`
-    );
-    if (rangeResult.rows.length === 0) { return []; }
-    const min = Number(rangeResult.rows[0][0]);
-    const max = Number(rangeResult.rows[0][1]);
-    if (isNaN(min) || isNaN(max) || min === max) {
-      return [{ label: String(min), count: 1 }];
-    }
-
-    const bucketCount = 20;
-    const bucketSize = (max - min) / bucketCount;
-
-    const histResult = await this.engine.query(
-      `SELECT FLOOR((${colName} - ${min}) / ${bucketSize}) as bucket, COUNT(*) as cnt ` +
-      `FROM ${quotedTable} WHERE ${colName} IS NOT NULL ` +
-      `GROUP BY bucket ORDER BY bucket`
-    );
-
-    return histResult.rows.map(r => {
-      const bucketIdx = Number(r[0]);
-      const bucketStart = min + bucketIdx * bucketSize;
-      const bucketEnd = bucketStart + bucketSize;
-      return {
-        label: `${this.formatNumber(bucketStart)}-${this.formatNumber(bucketEnd)}`,
-        count: Number(r[1]),
-      };
-    });
-  }
-
-  private async getDateDistribution(quotedTable: string, colName: string): Promise<{ label: string; count: number }[]> {
-    const result = await this.engine.query(
-      `SELECT CAST(DATE_TRUNC('month', ${colName}) AS VARCHAR) as period, COUNT(*) as cnt ` +
-      `FROM ${quotedTable} WHERE ${colName} IS NOT NULL ` +
-      `GROUP BY period ORDER BY period LIMIT 30`
-    );
-    return result.rows.map(r => ({
-      label: r[0] || '',
-      count: Number(r[1]),
-    }));
-  }
-
-  private formatNumber(n: number): string {
-    if (Number.isInteger(n)) { return String(n); }
-    return n.toFixed(1);
   }
 
   // ─── Selection Stats ─────────────────────────────────────────────────────
