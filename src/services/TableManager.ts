@@ -197,6 +197,24 @@ export class TableManager {
     }
 
     const { viewName, totalRows } = await this.ensureView(tableName, headers, whereStr, orderClause);
+
+    // Guard: if the view was replaced by a concurrent buildView, retry once
+    if (this.viewTable !== viewName) {
+      const retry = await this.ensureView(tableName, headers, whereStr, orderClause);
+      const cols = headers.map(h => this.q(h)).join(', ');
+      const retryResult = await this.engine.query(
+        `SELECT __rid, ${cols} FROM ${this.q(retry.viewName)} ORDER BY __pos LIMIT ${params.limit} OFFSET ${params.offset}`
+      );
+      if (retryResult.rows.length === 0) {
+        return { rows: [], rowids: [], filteredCount: retry.totalRows };
+      }
+      return {
+        rows: retryResult.rows.map(row => row.slice(1)),
+        rowids: retryResult.rows.map(row => parseInt(row[0], 10)),
+        filteredCount: retry.totalRows,
+      };
+    }
+
     const columns = headers.map(h => this.q(h)).join(', ');
 
     const result = await this.engine.query(
