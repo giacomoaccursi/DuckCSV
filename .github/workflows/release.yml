@@ -48,6 +48,9 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      - name: Publish to Open VSX
+        run: npx ovsx publish duckcsv.vsix -p ${{ secrets.OVSX_TOKEN }}
+
       - name: Upload VSIX to GitHub Release
         run: gh release upload ${{ needs.release-please.outputs.tag_name }} duckcsv.vsix
         env:
