@@ -67,3 +67,8 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE)
+
+
+## Acknowledgments
+
+Thanks to Christophe Ricco for the support and feedback during development.
