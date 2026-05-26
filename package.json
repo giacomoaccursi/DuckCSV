@@ -1,7 +1,7 @@
 {
     "name": "duckcsv",
     "displayName": "DuckCSV",
-    "description": "Interactive CSV/TSV viewer with sticky headers, search, and auto-delimiter detection",
+    "description": "High-performance CSV/TSV/Parquet viewer powered by DuckDB — edit, query, filter, and profile your data directly in VS Code",
     "version": "0.1.0",
     "license": "Apache-2.0",
     "publisher": "giacomoaccursi",
