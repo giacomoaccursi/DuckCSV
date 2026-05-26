@@ -30,9 +30,9 @@ jobs:
         run: npx @vscode/vsce package -o duckcsv.vsix
 
       - name: Publish to VS Code Marketplace
-        run: npx @vscode/vsce publish
+        run: npx @vscode/vsce publish || true
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX
-        run: npx ovsx publish duckcsv.vsix -p ${{ secrets.OVSX_TOKEN }}
+        run: npx ovsx publish duckcsv.vsix -p ${{ secrets.OVSX_TOKEN }} || true
