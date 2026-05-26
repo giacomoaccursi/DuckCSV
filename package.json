@@ -4,7 +4,7 @@
     "description": "Interactive CSV/TSV viewer with sticky headers, search, and auto-delimiter detection",
     "version": "0.1.0",
     "license": "Apache-2.0",
-    "publisher": "giacomo-accursi",
+    "publisher": "giacomoaccursi",
     "repository": {
         "type": "git",
         "url": "https://github.com/gaccursi/DuckCSV"
