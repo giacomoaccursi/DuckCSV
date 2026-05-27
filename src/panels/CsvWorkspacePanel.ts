@@ -52,6 +52,18 @@ export class CsvWorkspacePanel extends BasePanel {
   ) {
     super(panel, extensionUri, tableManager, engine, defaultSidePanelOpener, buildWorkspaceHtml(panel.webview, extensionUri));
     if (initialUri) { this.pendingInitialUri = initialUri; }
+
+    // Reload tables when the panel becomes visible again (user switches back to this tab).
+    // This ensures edited files are re-read from disk.
+    this.panel.onDidChangeViewState(
+      async (e) => {
+        if (e.webviewPanel.visible) {
+          await this.reloadAllIfChanged();
+        }
+      },
+      null,
+      this.disposables
+    );
   }
 
   // ─── BasePanel Implementation ────────────────────────────────────────────
@@ -229,5 +241,43 @@ export class CsvWorkspacePanel extends BasePanel {
       fileSize: 0, sort: { columnIndex: -1, direction: 'none' },
       filters: {}, searchTerm: '', isDirty: false,
     };
+  }
+
+  /**
+   * Check all loaded tables for file changes on disk.
+   * If any file was modified, reload it so the workspace shows fresh data.
+   */
+  private async reloadAllIfChanged(): Promise<void> {
+    const tables = this.tableManager.getLoadedTables();
+    if (tables.length === 0) { return; }
+
+    // Find which files have changed
+    const changed: { filePath: string; name: string }[] = [];
+    for (const meta of tables) {
+      try {
+        const stat = await vscode.workspace.fs.stat(vscode.Uri.file(meta.filePath));
+        const lastKnown = TableManager.getFileMtime(meta.filePath);
+        if (lastKnown !== undefined && stat.mtime !== lastKnown) {
+          changed.push({ filePath: meta.filePath, name: meta.name });
+        }
+      } catch { /* file may not exist */ }
+    }
+
+    if (changed.length === 0) { return; }
+
+    // Only reload the changed files — loadTable handles the worker restart
+    // and restores unchanged tables internally.
+    this.postMessage({ type: 'loading', loading: true });
+    try {
+      for (const t of changed) {
+        await this.tableManager.loadTable(vscode.Uri.file(t.filePath), t.name);
+      }
+      this.sendTableList();
+      await this.sendCurrentPage();
+    } catch (error: unknown) {
+      this.postError(error);
+    } finally {
+      this.postMessage({ type: 'loading', loading: false });
+    }
   }
 }

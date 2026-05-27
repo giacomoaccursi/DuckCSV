@@ -28,6 +28,7 @@ export class CsvPreviewPanel extends BasePanel {
   private totalRows: number = 0;
   private isDirty: boolean = false;
   private lastMtime: number = 0;
+  private reloading: boolean = false;
 
   // ─── Public API ──────────────────────────────────────────────────────────
 
@@ -75,6 +76,17 @@ export class CsvPreviewPanel extends BasePanel {
     this.currentUri = uri;
     this.historyService = services.queryHistory;
     this.historyKey = uri.fsPath;
+
+    // Reload when the panel becomes visible again (user switches back to this tab).
+    this.panel.onDidChangeViewState(
+      async (e) => {
+        if (e.webviewPanel.visible) {
+          await this.reloadIfChanged();
+        }
+      },
+      null,
+      this.disposables
+    );
   }
 
   // ─── BasePanel Implementation ────────────────────────────────────────────
@@ -218,7 +230,7 @@ export class CsvPreviewPanel extends BasePanel {
 
       let tableName = this.fileName.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '_');
       if (/^\d/.test(tableName)) { tableName = '_' + tableName; }
-      const meta = await this.tableManager.loadTable(this.currentUri, tableName);
+      const meta = await this.tableManager.loadTable(this.currentUri, tableName, stat.mtime);
       this.tableName = meta.name;
       this.totalRows = meta.rowCount;
 
@@ -343,6 +355,11 @@ export class CsvPreviewPanel extends BasePanel {
   }
 
   private async reloadIfChanged(): Promise<void> {
+    // Skip if the document hasn't been loaded yet (initial load in progress)
+    if (!this.tableName) { return; }
+    // Prevent concurrent reloads (reveal + onDidChangeViewState can both trigger this)
+    if (this.reloading) { return; }
+    this.reloading = true;
     try {
       const stat = await vscode.workspace.fs.stat(this.currentUri);
       if (stat.mtime !== this.lastMtime) {
@@ -351,5 +368,6 @@ export class CsvPreviewPanel extends BasePanel {
         await this.loadDocument();
       }
     } catch { /* file might not exist */ }
+    finally { this.reloading = false; }
   }
 }
