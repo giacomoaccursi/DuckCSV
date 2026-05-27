@@ -92,11 +92,15 @@ export function bindSqlHighlight(input, highlight) {
   function update() {
     highlight.innerHTML = highlightSql(input.value) + '\u200b'; // zero-width space prevents collapse
     // Sync scroll position
+    highlight.scrollTop = input.scrollTop;
     highlight.scrollLeft = input.scrollLeft;
   }
 
   input.addEventListener('input', update);
-  input.addEventListener('scroll', () => { highlight.scrollLeft = input.scrollLeft; });
+  input.addEventListener('scroll', () => {
+    highlight.scrollTop = input.scrollTop;
+    highlight.scrollLeft = input.scrollLeft;
+  });
   // Initial render
   update();
 }

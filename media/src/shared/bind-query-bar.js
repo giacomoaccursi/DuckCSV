@@ -46,7 +46,7 @@ export function bindQueryBar(ctx) {
   if (queryInput) {
     queryInput.addEventListener('keydown', (e) => {
       if (handleAutocompleteKeydown(e)) { return; }
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
         e.preventDefault();
         closeAutocomplete();
         const sql = queryInput.value.trim();
@@ -54,7 +54,7 @@ export function bindQueryBar(ctx) {
           if (addToHistory) { addToHistory(sql); }
           sendMessage({ type: 'executeQuery', sql, mode: 'side' });
         }
-      } else if (e.key === 'Enter') {
+      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         closeAutocomplete();
         const sql = queryInput.value.trim();
@@ -67,10 +67,21 @@ export function bindQueryBar(ctx) {
         clearQuery();
       }
     });
-    queryInput.addEventListener('input', () => showAutocomplete(queryInput));
+    queryInput.addEventListener('input', () => {
+      autoExpandTextarea(queryInput);
+      showAutocomplete(queryInput);
+    });
     queryInput.addEventListener('blur', () => setTimeout(closeAutocomplete, 150));
     queryInput.addEventListener('focus', () => {
       if (queryInput.value.trim()) { showAutocomplete(queryInput); }
     });
   }
+}
+
+
+function autoExpandTextarea(textarea) {
+  textarea.style.height = 'auto';
+  const maxHeight = 150; // ~6 lines
+  textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+  textarea.style.overflow = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
 }
