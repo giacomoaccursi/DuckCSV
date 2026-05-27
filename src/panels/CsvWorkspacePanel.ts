@@ -136,6 +136,7 @@ export class CsvWorkspacePanel extends BasePanel {
 
   private async addTableFromUri(uri: vscode.Uri): Promise<void> {
     const fileName = uri.fsPath.split('/').pop() || 'file';
+    this.clearInlineQuery();
     this.postMessage({ type: 'loading', loading: true, message: `Loading ${fileName}...` });
 
     try {
@@ -166,6 +167,7 @@ export class CsvWorkspacePanel extends BasePanel {
     });
     if (!uris || uris.length === 0) { return; }
 
+    this.clearInlineQuery();
     this.postMessage({ type: 'loading', loading: true });
     try {
       for (const uri of uris) {
@@ -204,6 +206,7 @@ export class CsvWorkspacePanel extends BasePanel {
   private async handleSwitchTable(tableName: string): Promise<void> {
     const meta = this.tableManager.getTableMeta(tableName);
     if (!meta) { return; }
+    this.clearInlineQuery();
     this.activeTable = tableName;
     this.viewState.reset();
     await this.sendCurrentPage();
