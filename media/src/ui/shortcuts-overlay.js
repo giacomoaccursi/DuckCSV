@@ -8,8 +8,11 @@ const SHORTCUTS = [
   { keys: '⌘ Z', desc: 'Undo' },
   { keys: '⌘ ⇧ Z', desc: 'Redo' },
   { keys: '⌘ C', desc: 'Copy selection' },
-  { keys: '⌘ Enter', desc: 'Run query in side panel' },
+  { keys: '⌘ Enter', desc: 'Run query inline' },
+  { keys: '⌘ ⇧ Enter', desc: 'Run query in side panel' },
+  { keys: 'Enter', desc: 'New line in query bar' },
   { keys: '↑ ↓ ← →', desc: 'Navigate cells' },
+  { keys: 'Double-click cell', desc: 'Edit cell' },
   { keys: 'Double-click header', desc: 'Insert column in query' },
 ];
 
