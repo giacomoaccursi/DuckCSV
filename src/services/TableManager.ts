@@ -172,6 +172,9 @@ export class TableManager {
     tableName: string,
     params: { filters: ColumnFilters; sort: SortState; searchTerm: string; offset: number; limit: number }
   ): Promise<DataPage> {
+    // Wait for any background table rebuild (e.g. from addRowAt)
+    if (this.pendingRebuild) { await this.pendingRebuild; }
+
     const meta = this.tables.get(tableName);
     const headers = meta ? meta.headers : await this.getHeaders(tableName);
     const whereStr = SqlBuilder.buildWhere(params.filters, params.searchTerm, headers);
