@@ -3,8 +3,7 @@
 High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, and profile your data directly in VS Code.
 
 <!-- IMMAGINE 1: Hero screenshot — la tabella aperta con dati, header colorati, row numbers visibili. Mostra il look & feel generale. -->
-<!-- File: media/screenshots/hero.png -->
-<!-- ![DuckCSV Preview](media/screenshots/hero.png) -->
+![DuckCSV Preview](media/screenshots/hero.png)
 
 ## Features
 
@@ -15,28 +14,16 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 - **Sticky headers** — Column headers stay visible as you scroll.
 - **Column types** — DuckDB infers types (INTEGER, VARCHAR, DATE, etc.) and displays them in the header.
 
-<!-- IMMAGINE 2: Tabella con molte righe, mostra lo scroll fluido e i tipi nelle header. -->
-<!-- File: media/screenshots/table-view.png -->
-<!-- ![Table View](media/screenshots/table-view.png) -->
-
 ### Edit
 - **Cell editing** — Double-click any cell to edit. Type changes are handled automatically.
 - **Row operations** — Insert rows above/below, delete single or multiple rows via right-click.
 - **Undo/Redo** — Full undo history with Cmd+Z / Cmd+Shift+Z.
 - **Save** — Cmd+S writes back to the original file. Save As for a new file.
 
-<!-- IMMAGINE 3: Cella in editing mode (bordo blu, input attivo) + context menu con Insert/Delete row. -->
-<!-- File: media/screenshots/editing.png -->
-<!-- ![Cell Editing](media/screenshots/editing.png) -->
-
 ### Sort, Filter & Search
 - **Column sort** — Click header arrows for ascending/descending sort.
 - **Column filters** — Funnel icon opens a dropdown with unique values. Multi-select to filter.
 - **Global search** — Search across all columns with highlighting. Debounced for performance.
-
-<!-- IMMAGINE 4: Filter dropdown aperto su una colonna con checkbox e search. -->
-<!-- File: media/screenshots/filter.png -->
-<!-- ![Column Filter](media/screenshots/filter.png) -->
 
 ### SQL Queries
 - **DuckDB SQL** — Write queries in the built-in query bar. Full DuckDB SQL support.
@@ -45,8 +32,7 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 - **Query history** — Access previous queries from the history dropdown.
 
 <!-- IMMAGINE 5: Query bar con una SELECT scritta, autocomplete visibile, risultato inline. -->
-<!-- File: media/screenshots/sql-query.png -->
-<!-- ![SQL Query](media/screenshots/sql-query.png) -->
+![SQL Query](media/screenshots/sql-query.png)
 
 ### Multi-Table Workspace
 - **Load multiple files** — Open the workspace and load multiple CSV/TSV/Parquet files.
@@ -54,20 +40,11 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 - **Table switching** — Switch between loaded tables with the dropdown.
 
 <!-- IMMAGINE 6: Workspace con 2-3 tabelle caricate nella tables bar, query JOIN visibile. -->
-<!-- File: media/screenshots/workspace.png -->
-<!-- ![Workspace](media/screenshots/workspace.png) -->
+![Workspace](media/screenshots/workspace.png)
 
 ### Data Profiling
 - **Column stats** — Click the 📊 button on any column header to see: total rows, non-null count, unique values, null %, min, max, mean, median, std dev.
 - **Selection stats** — Select cells in a single column to see count, sum, avg, min, max in the status bar. Calculated via SQL on the full dataset.
-
-<!-- IMMAGINE 7: Side panel profiling aperto con le stat cards (Total Rows, Unique, Null%, Min, Max, Mean, ecc.) -->
-<!-- File: media/screenshots/profiling.png -->
-<!-- ![Column Profiling](media/screenshots/profiling.png) -->
-
-<!-- IMMAGINE 8: Selection stats bar in basso con Count, Sum, Avg, Min, Max visibili. -->
-<!-- File: media/screenshots/selection-stats.png -->
-<!-- ![Selection Stats](media/screenshots/selection-stats.png) -->
 
 ### Copy & Export
 - **Excel-like selection** — Click cells, drag rows/columns, Shift+click for ranges.
