@@ -38,9 +38,7 @@ const extensionConfig = {
   plugins: [
     new CopyPlugin({
       patterns: [
-        { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm', to: 'duckdb-mvp.wasm' },
         { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm', to: 'duckdb-eh.wasm' },
-        { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-mvp.worker.cjs', to: 'duckdb-node-mvp.worker.cjs' },
         { from: 'node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-eh.worker.cjs', to: 'duckdb-node-eh.worker.cjs' },
       ]
     })

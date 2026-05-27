@@ -86,10 +86,6 @@ parentPort?.on('message', async (msg: WorkerMessage) => {
 
 async function initialize(wasmDir: string): Promise<void> {
   const DUCKDB_BUNDLES = {
-    mvp: {
-      mainModule: join(wasmDir, 'duckdb-mvp.wasm'),
-      mainWorker: join(wasmDir, 'duckdb-node-mvp.worker.cjs'),
-    },
     eh: {
       mainModule: join(wasmDir, 'duckdb-eh.wasm'),
       mainWorker: join(wasmDir, 'duckdb-node-eh.worker.cjs'),
