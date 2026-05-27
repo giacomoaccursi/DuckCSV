@@ -3,7 +3,7 @@
 High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, and profile your data directly in VS Code.
 
 <!-- IMMAGINE 1: Hero screenshot — la tabella aperta con dati, header colorati, row numbers visibili. Mostra il look & feel generale. -->
-![DuckCSV Preview](media/screenshots/hero.png)
+![DuckCSV Preview](https://raw.githubusercontent.com/giacomoaccursi/DuckCSV/main/media/screenshots/hero.png)
 
 ## Features
 
@@ -32,7 +32,7 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 - **Query history** — Access previous queries from the history dropdown.
 
 <!-- IMMAGINE 5: Query bar con una SELECT scritta, autocomplete visibile, risultato inline. -->
-![SQL Query](media/screenshots/sql-query.png)
+![SQL Query](https://raw.githubusercontent.com/giacomoaccursi/DuckCSV/main/media/screenshots/sql-query.png)
 
 ### Multi-Table Workspace
 - **Load multiple files** — Open the workspace and load multiple CSV/TSV/Parquet files.
@@ -40,7 +40,7 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 - **Table switching** — Switch between loaded tables with the dropdown.
 
 <!-- IMMAGINE 6: Workspace con 2-3 tabelle caricate nella tables bar, query JOIN visibile. -->
-![Workspace](media/screenshots/workspace.png)
+![Workspace](https://raw.githubusercontent.com/giacomoaccursi/DuckCSV/main/media/screenshots/workspace.png)
 
 ### Data Profiling
 - **Column stats** — Click the 📊 button on any column header to see: total rows, non-null count, unique values, null %, min, max, mean, median, std dev.
