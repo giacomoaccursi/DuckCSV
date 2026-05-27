@@ -40,7 +40,7 @@ export function buildHtmlShell(options: HtmlShellOptions): string {
       </button>
       <div class="query-input-wrapper">
         <div id="queryHighlight" class="query-highlight" aria-hidden="true"></div>
-        <input type="text" id="queryInput" class="query-input" placeholder="SELECT * FROM tablename WHERE ... ORDER BY ... LIMIT 100" spellcheck="false" autocomplete="off" />
+        <textarea id="queryInput" class="query-input" rows="1" placeholder="SELECT * FROM tablename WHERE ... ORDER BY ... LIMIT 100" spellcheck="false" autocomplete="off"></textarea>
       </div>
       <button id="queryRunBtn" class="btn" data-tooltip="Run query inline (replaces current view)">
         <svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M4 2l10 6-10 6V2z"/></svg>
