@@ -110,7 +110,7 @@ function bindEvents() {
 
   // Cmd+S / Ctrl+S to save, Cmd+Z / Cmd+Shift+Z for undo/redo
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
       if (e.shiftKey) {
         sendMessage({ type: 'saveAs' });
