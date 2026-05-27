@@ -64,9 +64,13 @@ High-performance CSV/TSV/Parquet viewer powered by DuckDB. Edit, query, filter, 
 **Keyboard shortcuts:**
 - `Cmd+K V` — Open preview for the current file
 - `Cmd+S` — Save changes
+- `Cmd+Shift+S` — Save As (choose format)
 - `Cmd+Z` / `Cmd+Shift+Z` — Undo / Redo
 - `Cmd+C` — Copy selection
+- `Cmd+Enter` — Run query inline
+- `Cmd+Shift+Enter` — Run query in side panel
 - Arrow keys / Tab — Navigate between cells
+- Double-click cell — Edit cell
 
 ## Requirements
 
