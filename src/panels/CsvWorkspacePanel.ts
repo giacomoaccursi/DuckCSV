@@ -184,6 +184,7 @@ export class CsvWorkspacePanel extends BasePanel {
 
   private async handleRemoveTable(tableName: string): Promise<void> {
     await this.tableManager.dropTable(tableName);
+    this.clearInlineQuery();
 
     if (this.activeTable === tableName) {
       const tables = this.tableManager.getLoadedTables();
