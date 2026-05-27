@@ -34,7 +34,10 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           git add package.json package-lock.json
           git commit -m "chore: bump version to $VERSION [skip ci]"
+          git tag "v$VERSION"
           git push
+          git push origin "v$VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - run: npm run package
 
@@ -48,3 +51,10 @@ jobs:
 
       - name: Publish to Open VSX
         run: npx ovsx publish duckcsv.vsix -p ${{ secrets.OVSX_TOKEN }} || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          files: duckcsv.vsix
+          generate_release_notes: true
