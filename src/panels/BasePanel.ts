@@ -172,6 +172,11 @@ export abstract class BasePanel {
       payload.isQueryResult = this.inlineQuery.isActive();
       this.postMessage({ type: 'dataPage', data: payload });
     } catch (error: unknown) {
+      // Suppress transient "table does not exist" errors that occur when the
+      // DuckDB worker is restarted (e.g. due to file change detection).
+      // The table will be recreated momentarily and the panel will reload.
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('does not exist')) { return; }
       this.postError(error);
     }
   }
@@ -284,6 +289,8 @@ export abstract class BasePanel {
         rowids: result.rowids,
       });
     } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('does not exist')) { return; }
       this.postError(error);
     }
   }

@@ -47,25 +47,99 @@ export class TableManager {
   private viewBuildPromise: Promise<{ viewName: string; totalRows: number }> | null = null;
   private pendingRebuild: Promise<void> | null = null;
 
+  /**
+   * Shared across all TableManager instances: tracks the mtime of each file
+   * at the time it was last loaded into DuckDB. This allows any instance to
+   * detect if a file has changed since the last load (even if a different
+   * instance performed that load).
+   */
+  private static fileMtimes = new Map<string, number>();
+
+  /** Get the last known mtime for a file path (used by panels to check for changes). */
+  static getFileMtime(filePath: string): number | undefined {
+    return TableManager.fileMtimes.get(filePath);
+  }
+
   constructor(private readonly engine: IQueryEngine) {}
 
   // ─── Table Lifecycle ─────────────────────────────────────────────────────
 
-  async loadTable(uri: vscode.Uri, customName?: string): Promise<TableMeta> {
+  async loadTable(uri: vscode.Uri, customName?: string, knownMtime?: number): Promise<TableMeta> {
     const tableName = customName ?? this.deriveTableName(uri);
     const filePath = uri.fsPath.replace(/\\/g, '/').replace(/'/g, "''");
     const isParquet = uri.fsPath.toLowerCase().endsWith('.parquet');
 
-    // Only restart worker if reloading the same table (to clear DuckDB file cache)
-    if (this.tables.has(tableName)) {
-      this.engine.cancel();
-    }
-    this.viewTable = null;
-    this.viewFingerprint = '';
-    this.viewTotalRows = 0;
-    this.tables.delete(tableName);
+    // Check if the file on disk has changed since we last loaded it.
+    // DuckDB caches file contents internally, so if the file was modified
+    // we must restart the worker to guarantee a fresh read from disk.
+    const lastKnownMtime = TableManager.fileMtimes.get(uri.fsPath);
+    let fileChanged = false;
+    let currentMtime: number;
 
-    await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
+    if (lastKnownMtime !== undefined) {
+      // Use caller-provided mtime if available (avoids redundant stat)
+      if (knownMtime !== undefined) {
+        currentMtime = knownMtime;
+      } else {
+        const stat = await vscode.workspace.fs.stat(uri);
+        currentMtime = stat.mtime;
+      }
+      fileChanged = currentMtime !== lastKnownMtime;
+    } else {
+      // First load ever — use caller-provided mtime or stat after load
+      currentMtime = knownMtime ?? 0;
+    }
+
+    if (fileChanged) {
+      // Worker must be restarted to clear DuckDB's internal file cache.
+      this.engine.cancel();
+
+      // After cancel, all in-memory tables are gone — reload the others.
+      const tablesToRestore = Array.from(this.tables.values()).filter(t => t.name !== tableName);
+      this.tables.clear();
+      this.viewTable = null;
+      this.viewFingerprint = '';
+      this.viewTotalRows = 0;
+
+      for (const t of tablesToRestore) {
+        const tPath = t.filePath.replace(/\\/g, '/').replace(/'/g, "''");
+        const tIsParquet = t.filePath.toLowerCase().endsWith('.parquet');
+        try {
+          if (tIsParquet) {
+            await this.engine.query(`CREATE TABLE ${this.q(t.name)} AS SELECT * FROM read_parquet('${tPath}')`);
+          } else {
+            await this.engine.query(`CREATE TABLE ${this.q(t.name)} AS SELECT * FROM read_csv_auto('${tPath}', ignore_errors=true)`);
+          }
+          const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(t.name)}`);
+          t.rowCount = Number(countResult.rows[0][0]);
+          this.tables.set(t.name, t);
+          // Update stored mtime for restored tables
+          const tStat = await vscode.workspace.fs.stat(vscode.Uri.file(t.filePath));
+          TableManager.fileMtimes.set(t.filePath, tStat.mtime);
+        } catch {
+          // Table file may have been deleted or moved — skip it
+          TableManager.fileMtimes.delete(t.filePath);
+        }
+      }
+    } else {
+      // No file change detected — just drop the old table if it exists in DuckDB.
+      this.viewTable = null;
+      this.viewFingerprint = '';
+      this.viewTotalRows = 0;
+      this.tables.delete(tableName);
+      await this.engine.query(`DROP TABLE IF EXISTS ${this.q(tableName)}`);
+    }
+
+    // Record the current mtime so we can detect future changes.
+    // Do this BEFORE the CREATE TABLE so we capture the mtime of the file
+    // that DuckDB is about to read (not a potentially newer version).
+    if (currentMtime === 0) {
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        currentMtime = stat.mtime;
+      } catch { /* ignore */ }
+    }
+    TableManager.fileMtimes.set(uri.fsPath, currentMtime);
 
     if (isParquet) {
       await this.engine.query(
