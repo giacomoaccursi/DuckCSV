@@ -13,6 +13,10 @@ export function bindSelectionAndTooltip(
   });
 
   document.addEventListener('keydown', (e) => {
+    // Don't intercept keys when focus is in an input or textarea
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') { return; }
+
     if (e.key === 'Enter' && !isEditing() && onEnterCell) {
       onEnterCell();
       return;
