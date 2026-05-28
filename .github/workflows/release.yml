@@ -37,7 +37,6 @@ jobs:
           git tag "v$VERSION"
           git push
           git push origin "v$VERSION"
-          git push origin main:develop --force-with-lease || true
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - run: npm run package
@@ -59,3 +58,6 @@ jobs:
           tag_name: v${{ env.VERSION }}
           files: duckcsv.vsix
           generate_release_notes: true
+
+      - name: Sync develop branch
+        run: git push origin main:develop --force-with-lease || true
