@@ -37,7 +37,7 @@ jobs:
           git tag "v$VERSION"
           git push
           git push origin "v$VERSION"
-          git push origin main:develop
+          git push origin main:develop --force-with-lease || true
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - run: npm run package
