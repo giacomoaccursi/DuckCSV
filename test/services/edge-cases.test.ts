@@ -198,4 +198,77 @@ describe('Edge Cases', () => {
       expect(stats.sum).toBe(40); // 10 + 30
     });
   });
+
+  describe('Filenames with spaces', () => {
+    const spacePath = join(__dirname, '..', '..', 'test data with spaces.csv');
+    const quotePath = join(__dirname, '..', '..', "test'quote.csv");
+
+    afterEach(() => {
+      try { unlinkSync(spacePath); } catch {}
+      try { unlinkSync(quotePath); } catch {}
+    });
+
+    it('loads a file with spaces in the path', async () => {
+      writeFileSync(spacePath, 'name,value\nAlice,10\nBob,20\n');
+      const uri = { fsPath: spacePath } as any;
+      const meta = await tm.loadTable(uri, 'spaced');
+      expect(meta.headers).toEqual(['name', 'value']);
+      expect(meta.rowCount).toBe(2);
+    });
+
+    it('queries data from a file with spaces in the path', async () => {
+      writeFileSync(spacePath, 'city,pop\nRome,2800000\nMilan,1400000\nNaples,960000\n');
+      const uri = { fsPath: spacePath } as any;
+      await tm.loadTable(uri, 'spaced_query');
+
+      const page = await tm.getDataPage('spaced_query', {
+        filters: {}, sort: { columnIndex: -1, direction: 'none' },
+        searchTerm: '', offset: 0, limit: 10,
+      });
+      expect(page.rows.length).toBe(3);
+      expect(page.rows[0][0]).toBe('Rome');
+    });
+
+    it('derives a valid table name from a spaced filename', async () => {
+      writeFileSync(spacePath, 'a,b\n1,2\n');
+      const uri = { fsPath: spacePath } as any;
+      const meta = await tm.loadTable(uri);
+      // "test data with spaces" → "test_data_with_spaces"
+      expect(meta.name).toBe('test_data_with_spaces');
+    });
+
+    it('loads a file with single quote in the path', async () => {
+      writeFileSync(quotePath, 'name,value\nAlice,10\nBob,20\n');
+      const uri = { fsPath: quotePath } as any;
+      const meta = await tm.loadTable(uri, 'quoted');
+      expect(meta.headers).toEqual(['name', 'value']);
+      expect(meta.rowCount).toBe(2);
+    });
+
+    it('loads a file with parentheses in the path', async () => {
+      const parenPath = join(__dirname, '..', '..', 'BALANCES_MOCK(1).csv');
+      writeFileSync(parenPath, 'account,balance\nA001,1000\nA002,2500\n');
+      try {
+        const uri = { fsPath: parenPath } as any;
+        const meta = await tm.loadTable(uri, 'parens');
+        expect(meta.headers).toEqual(['account', 'balance']);
+        expect(meta.rowCount).toBe(2);
+      } finally {
+        try { unlinkSync(parenPath); } catch {}
+      }
+    });
+
+    it('loads a file with brackets in the path', async () => {
+      const bracketPath = join(__dirname, '..', '..', 'data[2024].csv');
+      writeFileSync(bracketPath, 'x,y\n1,2\n3,4\n');
+      try {
+        const uri = { fsPath: bracketPath } as any;
+        const meta = await tm.loadTable(uri, 'brackets');
+        expect(meta.headers).toEqual(['x', 'y']);
+        expect(meta.rowCount).toBe(2);
+      } finally {
+        try { unlinkSync(bracketPath); } catch {}
+      }
+    });
+  });
 });
