@@ -67,6 +67,7 @@ export class TableManager {
   async loadTable(uri: vscode.Uri, customName?: string, knownMtime?: number): Promise<TableMeta> {
     const tableName = customName ?? this.deriveTableName(uri);
     const filePath = uri.fsPath.replace(/\\/g, '/').replace(/'/g, "''");
+    const safeFilePath = this.escapeGlobChars(filePath);
     const isParquet = uri.fsPath.toLowerCase().endsWith('.parquet');
 
     // Check if the file on disk has changed since we last loaded it.
@@ -103,12 +104,13 @@ export class TableManager {
 
       for (const t of tablesToRestore) {
         const tPath = t.filePath.replace(/\\/g, '/').replace(/'/g, "''");
+        const tSafePath = this.escapeGlobChars(tPath);
         const tIsParquet = t.filePath.toLowerCase().endsWith('.parquet');
         try {
           if (tIsParquet) {
-            await this.engine.query(`CREATE TABLE ${this.q(t.name)} AS SELECT * FROM read_parquet('${tPath}')`);
+            await this.engine.query(`CREATE TABLE ${this.q(t.name)} AS SELECT * FROM read_parquet('${tSafePath}')`);
           } else {
-            await this.engine.query(`CREATE TABLE ${this.q(t.name)} AS SELECT * FROM read_csv_auto('${tPath}', ignore_errors=true)`);
+            await this.engine.query(`CREATE TABLE ${this.q(t.name)} AS SELECT * FROM read_csv_auto('${tSafePath}', ignore_errors=true)`);
           }
           const countResult = await this.engine.query(`SELECT COUNT(*) FROM ${this.q(t.name)}`);
           t.rowCount = Number(countResult.rows[0][0]);
@@ -141,13 +143,15 @@ export class TableManager {
     }
     TableManager.fileMtimes.set(uri.fsPath, currentMtime);
 
+    // Use list syntax ['path'] to prevent DuckDB from interpreting special
+    // characters (parentheses, brackets, etc.) as glob patterns.
     if (isParquet) {
       await this.engine.query(
-        `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_parquet('${filePath}')`
+        `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_parquet('${safeFilePath}')`
       );
     } else {
       await this.engine.query(
-        `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_csv_auto('${filePath}', ignore_errors=true)`
+        `CREATE TABLE ${this.q(tableName)} AS SELECT * FROM read_csv_auto('${safeFilePath}', ignore_errors=true)`
       );
     }
 
@@ -874,5 +878,10 @@ export class TableManager {
       case '|': return { name: 'Pipe', char: '|' };
       default: return { name: 'Comma', char: char || ',' };
     }
+  }
+
+  /** Escape glob-special characters so DuckDB treats the path as a literal file path. */
+  private escapeGlobChars(path: string): string {
+    return path.replace(/([*?{}[\]()])/g, '\\$1');
   }
 }
